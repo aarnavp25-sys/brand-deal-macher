@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDM Admin</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#16181d;--muted:#667085;--line:#e4e7ec;--accent:#3b5bdb;--accent-ink:#fff;--ok:#2b8a3e;--warn:#e67700;--bad:#c92a2a;--chip:#eef1f6}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--panel:#171a21;--ink:#e6e8ec;--muted:#98a2b3;--line:#2a2f3a;--accent:#748ffc;--accent-ink:#0f1115;--chip:#222733}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header b{font-size:15px}nav{display:flex;gap:4px;flex-wrap:wrap}nav button{background:none;border:0;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;font:inherit}
+nav button.on{background:var(--chip);color:var(--ink);font-weight:600}main{padding:20px;max-width:1500px;margin:0 auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.kpi,.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}.kpi small{color:var(--muted)}.kpi div{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px}@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+h3{margin:0 0 10px;font-size:14px}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap;cursor:default}
+th.s{cursor:pointer}tbody tr:hover{background:var(--chip)}td.n,th.n{text-align:right}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px}.filters label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:3px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px}input[type=number]{width:95px}
+button.b{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+button.p{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}button.d{color:var(--bad)}
+.tag{display:inline-block;padding:1px 7px;border-radius:99px;background:var(--chip);font-size:12px;margin:1px}.tag.ok{color:var(--ok)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}
+.muted{color:var(--muted)}.bar{height:6px;background:var(--accent);border-radius:3px}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.pager{display:flex;gap:8px;align-items:center;margin-top:10px}.bulk{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+#drawer{position:fixed;top:0;right:0;width:min(640px,100%);height:100%;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:18px;transform:translateX(100%);transition:transform .2s;z-index:10}
+#drawer.open{transform:none}.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:3px}.form .w{grid-column:1/-1}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:20}
+img.av{width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;background:var(--chip)}
+</style>
+</head>
+<body>
+<header><b>Brand Deal Matcher · Admin</b>
+<nav id="tabs"><button data-t="overview" class="on">Overview</button><button data-t="creators">Creators</button><button data-t="taxonomy">Categories &amp; Products</button><button data-t="runs">Scrape runs</button><button data-t="users">Users</button></nav></header>
+<main id="main"></main>
+<aside id="drawer"></aside>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '#';
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
+const ago = t => { if (!t) return '—'; const h = (Date.now() - new Date(t)) / 36e5; return h < 1 ? 'just now' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago'; };
+const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); };
+const STATUSES = ['active', 'review', 'hidden'];
+let CATS = [], PRODS = [];
+
+async function api(path, opt = {}) {
+  const r = await fetch('/api/rest/' + path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json', ...(opt.prefer ? { Prefer: opt.prefer } : {}) }, body: opt.body ? JSON.stringify(opt.body) : undefined });
+  const txt = await r.text(); let data = null; try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+  if (!r.ok) throw new Error((data && data.message) || ('HTTP ' + r.status));
+  const cr = r.headers.get('Content-Range'); return { data, total: cr ? Number(cr.split('/')[1]) : null };
+}
+async function loadTaxonomy() {
+  CATS = (await api('categories?select=*&order=demo_rank')).data;
+  PRODS = (await api('product_types?select=*&order=category,name')).data;
+}
+const opts = (list, sel, blank) => (blank !== undefined ? `<option value="">${esc(blank)}</option>` : '') + list.map(v => `<option ${v === sel ? 'selected' : ''} value="${esc(v)}">${esc(v)}</option>`).join('');
+
+/* ---------- Overview ---------- */
+async function overview() {
+  const c = (await api('creators?select=id,niche_primary,follower_tier,city,status,fake_flag,scraped_at,followers,engagement_rate,reel_reach&limit=10000')).data;
+  const runs = (await api('raw_scrapes?select=cost_usd,item_count,created_at')).data;
+  const within = d => c.filter(x => x.scraped_at && Date.now() - new Date(x.scraped_at) < d * 864e5).length;
+  const usable = c.filter(x => x.status === 'active' && !x.fake_flag);
+  const med = a => { a = a.filter(v => v != null).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : null; };
+  const by = {}; CATS.forEach(k => by[k.name] = []); usable.forEach(x => (by[x.niche_primary] ||= []).push(x));
+  const max = Math.max(...Object.values(by).map(v => v.length), 1);
+  const cities = {}; usable.forEach(x => cities[x.city || 'Unknown'] = (cities[x.city || 'Unknown'] || 0) + 1);
+  const kpi = (l, v) => `<div class="kpi"><small>${esc(l)}</small><div>${esc(v)}</div></div>`;
+  $('#main').innerHTML = `<div class="kpis">${kpi('Total creators', fmt(c.length))}${kpi('Usable (active, not fake)', fmt(usable.length))}${kpi('In review', fmt(c.filter(x => x.status === 'review').length))}${kpi('Fake-flagged', fmt(c.filter(x => x.fake_flag).length))}${kpi('Added last 24h', fmt(within(1)))}${kpi('Added last 2 days', fmt(within(2)))}${kpi('Added last 7 days', fmt(within(7)))}${kpi('Apify spend (logged)', '$' + runs.reduce((s, r) => s + Number(r.cost_usd || 0), 0).toFixed(2))}</div>
+  <div class="grid2"><div class="card"><h3>Usable creators by category</h3><table><thead><tr><th>Category</th><th class="n">Total</th><th class="n">Nano</th><th class="n">Micro</th><th class="n">Mid</th><th class="n">Median ER %</th><th class="n">Median reach</th><th style="width:30%"></th></tr></thead><tbody>
+  ${Object.entries(by).map(([k, v]) => `<tr style="cursor:pointer" data-cat="${esc(k)}"><td>${esc(k)}</td><td class="n">${v.length}</td>${['nano', 'micro', 'mid'].map(t => `<td class="n">${v.filter(x => x.follower_tier === t).length}</td>`).join('')}<td class="n">${fmt(med(v.map(x => +x.engagement_rate)))}</td><td class="n">${med(v.map(x => +x.reel_reach)) ?? '—'}x</td><td><div class="bar" style="width:${v.length / max * 100}%"></div></td></tr>`).join('')}
+  </tbody></table><p class="muted">Click a category to open it in Creators.</p></div>
+  <div class="card"><h3>Usable creators by city</h3><table><tbody>${Object.entries(cities).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join('')}</tbody></table></div></div>`;
+  document.querySelectorAll('[data-cat]').forEach(tr => tr.onclick = () => { F.cat = tr.dataset.cat; show('creators'); });
+}
+
+/* ---------- Creators ---------- */
+const F = { q: '', cat: '', tier: '', city: '', status: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', sort: 'followers.desc', page: 0, size: 50 };
+let selected = new Set(), lastRows = [];
+function creatorQuery(forExport) {
+  const p = new URLSearchParams(); p.set('select', '*');
+  if (F.q) { const q = F.q.replace(/[,()*]/g, ' ').trim(); p.set('or', `(username.ilike.*${q}*,full_name.ilike.*${q}*,bio.ilike.*${q}*)`); }
+  if (F.cat) p.set('niche_primary', 'eq.' + F.cat); if (F.tier) p.set('follower_tier', 'eq.' + F.tier);
+  if (F.city) p.set('city', F.city === 'Unknown' ? 'is.null' : 'eq.' + F.city); if (F.status) p.set('status', 'eq.' + F.status);
+  if (F.fake) p.set('fake_flag', 'is.' + F.fake); if (F.collab) p.set('collab_open', 'is.' + F.collab);
+  if (F.fmin) p.append('followers', 'gte.' + F.fmin); if (F.fmax) p.append('followers', 'lte.' + F.fmax);
+  if (F.added && F.added !== 'custom') p.append('scraped_at', 'gte.' + new Date(Date.now() - F.added * 864e5).toISOString());
+  if (F.added === 'custom') { if (F.from) p.append('scraped_at', 'gte.' + new Date(F.from).toISOString()); if (F.to) p.append('scraped_at', 'lt.' + new Date(new Date(F.to).getTime() + 864e5).toISOString()); }
+  p.set('order', F.sort + '.nullslast');
+  if (!forExport) { p.set('limit', F.size); p.set('offset', F.page * F.size); } else p.set('limit', 10000);
+  return 'creators?' + p.toString();
+}
+async function creators() {
+  const cities = [...new Set((await api('creators?select=city&limit=10000')).data.map(x => x.city || 'Unknown'))].sort();
+  const sel = (k, label, list, blank = 'All') => `<label>${label}<select data-f="${k}">${opts(list, F[k], blank)}</select></label>`;
+  $('#main').innerHTML = `<div class="filters">
+   <label>Search<input data-f="q" value="${esc(F.q)}" placeholder="username, name, bio"></label>
+   ${sel('cat', 'Category', CATS.map(c => c.name))}${sel('tier', 'Tier', ['nano', 'micro', 'mid'])}${sel('city', 'City', cities)}${sel('status', 'Status', STATUSES)}
+   <label>Fake<select data-f="fake">${opts(['true', 'false'], F.fake, 'Any')}</select></label><label>Open to collab<select data-f="collab">${opts(['true', 'false'], F.collab, 'Any')}</select></label>
+   <label>Followers ≥<input type="number" data-f="fmin" value="${esc(F.fmin)}"></label><label>Followers ≤<input type="number" data-f="fmax" value="${esc(F.fmax)}"></label>
+   <label>Added<select data-f="added"><option value="">Any time</option>${[['1', 'Last 24 hours'], ['2', 'Last 2 days'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['custom', 'Custom range']].map(([v, l]) => `<option value="${v}" ${F.added === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+   ${F.added === 'custom' ? `<label>From<input type="date" data-f="from" value="${esc(F.from)}"></label><label>To<input type="date" data-f="to" value="${esc(F.to)}"></label>` : ''}
+   <button class="b" id="reset">Reset</button><button class="b" id="csv">Export CSV</button></div>
+   <div class="bulk" id="bulk"></div><div class="tablewrap" id="tbl">Loading…</div><div class="pager" id="pager"></div>`;
+  document.querySelectorAll('[data-f]').forEach(el => el.onchange = el.oninput = () => { F[el.dataset.f] = el.value; F.page = 0; clearTimeout(window._ft); window._ft = setTimeout(() => el.dataset.f === 'added' ? creators() : creatorTable(), el.tagName === 'INPUT' ? 350 : 0); });
+  $('#reset').onclick = () => { Object.assign(F, { q: '', cat: '', tier: '', city: '', status: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', page: 0 }); creators(); };
+  $('#csv').onclick = exportCsv;
+  creatorTable();
+}
+const COLS = [['username', 'Creator'], ['niche_primary', 'Category'], ['follower_tier', 'Tier'], ['followers', 'Followers', 1], ['engagement_rate', 'ER %', 1], ['reel_reach', 'Reach', 1], ['posts_per_week', 'Posts/wk', 1], ['city', 'City'], ['status', 'Status'], ['scraped_at', 'Added']];
+async function creatorTable() {
+  let res; try { res = await api(creatorQuery(), { prefer: 'count=exact' }); } catch (e) { $('#tbl').textContent = e.message; return; }
+  lastRows = res.data; const [sk, sd] = F.sort.split('.');
+  $('#tbl').innerHTML = `<table><thead><tr><th><input type="checkbox" id="all"></th>${COLS.map(([k, l, n]) => `<th class="s ${n ? 'n' : ''}" data-s="${k}">${l}${sk === k ? (sd === 'desc' ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead><tbody>
+  ${lastRows.map(c => `<tr data-id="${esc(c.id)}"><td><input type="checkbox" class="pick" ${selected.has(c.id) ? 'checked' : ''}></td>
+   <td><img class="av" referrerpolicy="no-referrer" src="${safeUrl(c.profile_pic_url)}" onerror="this.style.visibility='hidden'"><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a>${c.fake_flag ? ' <span class="tag bad">fake?</span>' : ''}${c.collab_open ? ' <span class="tag ok">collab</span>' : ''}<div class="muted">${esc(c.full_name)}</div></td>
+   <td>${esc(c.niche_primary)}${c.niche_share != null ? `<div class="muted">${Math.round(c.niche_share * 100)}% of posts</div>` : ''}</td><td>${esc(c.follower_tier)}</td><td class="n">${fmt(c.followers)}</td><td class="n">${fmt(c.engagement_rate)}</td><td class="n">${c.reel_reach ?? '—'}x</td><td class="n">${fmt(c.posts_per_week)}</td><td>${esc(c.city || '—')}</td>
+   <td><span class="tag ${c.status === 'active' ? 'ok' : 'warn'}">${esc(c.status)}</span></td><td title="${esc(c.scraped_at)}">${ago(c.scraped_at)}</td></tr>`).join('') || '<tr><td colspan="11" class="muted">No creators match these filters.</td></tr>'}</tbody></table>`;
+  const pages = Math.max(1, Math.ceil(res.total / F.size));
+  $('#pager').innerHTML = `<button class="b" id="prev" ${F.page ? '' : 'disabled'}>‹ Prev</button><span class="muted">${fmt(res.total)} creators · page ${F.page + 1} of ${pages}</span><button class="b" id="next" ${F.page + 1 < pages ? '' : 'disabled'}>Next ›</button>`;
+  $('#prev').onclick = () => { F.page--; creatorTable(); }; $('#next').onclick = () => { F.page++; creatorTable(); };
+  document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { F.sort = th.dataset.s + '.' + (sk === th.dataset.s && sd === 'desc' ? 'asc' : 'desc'); creatorTable(); });
+  document.querySelectorAll('#tbl tbody tr[data-id]').forEach(tr => tr.onclick = e => { if (e.target.closest('a,input')) return; openCreator(tr.dataset.id); });
+  document.querySelectorAll('.pick').forEach(cb => cb.onchange = () => { const id = cb.closest('tr').dataset.id; cb.checked ? selected.add(id) : selected.delete(id); bulkBar(); });
+  $('#all').onchange = e => { lastRows.forEach(c => e.target.checked ? selected.add(c.id) : selected.delete(c.id)); creatorTable(); bulkBar(); };
+  bulkBar();
+}
+function bulkBar() {
+  const b = $('#bulk'); if (!selected.size) { b.innerHTML = ''; return; }
+  b.innerHTML = `<b>${selected.size} selected</b><select id="bs">${opts(STATUSES, '', 'Set status…')}</select><select id="bc">${opts(CATS.map(c => c.name), '', 'Set category…')}</select><button class="b d" id="bd">Delete</button><button class="b" id="bx">Clear</button>`;
+  const ids = () => `id=in.(${[...selected].map(encodeURIComponent).join(',')})`;
+  const patch = async body => { try { await api('creators?' + ids(), { method: 'PATCH', body: { ...body, updated_at: new Date().toISOString() } }); toast('Updated ' + selected.size); creatorTable(); } catch (e) { toast(e.message); } };
+  $('#bs').onchange = e => e.target.value && patch({ status: e.target.value });
+  $('#bc').onchange = e => e.target.value && patch({ niche_primary: e.target.value, classification_method: 'manual' });
+  $('#bd').onclick = async () => { if (!confirm(`Delete ${selected.size} creators and their posts/products? This cannot be undone.`)) return; try { await api('creators?' + ids(), { method: 'DELETE' }); toast('Deleted'); selected.clear(); creatorTable(); } catch (e) { toast(e.message); } };
+  $('#bx').onclick = () => { selected.clear(); creatorTable(); };
+}
+async function exportCsv() {
+  const rows = (await api(creatorQuery(true))).data; if (!rows.length) return toast('Nothing to export');
+  const keys = Object.keys(rows[0]); const cell = v => `"${String(Array.isArray(v) ? v.join('; ') : v ?? '').replace(/"/g, '""')}"`;
+  const blob = new Blob([[keys.join(','), ...rows.map(r => keys.map(k => cell(r[k])).join(','))].join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `creators-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+}
+
+/* ---------- Creator drawer ---------- */
+async function openCreator(id) {
+  const d = $('#drawer'); d.classList.add('open'); d.innerHTML = 'Loading…';
+  const [c, posts, prods, snaps] = await Promise.all([api(`creators?id=eq.${encodeURIComponent(id)}`), api(`posts?creator_id=eq.${encodeURIComponent(id)}&order=posted_at.desc`), api(`creator_products?creator_id=eq.${encodeURIComponent(id)}&order=kind.desc,specialization.desc`), api(`creator_snapshots?creator_id=eq.${encodeURIComponent(id)}&order=taken_at`)]).then(r => r.map(x => x.data));
+  const x = c[0]; if (!x) { d.innerHTML = 'Not found'; return; }
+  const inp = (k, l, type = 'text', w) => `<label class="${w ? 'w' : ''}">${l}<input data-k="${k}" type="${type}" value="${esc(Array.isArray(x[k]) ? x[k].join(', ') : x[k])}"></label>`;
+  const sel = (k, l, list) => `<label>${l}<select data-k="${k}">${opts(list, x[k] ?? '', '—')}</select></label>`;
+  const bool = (k, l) => `<label>${l}<select data-k="${k}" data-bool="1">${opts(['true', 'false'], String(!!x[k]))}</select></label>`;
+  d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">@${esc(x.username)} <span class="muted">${fmt(x.followers)} followers</span></h3><button class="b" id="close">✕</button></div>
+  <p class="muted">${esc(x.bio)}</p><p class="muted">Source keyword: ${esc(x.source_keyword)} · method: ${esc(x.classification_method)} · scraped ${esc(x.scraped_at?.slice(0, 16))} · ER ${fmt(x.engagement_rate)}% · reach ${x.reel_reach ?? '—'}x · median reel views ${fmt(x.avg_reel_views)}</p>
+  <div class="form">${sel('niche_primary', 'Category', CATS.map(c => c.name))}${sel('niche_secondary', 'Secondary category', CATS.map(c => c.name))}${sel('status', 'Status', STATUSES)}${sel('follower_tier', 'Tier', ['nano', 'micro', 'mid'])}
+   ${inp('city', 'City')}${inp('email', 'Email')}${bool('fake_flag', 'Fake flag')}${bool('collab_open', 'Open to collab')}${sel('creator_gender_est', 'Gender (est.)', ['male', 'female', 'mixed/brand'])}${inp('content_quality_est', 'Content quality (1-10)', 'number')}
+   ${inp('sub_tags', 'Sub-tags (comma separated)', 'text', 1)}${inp('full_name', 'Full name', 'text', 1)}</div>
+  <div style="display:flex;gap:8px;margin:12px 0"><button class="b p" id="save">Save changes</button><button class="b d" id="del">Delete creator</button></div>
+  <h3>Products (${prods.length})</h3><table><thead><tr><th>Product</th><th>Kind</th><th class="n">Posts</th><th class="n">Specialization</th><th class="n">Paid</th><th></th></tr></thead><tbody>
+  ${prods.map(p => `<tr><td>${esc(p.product_type)}</td><td><select data-pk="${esc(p.product_type)}">${opts(['proven', 'possible'], p.kind)}</select></td><td class="n">${p.evidence_posts}</td><td class="n">${Math.round(p.specialization * 100)}%</td><td class="n">${p.paid_posts}</td><td><button class="b d" data-pd="${esc(p.product_type)}">✕</button></td></tr>`).join('')}
+  <tr><td colspan="6"><select id="np">${opts(PRODS.map(p => p.name), '', 'Add product type…')}</select> <select id="nk">${opts(['proven', 'possible'], 'possible')}</select> <button class="b" id="addp">Add</button></td></tr></tbody></table>
+  <h3 style="margin-top:16px">Follower snapshots</h3><p class="muted">${snaps.map(s => `${esc(s.taken_at)}: ${fmt(s.followers)}`).join(' · ') || '—'}</p>
+  <h3>Posts &amp; reels (${posts.length})</h3><table><thead><tr><th>Date</th><th>Type</th><th class="n">Likes</th><th class="n">Comm.</th><th class="n">Views</th><th>Products / caption</th></tr></thead><tbody>
+  ${posts.map(p => `<tr><td><a href="${safeUrl(p.url)}" target="_blank" rel="noopener">${esc(p.posted_at?.slice(0, 10))}</a></td><td>${esc(p.source)}/${esc(p.type)}${p.paid_partnership ? ' <span class="tag warn">paid</span>' : ''}</td><td class="n">${fmt(p.likes)}</td><td class="n">${fmt(p.comments)}</td><td class="n">${fmt(p.views)}</td><td>${(p.product_labels || []).map(l => `<span class="tag">${esc(l)}</span>`).join('')}<div class="muted">${esc((p.caption || '').slice(0, 140))}</div></td></tr>`).join('')}</tbody></table>`;
+  $('#close').onclick = () => d.classList.remove('open');
+  $('#save').onclick = async () => {
+    const body = { updated_at: new Date().toISOString() };
+    d.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; let v = el.value.trim();
+      body[k] = el.dataset.bool ? v === 'true' : k === 'sub_tags' ? v.split(',').map(s => s.trim()).filter(Boolean) : k === 'content_quality_est' ? (v === '' ? null : Number(v)) : (v === '' ? null : v); });
+    if (body.niche_primary !== x.niche_primary) body.classification_method = 'manual';
+    try { await api(`creators?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body }); toast('Saved'); if ($('#tbl')) creatorTable(); } catch (e) { toast(e.message); }
+  };
+  $('#del').onclick = async () => { if (!confirm(`Delete @${x.username} with all posts and products?`)) return; try { await api(`creators?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }); toast('Deleted'); d.classList.remove('open'); if ($('#tbl')) creatorTable(); } catch (e) { toast(e.message); } };
+  d.querySelectorAll('[data-pk]').forEach(s => s.onchange = async () => { try { await api(`creator_products?creator_id=eq.${encodeURIComponent(id)}&product_type=eq.${encodeURIComponent(s.dataset.pk)}`, { method: 'PATCH', body: { kind: s.value } }); toast('Updated'); } catch (e) { toast(e.message); } });
+  d.querySelectorAll('[data-pd]').forEach(b => b.onclick = async () => { try { await api(`creator_products?creator_id=eq.${encodeURIComponent(id)}&product_type=eq.${encodeURIComponent(b.dataset.pd)}`, { method: 'DELETE' }); openCreator(id); } catch (e) { toast(e.message); } });
+  $('#addp').onclick = async () => { const t = $('#np').value; if (!t) return; try { await api('creator_products?on_conflict=creator_id,product_type', { method: 'POST', prefer: 'resolution=merge-duplicates', body: [{ creator_id: id, product_type: t, kind: $('#nk').value, evidence_posts: 0, specialization: 0, paid_posts: 0 }] }); openCreator(id); } catch (e) { toast(e.message); } };
+}
+
+/* ---------- Taxonomy ---------- */
+async function taxonomy() {
+  await loadTaxonomy();
+  const counts = {}; (await api('creators?select=niche_primary&status=eq.active&limit=10000')).data.forEach(x => counts[x.niche_primary] = (counts[x.niche_primary] || 0) + 1);
+  $('#main').innerHTML = `<div class="card"><h3>Categories</h3><table><thead><tr><th>Rank</th><th>Name</th><th class="n">Active creators</th><th>Sub-tags (comma separated)</th><th></th></tr></thead><tbody>
+  ${CATS.map(c => `<tr data-c="${esc(c.name)}"><td><input type="number" style="width:60px" value="${esc(c.demo_rank)}" data-r></td><td>${esc(c.name)}</td><td class="n">${counts[c.name] || 0}</td><td><input style="width:100%" value="${esc((c.sub_tags || []).join(', '))}" data-t></td><td><button class="b" data-save>Save</button></td></tr>`).join('')}
+  <tr><td></td><td><input id="ncat" placeholder="New category name"></td><td></td><td><input id="ntags" style="width:100%" placeholder="sub-tags"></td><td><button class="b p" id="addc">Add</button></td></tr></tbody></table></div>
+  <div class="card" style="margin-top:16px"><h3>Product types (${PRODS.length})</h3><table><thead><tr><th>Name</th><th>Category</th><th>Keywords (comma separated)</th><th></th></tr></thead><tbody>
+  ${PRODS.map(p => `<tr data-p="${esc(p.name)}"><td>${esc(p.name)}</td><td><select data-pc>${opts(CATS.map(c => c.name), p.category)}</select></td><td><input style="width:100%" value="${esc((p.keywords || []).join(', '))}" data-pkw></td><td style="white-space:nowrap"><button class="b" data-psave>Save</button> <button class="b d" data-pdel>✕</button></td></tr>`).join('')}
+  <tr><td><input id="npn" placeholder="New product type"></td><td><select id="npc">${opts(CATS.map(c => c.name), '')}</select></td><td><input id="npk" style="width:100%" placeholder="keywords"></td><td><button class="b p" id="addpt">Add</button></td></tr></tbody></table>
+  <p class="muted">Keyword edits change future pipeline runs only after taxonomy.py is updated too; the pipeline reads taxonomy.py.</p></div>`;
+  const list = v => v.split(',').map(s => s.trim()).filter(Boolean); const run = async (f, msg) => { try { await f(); toast(msg); taxonomy(); } catch (e) { toast(e.message); } };
+  document.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const tr = b.closest('tr'); run(() => api(`categories?name=eq.${encodeURIComponent(tr.dataset.c)}`, { method: 'PATCH', body: { demo_rank: Number(tr.querySelector('[data-r]').value) || null, sub_tags: list(tr.querySelector('[data-t]').value) } }), 'Category saved'); });
+  $('#addc').onclick = () => $('#ncat').value.trim() && run(() => api('categories', { method: 'POST', body: [{ name: $('#ncat').value.trim(), sub_tags: list($('#ntags').value), demo_rank: CATS.length + 1 }] }), 'Category added');
+  document.querySelectorAll('[data-psave]').forEach(b => b.onclick = () => { const tr = b.closest('tr'); run(() => api(`product_types?name=eq.${encodeURIComponent(tr.dataset.p)}`, { method: 'PATCH', body: { category: tr.querySelector('[data-pc]').value, keywords: list(tr.querySelector('[data-pkw]').value) } }), 'Product saved'); });
+  document.querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => { const n = b.closest('tr').dataset.p; confirm(`Delete product type "${n}"? Fails if creators still link to it.`) && run(() => api(`product_types?name=eq.${encodeURIComponent(n)}`, { method: 'DELETE' }), 'Deleted'); });
+  $('#addpt').onclick = () => $('#npn').value.trim() && $('#npc').value && run(() => api('product_types', { method: 'POST', body: [{ name: $('#npn').value.trim(), category: $('#npc').value, keywords: list($('#npk').value) }] }), 'Product added');
+}
+
+/* ---------- Runs & Users ---------- */
+async function runs() {
+  const r = (await api('raw_scrapes?select=id,actor,run_id,item_count,cost_usd,storage_path,created_at&order=created_at.desc')).data;
+  $('#main').innerHTML = `<div class="tablewrap"><table><thead><tr><th>When</th><th>Actor</th><th>Run id</th><th class="n">Items</th><th class="n">Cost</th><th>Raw file (Supabase Storage)</th></tr></thead><tbody>${r.map(x => `<tr><td title="${esc(x.created_at)}">${ago(x.created_at)}</td><td>${esc(x.actor)}</td><td>${esc(x.run_id || '—')}</td><td class="n">${fmt(x.item_count)}</td><td class="n">${x.cost_usd != null ? '$' + Number(x.cost_usd).toFixed(3) : '—'}</td><td class="muted">${esc(x.storage_path)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function users() {
+  const r = await fetch('/api/users'); const d = await r.json(); const u = d.users || [];
+  $('#main').innerHTML = `<div class="card"><h3>Website users (Supabase Auth) · ${u.length}</h3>${u.length ? `<table><thead><tr><th>Email</th><th>Created</th><th>Last sign-in</th><th>Provider</th></tr></thead><tbody>${u.map(x => `<tr><td>${esc(x.email)}</td><td>${ago(x.created_at)}</td><td>${ago(x.last_sign_in_at)}</td><td>${esc(x.app_metadata?.provider)}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No brand accounts yet. Brands appear here once the website has sign-up.</p>'}</div>`;
+}
+
+const VIEWS = { overview, creators, taxonomy, runs, users };
+async function show(t) {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('#drawer').classList.remove('open');
+  try { await VIEWS[t](); } catch (e) { $('#main').innerHTML = `<div class="card">Error: ${esc(e.message)}</div>`; }
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
+document.addEventListener('keydown', e => e.key === 'Escape' && $('#drawer').classList.remove('open'));
+loadTaxonomy().then(() => show('overview')).catch(e => $('#main').innerHTML = `<div class="card">Cannot reach Supabase through the local server: ${esc(e.message)}</div>`);
+</script>
+</body>
+</html>

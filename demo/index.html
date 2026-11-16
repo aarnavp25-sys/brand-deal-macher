@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Deal Matcher</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#faf8f5;--panel:#fff;--ink:#1b1a17;--muted:#6b675f;--line:#e8e3da;--accent:#d9480f;--accent-soft:#fff0e6;--ok:#2b8a3e;--chip:#f1ede6;--blue:#3b5bdb}
+@media (prefers-color-scheme:dark){:root{--bg:#121110;--panel:#1b1a18;--ink:#eeeae3;--muted:#a39e94;--line:#2e2c28;--accent:#ff8a4c;--accent-soft:#2c1d14;--chip:#26241f;--blue:#91a7ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}header{padding:18px 0;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:750;letter-spacing:-.02em}.logo span{color:var(--accent)}.pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+.hero{padding:40px 0 24px}.hero h1{font-size:clamp(28px,4.5vw,46px);line-height:1.1;letter-spacing:-.03em;margin:0 0 12px;max-width:760px}
+.hero p{color:var(--muted);max-width:640px;margin:0 0 26px;font-size:17px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+textarea{width:100%;min-height:96px;resize:vertical;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:end}.row label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
+select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;background:var(--panel);color:var(--muted);padding:8px 12px;font:inherit;cursor:pointer}.seg button.on{background:var(--ink);color:var(--bg)}
+.go{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 22px;font:inherit;font-weight:650;cursor:pointer;margin-left:auto}
+.ex{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}.ex button{border:1px dashed var(--line);background:none;color:var(--muted);border-radius:99px;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer}
+.understood{margin:26px 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chip{background:var(--chip);border-radius:99px;padding:3px 10px;font-size:13px}
+.tabs{display:flex;gap:6px;margin:16px 0}.tabs button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:99px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer}.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;padding-bottom:50px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.top{display:flex;gap:12px;align-items:center}.top img{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--chip)}
+.top a{color:var(--ink);font-weight:650;text-decoration:none}.top .muted{font-size:13px}.muted{color:var(--muted)}
+.score{margin-left:auto;text-align:center;min-width:56px}.score b{font-size:24px;display:block;line-height:1}.score small{font-size:11px;color:var(--muted)}
+.badge{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:2px 8px}.b-specialist{background:var(--accent-soft);color:var(--accent)}.b-wider{background:#e7f5ff;color:#1864ab}.b-potential{background:var(--chip);color:var(--muted)}
+@media (prefers-color-scheme:dark){.b-wider{background:#14253a;color:#91a7ff}}
+.stats{display:flex;gap:14px;font-size:13px}.stats b{display:block;font-size:15px}
+.bd{display:grid;grid-template-columns:90px 1fr 46px;gap:4px 8px;font-size:12px;align-items:center}.track{height:6px;background:var(--chip);border-radius:3px}.fill{height:6px;background:var(--accent);border-radius:3px}
+.why{font-size:14px;background:var(--bg);border-radius:10px;padding:10px}.empty{padding:40px;text-align:center;color:var(--muted)}
+footer{color:var(--muted);font-size:13px;padding:30px 0;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="logo">Brand<span>Deal</span>Matcher</div><div class="pill" id="meta">Prototype</div></header>
+<section class="hero"><h1>Find the right growing creators for your brand.</h1>
+<p>Tell us what you sell. We rank Instagram creators with 1K–100K followers by how well their content, reach and engagement fit your product, and explain why.</p>
+<div class="box">
+<textarea id="brief" placeholder="Describe your brand and product. Example: We are a homegrown men's jewelry brand from Pune making silver rings and chains."></textarea>
+<div class="ex" id="examples"></div>
+<div class="row">
+<label>Category (optional)<select id="category"><option value="">Detect from text</option></select></label>
+<label>Product type (optional)<select id="product"><option value="">Detect from text</option></select></label>
+<label>City<select id="city"><option value="">Anywhere in India</option></select></label>
+<label>Creator size<select id="tier"><option value="">Any (1K–100K)</option><option value="nano">Nano 1K–10K</option><option value="micro">Micro 10K–50K</option><option value="mid">Mid 50K–100K</option></select></label>
+<label>Goal<span class="seg" id="goal"><button data-g="sales" class="on">Sales &amp; trust</button><button data-g="reach">Reach &amp; awareness</button></span></label>
+<button class="go" id="go">Find creators</button></div></div></section>
+<section id="out"></section>
+<footer>Prototype for demonstration. Creator data comes from public Instagram profiles. Scores use reel reach, engagement, posting consistency, location and product fit; content quality and follower growth are added once measured.</footer>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '';
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
+const EXAMPLES = ["Homegrown men's jewelry brand from Pune — silver rings and chains", "Natural skincare brand, face serums and sunscreen for young women", "Home baker in Pune selling custom cakes and brownies", "Perfume and fragrance brand for men", "Gaming accessories brand — controllers and triggers for BGMI players", "Pet food and treats brand for dogs"];
+let goal = 'sales', last = null, tab = 'all';
+const LABELS = { specialist: 'Specialist', wider: 'Wider reach', potential: 'Potential' };
+const NAMES = { product: 'Product fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
+
+fetch('/api/meta').then(r => r.json()).then(m => {
+  $('#meta').textContent = `Prototype · ${m.creators} creators · ${m.categories.length} categories`;
+  $('#category').innerHTML += m.categories.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#product').innerHTML += m.products.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#city').innerHTML += m.cities.map(c => `<option>${esc(c)}</option>`).join('');
+});
+$('#examples').innerHTML = EXAMPLES.map(e => `<button>${esc(e)}</button>`).join('');
+$('#examples').onclick = e => { if (e.target.tagName === 'BUTTON') { $('#brief').value = e.target.textContent; run(); } };
+$('#goal').onclick = e => { if (!e.target.dataset.g) return; goal = e.target.dataset.g; [...$('#goal').children].forEach(b => b.classList.toggle('on', b === e.target)); if (last) run(); };
+$('#go').onclick = run;
+$('#brief').onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); };
+
+async function run() {
+  const p = new URLSearchParams({ brief: $('#brief').value, category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, goal });
+  if (!$('#brief').value.trim() && !$('#category').value && !$('#product').value) { $('#out').innerHTML = '<div class="empty">Describe your brand or pick a category first.</div>'; return; }
+  $('#out').innerHTML = '<div class="empty">Matching…</div>';
+  const r = await fetch('/api/match?' + p); const d = await r.json();
+  if (!r.ok) { $('#out').innerHTML = `<div class="empty">Something went wrong: ${esc(d.message)}</div>`; return; }
+  last = d; tab = 'all'; render();
+}
+function render() {
+  const d = last, u = d.understood;
+  const chips = [...u.products.map(p => 'Product: ' + p), ...u.categories.map(c => 'Category: ' + c), u.city && 'City: ' + u.city, u.audience && 'Audience: ' + u.audience, u.tier && 'Size: ' + u.tier, 'Goal: ' + (u.goal === 'sales' ? 'sales & trust' : 'reach')].filter(Boolean);
+  const counts = l => d.results.filter(r => r.label === l).length;
+  const rows = d.results.filter(r => tab === 'all' || r.label === tab);
+  $('#out').innerHTML = `<div class="understood"><b>We understood:</b> ${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('') || '<span class="muted">nothing specific — try naming your product</span>'}</div>
+  <p class="muted">${d.results.length} best matches out of ${d.matched} that scored 50+ (from ${d.considered} creators).</p>
+  <div class="tabs">${[['all', 'All', d.results.length], ['specialist', 'Specialists', counts('specialist')], ['wider', 'Wider reach', counts('wider')], ['potential', 'Potential', counts('potential')]].map(([k, l, n]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l} · ${n}</button>`).join('')}</div>
+  <div class="grid">${rows.map(card).join('') || '<div class="empty">No creators in this group yet.</div>'}</div>`;
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+}
+function card(r) {
+  const c = r.creator, pic = safeUrl(c.profile_pic_url);
+  return `<article class="card"><div class="top">${pic ? `<img src="${pic}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'">` : '<img alt="">'}
+   <div><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a><div class="muted">${esc(c.niche_primary)}${c.city ? ' · ' + esc(c.city) : ''}</div></div>
+   <div class="score"><b>${r.score}</b><small>match</small></div></div>
+   <div><span class="badge b-${r.label}">${LABELS[r.label]}</span>${c.collab_open ? ' <span class="badge b-potential">Open to collabs</span>' : ''}</div>
+   <div class="stats"><div><b>${fmt(c.followers)}</b><span class="muted">followers</span></div><div><b>${c.reel_reach ?? '—'}x</b><span class="muted">reel reach</span></div><div><b>${fmt(c.engagement_rate)}%</b><span class="muted">engagement</span></div><div><b>${fmt(c.posts_per_week)}</b><span class="muted">posts/wk</span></div></div>
+   <div class="why">${esc(r.explanation)}</div>
+   <div class="bd">${Object.entries(r.breakdown).map(([k, [v, w]]) => `<span class="muted">${NAMES[k]}</span>${v == null ? `<span class="muted" style="grid-column:span 2">not measured yet</span>` : `<div class="track"><div class="fill" style="width:${v / w * 100}%"></div></div><span>${v}/${w}</span>`}`).join('')}</div></article>`;
+}
+</script>
+</body>
+</html>

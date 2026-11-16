@@ -1,0 +1,1675 @@
+ ▐▛███▛█   Claude Code v2.1.300
+▝▜██████▀  Opus 5.5 · Claude Pro
+ ▝▝   ▝▝   ~/Desktop/ojt
+
+
+❯ Brand Deal Matcher – Complete Project Context                                 
+  Previously finalized MVP                                                      
+   College project                                                              
+                                                                                
+  1. Project ka main idea                                                       
+     Brand Deal Matcher ek AI-powered platform hai jo brands ko unke marketing  
+  campaigns ke liye suitable Instagram influencers/creators find karne mein     
+  help karega.                                                                  
+                                                                                
+  Example:                                                                      
+                                                                                
+  Ek brand apne requirements enter karega:                                      
+  - Niche: Fitness                                                              
+  - Budget: ₹20,000                                                             
+  - Minimum followers: 10K                                                      
+  - Target audience: 18–25 years                                                
+  - Location: India                                                             
+    System available creators ko analyse karke best matches recommend karega.   
+  2. Finalized MVP features                                                     
+     Feature      Function                                                      
+     Brand Requirements   Brand campaign details enter karega                   
+     Creator Database     Influencers ka structured data                        
+     Matching Engine      Brand aur influencer compatibility calculate karega   
+     Match Score  0–100 score                                                   
+     Ranked Results       Best matching creators first                          
+     AI Explanation       Creator suitable kyun hai, explain karega             
+     this is my ojt project.i am willing to work on this is so its an idea now  
+  i want you to tell me the flow how thing goes and how i gathere the dat from  
+  yhe instagrm                                                                  
+     thr idem i a mcoing is i scrap with apify do you have any other openions   
+     and ll other stuff that i am not able to notes but should consider         
+
+⏺ Short answer: Apify is a good choice for a college MVP. The catch is that
+  scraping only gets you the creator's data. It can't tell you who their
+  audience is (age 18–25, location), and it can't tell you their price. Those
+  are two of your main matching inputs, so plan for them from the start.
+
+  ---
+
+  1. How the system works
+
+  The system has two separate parts. Don't merge them.
+
+  PART A: DATA PIPELINE (offline, run once or weekly)
+  ───────────────────────────────────────────────────
+  Starting list of creators (hashtags / manual list)
+          │
+          ▼
+  Apify scraper → raw JSON (profile + last 12–30 posts)
+          │
+          ▼
+  Clean + enrich
+    • engagement rate = (avg likes + avg comments) / followers
+    • niche label (LLM reads bio + captions → "fitness", "food", ...)
+    • estimated price (formula from followers + engagement)
+    • estimated audience (LLM guess / creator self-reported)
+    • fake-follower flag
+          │
+          ▼
+  Database (Postgres / Supabase / even SQLite)
+
+
+  PART B: MATCHING (live, when a brand submits the form)
+  ───────────────────────────────────────────────────
+  Brand form (niche, budget, min followers, audience, location)
+          │
+          ▼
+  Step 1: Hard filters (SQL): followers ≥ min, price ≤ budget, location
+          │
+          ▼
+  Step 2: Scoring (plain Python, no AI) → 0–100 per creator
+          │
+          ▼
+  Step 3: Sort, take the top 10
+          │
+          ▼
+  Step 4: LLM writes a "why this creator" explanation for the top 10 only,
+          using the score breakdown as input
+          │
+          ▼
+  Results page
+
+  Important: never scrape when a brand submits the form. It's slow, it costs
+  money, and it can fail during your demo. Always match against your own
+  database.
+
+  ---
+
+  2. Ways to get Instagram data
+
+  Option: Apify (Instagram Profile / Hashtag / Post scrapers)
+  What you get: Followers, bio, category, recent posts, likes, comments, Reel
+  views
+  Pros: Very easy, Python client, free monthly credit
+  Cons: Grey area under Instagram's terms; no audience demographics; costs money
+
+  at scale
+  Verdict: ✅ Main source for the MVP
+  ────────────────────────────────────────
+  Option: Instagram Graph API: Business Discovery
+  What you get: Public stats of any Business/Creator account (followers, media,
+  likes, comments)
+  Pros: Official, legal, free
+  Cons: Needs your own IG Business account + Facebook page + Meta developer app;
+
+  rate limits; only works on business/creator accounts
+  Verdict: 👍 Good "official" backup, and it impresses examiners
+  ────────────────────────────────────────
+  Option: Creator signs up and connects Instagram (OAuth + Insights)
+  What you get: Real audience age, gender and city, plus reach
+  Pros: The only legal way to get true audience data. Real platforms work this
+  way
+  Cons: Needs real creators to sign up; Meta app setup
+  Verdict: ⭐ Build one demo flow to show the "real product" path
+  ────────────────────────────────────────
+  Option: Kaggle influencer datasets
+  What you get: Static data
+  Pros: Free, instant
+  Cons: Old, often not India-specific
+  Verdict: Use for testing only
+  ────────────────────────────────────────
+  Option: Own scraper (Selenium / Instaloader)
+  What you get: Same as Apify
+  Pros: Free
+  Cons: Gets blocked fast, can get your IG account banned, wastes your time
+  Verdict: ❌ Avoid
+  ────────────────────────────────────────
+  Option: Paid APIs (Modash, HypeAuditor, Phyllo)
+  What you get: Everything, including audience data
+  Pros: Best data
+  Cons: Expensive, made for companies
+  Verdict: ❌ Too costly for a college project
+
+  My recommendation (hybrid)
+
+  1. Apify: scrape about 300–500 Indian creators across 5–6 niches (fitness,
+     food, fashion, tech, travel, beauty). Find them through hashtags like
+     #fitnessindia and #mumbaifoodie, then run the Profile Scraper on those
+     usernames. Save the raw JSON so you never have to pay to scrape it again.
+  2. LLM enrichment: use an LLM to label niche, content language and likely
+     audience from bios and captions.
+  3. Clearly mark fields as "estimated" (price, audience age) in both the UI and
+     the database.
+  4. Optional, for extra marks: a "Creator Sign-up" page using the Graph API, to
+     show how real audience data would come in.
+
+  ---
+
+  3. Fields to store for each creator
+
+  username, full_name, profile_url, bio, is_verified, category (IG's own)
+  followers, following, posts_count
+  avg_likes, avg_comments, avg_reel_views, engagement_rate
+  posting_frequency (posts/week), last_post_date
+  niche_primary, niche_secondary            ← LLM
+  language, city/state                      ← bio + LLM
+  est_audience_age, est_audience_gender     ← LLM estimate or self-reported
+  est_price_post, est_price_reel            ← formula or self-reported
+  authenticity_score                        ← your fake-follower check
+  data_source, scraped_at                   ← for freshness
+
+  ---
+
+  4. Matching engine (keep it deterministic)
+
+  Don't let the LLM produce the score. A weighted formula is explainable, cheap
+  and gives the same answer every time, which you can defend in your viva.
+
+  ┌─────────────────┬────────┬──────────────────────────────────────────────┐
+  │     Factor      │ Weight │             How it's calculated              │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Niche match     │ 30     │ Exact = 30, related niche = 15 (or embedding │
+  │                 │        │  similarity)                                 │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Engagement      │ 20     │ Compare against the typical rate for that    │
+  │ quality         │        │ follower tier                                │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Audience fit    │ 20     │ Overlap between the brand's target           │
+  │                 │        │ age/location and the estimate                │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Budget fit      │ 15     │ Full score if price is well under budget;    │
+  │                 │        │ falls as price nears budget                  │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Follower fit    │ 10     │ How close to the brand's ideal range (not    │
+  │                 │        │ just the minimum)                            │
+  ├─────────────────┼────────┼──────────────────────────────────────────────┤
+  │ Authenticity    │ 5      │ Penalty for suspicious patterns              │
+  └─────────────────┴────────┴──────────────────────────────────────────────┘
+
+  Then send the score breakdown to the LLM, for example: "Niche 30/30,
+  engagement 4.2% (above average), price ₹15k against a ₹20k budget…". Ask it to
+  write 2–3 lines. Because it only explains numbers you gave it, it can't make
+  things up.
+
+  ---
+
+  5. Things you haven't noted but should
+
+  Data problems
+  - Price isn't public anywhere. Use a tier formula (nano 1K–10K, micro
+    10K–100K, macro…) × engagement multiplier. Say clearly in the report that
+    it's an estimate.
+  - Audience demographics can't be scraped. You'll need estimates or creator
+    opt-in (see above).
+  - Fake followers: flag accounts with very low engagement for their size (for
+    example <0.5% at 100K followers), odd follower/following ratios, or generic
+    comments ("nice pic 🔥").
+  - Freshness: store scraped_at, and treat creators with no post in 60+ days as
+    inactive.
+  - Reels vs posts: Reel views matter more than likes now, so scrape both.
+
+  Legal / ethics (put a section on this in your report; examiners like it)
+  - Instagram's terms don't allow automated scraping. Only use public data, keep
+    it for academic use, and don't republish personal data.
+  - India's DPDP Act 2023: collect only what you need, offer opt-out/delete, and
+    don't store contact info like emails or phone numbers.
+  - Add a disclaimer page.
+
+  Product edge cases
+  - Zero results: relax filters and show "near matches", e.g. "₹2k over budget".
+  - Brand budget vs number of creators: ₹20,000 could buy one micro creator or
+    four nano creators. Optional feature: suggest a combination.
+  - Multi-niche creators, e.g. fitness + food.
+
+  Cost and demo safety
+  - Cache LLM explanations so you don't pay twice for the same brand + creator
+    pair.
+  - Keep a static seeded dataset so the demo works even without internet or
+    credits.
+
+  Evaluation (often missing from projects; shows the system actually works)
+  - Write 10 sample brand briefs, have 3–4 friends rank the creators by hand,
+    and compare against your ranking (precision@5). This makes a good results
+    chapter.
+
+  ---
+
+  6. Suggested tech stack and phases
+
+  Stack: Next.js/React (frontend) · FastAPI in Python (backend; Python suits
+  data work) · Supabase/Postgres · Apify Python client · any LLM API for niche
+  labelling and explanations.
+
+  ┌───────┬──────────────────────────────────────────────────────────────┐
+  │ Phase │                             Work                             │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 1     │ Set up Apify, scrape about 50 creators, look at the raw JSON │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 2     │ Cleaning + enrichment script → database                      │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 3     │ Scale up to 300–500 creators                                 │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 4     │ Matching engine + scoring, tested on its own                 │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 5     │ Brand form + results UI                                      │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 6     │ LLM explanations                                             │
+  ├───────┼──────────────────────────────────────────────────────────────┤
+  │ 7     │ Evaluation + report (+ optional Graph API creator sign-up)   │
+  └───────┴──────────────────────────────────────────────────────────────┘
+
+  ---
+
+  What I'd suggest doing next: write the Apify scraping script and the creator
+  database schema, so you can see real data quickly. I can also put this plan
+  into a shareable doc for your OJT mentor if that helps.
+
+❯ haa toh pheli baat sunn mai kya soch raha ki mai ye homegrown brad aur        
+  creators aur chote brands aur creator ke liye bana raha hu taaki unke         
+  marketing ka budget naa ho toh bhii woh log reels pe product promote kar paye 
+  aur unhe sahi creator mil paaye kyuki baade brands aur creator ke pass        
+  budget aur team hoti hai so that chote brands  ko bhi ek edge mil paaye kya   
+  mai sahi soch rha hu ya nhii acche se bata                                    
+
+⏺ Haan, tum sahi soch rahe ho, aur ye idea pehle wale se zyada strong hai.
+  "Brands ke liye influencer matcher" generic lagta hai. "Chhote homegrown
+  brands ke liye, kam budget mein sahi creator dhoondhna" ek clear problem hai,
+  aur project report aur viva dono mein achha lagega.
+
+  Kyun sahi hai
+
+  1. Asli problem hai. Instagram par hazaaron homegrown brands hain (handmade,
+     skincare, food, clothing). Inke paas agency ya marketing team nahi hoti.
+     Founder khud hashtags scroll karke creators dhoondhta hai, aur isme bahut
+     time jaata hai.
+  2. Chhote creators zyada effective hote hain. Nano (1K–10K) aur micro
+     (10K–50K) creators ka engagement rate aksar bade creators se zyada hota
+     hai. Unki audience unpe trust karti hai, aur woh sasti bhi padti hai.
+  3. Dono side ka fayda hai. Chhote creators ko bhi bade brands deal nahi dete.
+     Unhe bhi pehli collab chahiye portfolio banane ke liye. Tum dono ko mila
+     rahe ho.
+  4. Barter culture already hai. India mein bahut saari deals "product bhejo,
+     reel banao" pe hoti hain, paisa nahi lagta. Tumhara platform isko organised
+     kar sakta hai.
+
+  Lekin isse product thoda badlega (ye dhyan dena zaroori hai)
+
+  Tumhara target user ab alag hai, toh MVP mein ye changes karne padenge:
+
+  ┌───────────────────┬─────────────────────────────────────────────────────┐
+  │  Pehle socha tha  │                   Ab hona chahiye                   │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Budget: ₹20,000   │ Budget: ₹0 (barter) / ₹1K–10K / product + thoda     │
+  │                   │ paisa                                               │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Min followers:    │ Focus 1K–50K creators pe. Followers kam weight,     │
+  │ 10K               │ engagement zyada weight                             │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Location: India   │ City/state level, kyunki homegrown brand aksar ek   │
+  │                   │ region mein bechta hai (jaise Pune ka bakery brand) │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Scoring mein      │ Scoring mein engagement, niche, location aur        │
+  │ followers         │ "barter ke liye open hai ya nahi" important         │
+  │ important         │                                                     │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Brand khud        │ Chhote brand ko pata nahi hota kya likhna hai. AI   │
+  │ detailed brief    │ brief banane mein help kare (product batao, AI      │
+  │ likhega           │ campaign idea + reel idea suggest kare)             │
+  └───────────────────┴─────────────────────────────────────────────────────┘
+
+  Naya field: "Open to barter/collab"
+  Ye scrape nahi hoga, par bio mein hints milte hain: "DM for collabs", "PR
+  friendly", "open for collaborations", email in bio. LLM se ye detect kar sakte
+  ho. Ye tumhare project ka ek unique feature ban sakta hai.
+
+  Jo problems aayengi (honestly)
+
+  1. Trust issue. Chhote brands ka sabse bada darr: "product bheja aur creator
+     ne reel nahi daali". Isko solve karna MVP mein zaroori nahi hai, par report
+     mein future scope mein likhna (ratings, verified collabs, escrow).
+  2. Nano creators ka data kam milta hai. Bahut saare personal accounts hote
+     hain, business/creator account nahi. Graph API unpe kaam nahi karega, sirf
+     Apify chalega. Apne seed dataset mein 1K–50K wale creators target karna.
+  3. Creators kyun aayenge platform pe? Real product mein ye "two-sided
+     marketplace" problem hai. College project ke liye scraped data se kaam chal
+     jayega, par viva mein ye sawaal aa sakta hai. Jawab: "Creators ko free
+     mein brand deals milengi, aur unka profile automatically discoverable
+     hoga."
+  4. Competition. India mein kuch influencer marketing platforms pehle se hain.
+     Unme se zyada tar agencies ya bade brands ko target karte hain aur paid
+     subscription lete hain. Ek baar unhe search karke dekh lena, aur report
+     mein likhna ki tum kaise alag ho: free/low-cost, nano creators, 
+     barter-friendly, local matching.
+
+  Report ke liye problem statement (ready to use)
+
+  ▎ "Small and homegrown brands in India lack the budget and marketing teams to 
+  ▎ run influencer campaigns, while nano and micro creators struggle to get 
+  ▎ their first brand collaborations. Brand Deal Matcher uses AI to match small 
+  ▎ brands with suitable nano/micro Instagram creators based on niche, 
+  ▎ engagement, location and budget, including barter-based collaborations, 
+  ▎ making influencer marketing accessible to businesses of any size."
+
+  Ek chhoti si baat
+
+  Platform khud brand ko "edge" nahi deta. Edge aata hai sahi chhote creator se,
+  jiski audience engaged hai, local hai aur sasti hai. Tumhara platform us
+  creator ko jaldi aur sahi dhoondhne mein madad karta hai. Pitch mein ye
+  framing use karna, zyada believable lagta hai.
+
+  Toh direction bilkul sahi hai. Aage badhne ke liye mera suggestion: pehle 5–6
+  niches choose karo jo homegrown brands mein common hain (food, skincare,
+  fashion, handmade/decor, fitness). Main uske hisaab se Apify scraping script
+  aur database schema bana sakta hoon. Bolo toh shuru karein?
+
+❯ aur doosri baat mai isse college project ke baare mai nhii soch raha isse     
+  real world problem ki tarah soch raha hu                                      
+
+⏺ Theek hai. Agar ise real-world product ki tarah dekhna hai, toh soch badalni
+  padegi. College project mein sawaal hota hai "kya ye kaam karta hai?". Real
+  world mein sawaal hota hai "kya log ise use karenge, baar baar aayenge, aur 
+  kya koi paisa dega?". Matching engine sabse aasaan hissa hai. Mushkil kaam
+  baaki sab hai.
+
+  1. Sabse pehle: banane se pehle validate karo
+
+  Abhi ye tumhara assumption hai ki chhote brands ko creator dhoondhne mein
+  problem hai. Pehle confirm karo:
+
+  - 15–20 homegrown brand owners se baat karo (Instagram DM, flea markets, local
+    exhibitions, WhatsApp seller groups). Unse poochho:
+    - Abhi creators kaise dhoondhte ho?
+    - Pichli collab kaisi gayi? Kya galat hua?
+    - Ek collab pe kitna kharch karte ho (paisa + product)?
+    - Is problem ko solve karne ke liye ₹500–1000 doge?
+  - 15–20 nano/micro creators se bhi baat karo:
+    - Brand deals kaise milti hain?
+    - Barter accept karte ho?
+    - Kya problem aati hai (late payment, ghosting)?
+
+  Ho sakta hai pata chale ki asli problem "creator dhoondhna" nahi hai, balki
+  "trust" ya "creator ne reel daali par sale nahi aayi" hai. Tab product alag
+  banega.
+
+  2. Data strategy badlegi: scraping business ka base nahi ban sakta
+
+  College project ke liye Apify theek tha. Real business ke liye:
+  - Scraping Instagram ke terms ke against hai. Platform ka poora data scraping
+    pe tika ho toh legal aur business dono risk hai.
+  - Scraping se audience ka data nahi milta, aur yahi matching ka core hai.
+
+  Real-world approach:
+  Apify se creators discover karo (sirf lead list ki tarah)
+          ↓
+  Unhe invite karo: "Tumhare liye brand deals hain, profile claim karo"
+          ↓
+  Creator Instagram connect karta hai (official Meta API, OAuth)
+          ↓
+  Real audience data milta hai (age, city, gender, reach)
+          ↓
+  Verified profile → better matching
+  Scraping sirf shuruaat ke liye hai. Asli data creator ki permission se aata
+  hai.
+
+  3. Sabse badi problem: chicken-and-egg
+
+  Ye two-sided marketplace hai. Brands tab aayenge jab creators honge, aur
+  creators tab aayenge jab brands honge.
+
+  Solution: chhota shuru karo. Pehle ek city + 1–2 niche pakdo, jaise
+  "Pune/Mumbai ke food aur skincare brands". Haath se 30–50 brands aur 200
+  creators onboard karo. Jab wahan kaam kar jaaye, tab expand karo. Poore India
+  se shuru karoge toh har jagah thoda thoda hoga, aur kahin bhi kaam nahi
+  karega.
+
+  4. Paisa kaun dega? (business model)
+
+  Ye honest problem hai: tumhara target user woh hai jiske paas budget nahi hai,
+  aur barter deals mein koi paisa move hi nahi hota.
+
+  ┌──────────────────────────────────────┬──────────────────────────────────┐
+  │                Option                │             Problem              │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Creators se charge karo              │ Galat. Supply side bhaag jayegi  │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Paid deals pe commission (10–15%)    │ Barter deals mein kuch nahi      │
+  │                                      │ milega                           │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Brand subscription (₹499–999/month)  │ Possible, par value clearly      │
+  │                                      │ dikhani padegi                   │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Freemium: matching free, campaign    │ Sabse realistic                  │
+  │ tools paid                           │                                  │
+  └──────────────────────────────────────┴──────────────────────────────────┘
+
+  Chhote brands shayad search ke liye paisa nahi denge. Unhe jo cheez saves time
+  ya protects money lagti hai, uske liye denge: reel delivery guarantee,
+  contracts, tracking, payment protection.
+
+  5. Disintermediation (marketplace ka silent killer)
+
+  Brand ne tumhare platform se creator dhoondha, DM kiya, aur baaki deal bahar
+  kar li. Tumhe kuch nahi mila, aur woh dobara nahi aaya.
+
+  Isse bachne ke liye platform pe rehne ki wajah do, sirf matching se kaam nahi
+  chalega:
+  - Deal tracking (product bheja → reel aayi ya nahi)
+  - Creator ratings / reviews (trust)
+  - Performance report (reel ke views, link clicks, discount code se sales)
+  - Payment escrow (paid deals ke liye)
+  - Content usage rights (brand reel ko ads mein use kar sake)
+
+  6. Asli "AI edge" kya hai
+
+  LLM explanation acchi feature hai, par usse koi competitive advantage nahi
+  milta. Asli advantage outcome data se aata hai:
+  - Kaunsi collab mein reel achhi chali?
+  - Kis brand ne creator ko dobara hire kiya?
+  - Kaunsa creator time pe deliver karta hai?
+
+  Ye data jitna badhega, matching utni behtar hogi, aur ye data kisi competitor
+  ke paas nahi hoga. Isliye pehle din se har deal ka result track karo.
+
+  7. Legal / compliance (India-specific, real business ke liye zaroori)
+
+  - ASCI influencer guidelines: paid ya barter, har collab mein disclosure (#ad,
+    #collab) zaroori hai. Platform creators ko yaad dila sakta hai. Ye ek extra
+    feature bhi ban sakta hai.
+  - DPDP Act 2023: creators ka data consent se lo, delete karne ka option do.
+  - Tax: creator payments aur barter benefits pe TDS/GST rules lag sakte hain
+    (jaise Section 194R). Jab paid deals shuru hon, tab CA se confirm karna.
+  - Contracts: simple collab agreement template (deliverables, deadline, usage
+    rights).
+
+  8. Revised roadmap
+
+  ┌────────────────┬────────────────────────────────────────────────────────┐
+  │     Stage      │                     Kya karna hai                      │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ 0. Validate    │ 30–40 interviews. Code mat likho                       │
+  │ (2–3 hafte)    │                                                        │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ 1. Concierge   │ Google Form (brand) + spreadsheet (creators) + tumhara │
+  │ MVP            │  matching script. Matches khud WhatsApp pe bhejo. 10   │
+  │                │ real collabs karwao                                    │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ 2. Basic       │ Brand form, creator profiles, matching + explanation,  │
+  │ product        │ deal tracking                                          │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ 3. Trust layer │ Ratings, Instagram connect (official API), performance │
+  │                │  reports                                               │
+  ├────────────────┼────────────────────────────────────────────────────────┤
+  │ 4. Monetize    │ Jo feature log sabse zyada use kar rahe hain, usi ko   │
+  │                │ paid banao                                             │
+  └────────────────┴────────────────────────────────────────────────────────┘
+
+  Stage 1 mein koi app nahi hai, aur ye jaan-boojh kar hai. Agar tum haath se 10
+  achhe matches karwa sake aur brands khush hue, toh tumhe pata chal jayega ki
+  product banana worth it hai, aur kya banana hai.
+
+  Tumhare OJT ka kya?
+
+  Dono saath chal sakte hain. OJT mein Stage 1–2 ka working prototype ban jayega
+  (matching engine, Apify data, UI). Saath mein interviews karte raho. Real
+  users ka feedback report mein daaloge toh project baaki sab se alag dikhega.
+
+  Agla step: kya main brand owners aur creators ke liye interview questions ki 
+  list bana doon? Ya concierge MVP ke liye matching script se shuru karein?
+
+❯ haa toh phele mujhe ek msg bana ke de jo mai homegrown brand se puch saku     
+
+⏺ Ye message homegrown brand owners ke liye hai, jinhe tum Instagram DM ya
+  WhatsApp pe bhejoge.
+
+  ---
+
+  Message 1: Pehla DM (short, bina kuch beche)
+
+  Hinglish version:
+
+  ▎ Hi! 👋 Main [Your name], ek student hoon aur chhote/homegrown brands ki 
+  ▎ Instagram marketing pe research kar raha hoon. Aapka brand [brand name] 
+  ▎ mujhe bahut pasand aaya, especially [koi specific product/post].
+  ▎
+  ▎ Kya aap 10 minute de sakte ho? Mujhe bas samajhna hai ki aap jaise brands 
+  ▎ creators/influencers ke saath kaise kaam karte ho aur kya problems aati 
+  ▎ hain. Main kuch bech nahi raha, sirf aapka experience sunna hai 🙂
+  ▎
+  ▎ Call ya yahin DM pe, jo aapke liye easy ho!
+
+  English version:
+
+  ▎ Hi! 👋 I'm [Your name], a student researching how small and homegrown brands
+  ▎ do Instagram marketing. I really liked [brand name], especially [specific 
+  ▎ product/post].
+  ▎
+  ▎ Could you spare 10 minutes? I'd love to understand how brands like yours 
+  ▎ work with creators/influencers and what challenges you face. I'm not selling
+  ▎ anything, I just want to hear about your experience 🙂
+  ▎
+  ▎ Happy to do a quick call or chat right here, whatever's easier for you!
+
+  ---
+
+  Message 2: Haan bolne ke baad (questions)
+
+  ▎ Thank you so much! 🙏 Bas kuch sawaal hain:
+  ▎
+  ▎ 1. Kya aapne kabhi kisi Instagram creator ke saath collab kiya hai? Last 
+  ▎ wala kaise hua, aur creator kaise dhoondha?
+  ▎ 2. Sahi creator dhoondhne aur deal finalize karne mein kitna time laga?
+  ▎ 3. Woh deal paid thi ya barter (product ke badle)? Roughly kitna kharch hua,
+  ▎ product + paisa milake?
+  ▎ 4. Result kaisa raha? Sales, followers ya enquiries aayi? Aapko kaise pata 
+  ▎ chala?
+  ▎ 5. Poore process mein sabse frustrating cheez kya thi?
+  ▎ 6. (Agar collab nahi kiya ho toh) Kya cheez rok rahi hai: budget, kahan se 
+  ▎ shuru karein pata nahi, ya trust issue?
+  ▎ 7. Abhi creators dhoondhne ke liye kya use karte ho: khud search, agency, 
+  ▎ koi app, ya contacts?
+  ▎ 8. Kya aap kisi aur brand owner ko jaante ho jinse main baat kar sakun?
+
+  ---
+
+  Message 3: Reminder (agar 3 din tak reply na aaye)
+
+  ▎ Hi! Bas ek chhota sa reminder 🙂 Aapka experience meri research ke liye 
+  ▎ bahut helpful hoga. 5 minute bhi chalega. Agar time nahi hai toh bilkul koi 
+  ▎ baat nahi!
+
+  ---
+
+  Bhejne se pehle kuch tips
+
+  - Pehli line har brand ke liye alag likho. Uska koi product ya post mention
+    karo. Copy-paste wala DM log ignore kar dete hain.
+  - 50 brands ko bhejo. Usually 15–20 hi reply karte hain.
+  - Apna idea pitch mat karna. Agar tum bologe "main aisa app bana raha hoon,
+    use karoge?", toh log politely "haan" bol denge, aur us "haan" ka koi matlab
+    nahi hota. Unke past experience pe focus karo, jaise sawaal 1–5 karte hain.
+  - Call best hai. Text mein log chhote jawab dete hain, call pe asli problems
+    bolte hain.
+  - Har jawab Google Sheet mein note karo: brand name, niche, city, collab kiya
+    ya nahi, budget, sabse badi problem. 15 interviews ke baad patterns dikhne
+    lagenge.
+  - Sawaal 8 mat chhodna. Ek brand se agle 2–3 brands mil jaate hain.
+
+  Jab ye bhej doge, kya creators ke liye bhi aisa hi message bana doon? Unki
+  side samajhna bhi utna hi zaroori hai.
+
+❯ english mai bata meri unse baat hoti rehti hai toh ek msg mai hii bata        
+
+⏺ This one is for homegrown brand owners you already chat with on DM or
+  WhatsApp.
+
+  ---
+
+  ▎ Hey! Hope you're doing well 😊
+  ▎
+  ▎ I'm working on an idea to help small and homegrown brands find the right 
+  ▎ Instagram creators for promotions, especially when there's no big marketing 
+  ▎ budget. Before I build anything, I want to understand how brands like yours 
+  ▎ actually do it. Would love your honest answers:
+  ▎
+  ▎ 1. Have you ever collaborated with an Instagram creator? How did you find 
+  ▎ them?
+  ▎ 2. How long did it take to find the right creator and finalise the deal?
+  ▎ 3. Was it paid or barter (product in exchange)? Roughly how much did it cost
+  ▎ you, product + money?
+  ▎ 4. How did it turn out? Did you get sales, followers or enquiries from it?
+  ▎ 5. What was the most frustrating part of the whole process?
+  ▎ 6. If you haven't done a collab yet, what's stopping you? Budget, not 
+  ▎ knowing where to start, or trust?
+  ▎ 7. How do you find creators right now? Searching yourself, an agency, an 
+  ▎ app, or contacts?
+  ▎ 8. Do you know any other brand owners I could talk to about this?
+  ▎
+  ▎ Short answers are totally fine, even voice notes work! Thanks a lot, this 
+  ▎ really helps 🙏
+
+  ---
+
+  Tip: for brands you know well, a 10-minute call works even better than text,
+  because people mention the real problems while talking.
+
+❯ haa toh mujhe ek baar bta kya flow hoga ab                                    
+
+⏺ Poora flow ab 3 levels mein hai: tum kya karoge (step-by-step plan), user kya 
+  karega (product flow), aur system andar kya karega (technical flow).
+
+  ---
+
+  1. Tumhara step-by-step plan
+
+  STEP 1: VALIDATE (abhi, 2–3 hafte)
+     Brands ko message bhejo (ready hai ✅)
+     Creators ko message bhejo
+     Answers Google Sheet mein note karo
+     → Pata chalega asli problem kya hai
+          │
+          ▼
+  STEP 2: CONCIERGE MVP (koi app nahi)
+     Brand Google Form bharega (product, budget, city, niche)
+     Tum Apify se creators dhoondhoge → spreadsheet
+     Matching script top 5 creators nikalegi
+     Tum WhatsApp pe brand ko matches bhejoge
+     Tum khud collab karwaoge → result track karoge
+     → Goal: 10 successful collabs
+          │
+          ▼
+  STEP 3: ACTUAL PRODUCT BANAO
+     Jo Step 2 mein kaam kiya, wahi automate karo
+          │
+          ▼
+  STEP 4: TRUST + GROWTH
+     Ratings, Instagram connect, reports, monetization
+
+  ---
+
+  2. Product flow (user ki nazar se)
+
+  Brand side
+
+  Sign up
+     ↓
+  Brand profile: naam, product, city, Instagram handle
+     ↓
+  Campaign banao
+     • Kya promote karna hai (product)
+     • Budget: Barter / ₹1K–5K / ₹5K–20K
+     • Niche, target city, target audience
+     • AI help: "Reel idea suggest karo"
+     ↓
+  Matched creators dikhte hain (score + AI explanation)
+     ↓
+  Shortlist → collab request bhejo
+     ↓
+  Creator accept karta hai → product bhejo
+     ↓
+  Creator reel post karta hai → link submit karta hai
+     ↓
+  Brand result dekhta hai (views, likes, clicks)
+     ↓
+  Creator ko rating deta hai
+
+  Creator side
+
+  Invite milta hai ("Tumhare liye brand deals hain")
+     ↓
+  Sign up → Instagram connect (official API)
+     ↓
+  Profile auto-fill: followers, engagement, audience data
+     ↓
+  Creator add karta hai: niche, city, rates, "barter ke liye open"
+     ↓
+  Collab requests aati hain → accept/reject
+     ↓
+  Reel banao → link submit karo
+     ↓
+  Rating milti hai → profile strong hota hai → aur deals milti hain
+
+  ---
+
+  3. System flow (andar kya hota hai)
+
+  DATA COLLECTION
+     Apify (discovery) ──► Creator list ──► Invite bhejo
+     Creator signup + IG connect ──► Real audience data
+              │
+              ▼
+  ENRICHMENT
+     Engagement rate calculate
+     LLM: niche, language, barter-friendly detect
+     Fake follower check
+     Price estimate
+              │
+              ▼
+  DATABASE (creators, brands, campaigns, deals, ratings)
+              │
+              ▼
+  MATCHING (jab brand campaign banata hai)
+     1. Filter: budget, city, niche, followers
+     2. Score (0–100): niche + engagement + location
+                       + audience fit + budget fit + rating
+     3. Top 10 sort
+     4. LLM: "Ye creator kyun suitable hai" explanation
+              │
+              ▼
+  DEAL TRACKING
+     Request → Accept → Product shipped → Reel posted → Rating
+              │
+              ▼
+  FEEDBACK LOOP
+     Har deal ka result (views, rating, rehire) save hota hai
+     → Matching har deal ke saath better hoti hai ⭐
+
+  ---
+
+  Abhi tumhe kya karna hai (is hafte)
+
+  1. ✅ Brands ko message bhejo (ready hai)
+  2. ⬜ Creators ke liye message banao
+  3. ⬜ Google Sheet banao answers note karne ke liye
+  4. ⬜ Apify account banao aur 20–30 creators scrape karke data dekho
+
+  Kaunse se shuru karein: creators ka message, ya Apify setup?
+
+❯ meri baat sunn mujhe ye watsapp wala aur ye sab nhii karna hau mujhe ek       
+  website banani hai jaha per search par brand pay karegi aur creator dhundegi  
+
+⏺ Theek hai, website wala model clear hai: brand search karegi, pay karegi, aur 
+  creators milenge. Ab flow is hisaab se hai.
+
+  Ek suggestion pehle: brand se search se pehle pay mat karwao. Log bina result
+  dekhe paisa nahi dete. Better model ye hai: search free, results ka preview 
+  free, pura result aur contact details dekhne ke liye pay.
+
+  ---
+
+  Brand ka flow (website pe)
+
+  Landing page → "Find creators for your brand"
+        ↓
+  Sign up / Login
+        ↓
+  Search form
+    • Niche (food, skincare, fashion...)
+    • Budget (Barter / ₹1K–5K / ₹5K–20K)
+    • City / State
+    • Followers range (1K–10K, 10K–50K...)
+    • Target audience (age, gender)
+        ↓
+  Results PREVIEW (free)
+    • "23 creators match your search"
+    • Top 3 dikhte hain, par blurred (naam/handle hidden)
+    • Score aur basic stats visible (followers, engagement)
+        ↓
+  Pay karo (Razorpay)
+        ↓
+  Unlocked results
+    • Poori ranked list + match score
+    • AI explanation: "Ye creator kyun suitable hai"
+    • Instagram handle, email, est. price, barter-friendly?
+        ↓
+  Dashboard: purani searches, unlocked creators, credits
+
+  Pricing options
+
+  ┌────────────────┬───────────────────────┬─────────────────────────────┐
+  │     Model      │        Example        │        Kab sahi hai         │
+  ├────────────────┼───────────────────────┼─────────────────────────────┤
+  │ Pay per search │ ₹99 per search unlock │ Simple, start ke liye best  │
+  ├────────────────┼───────────────────────┼─────────────────────────────┤
+  │ Credits pack   │ ₹399 = 5 searches     │ Brand baar baar aaye toh    │
+  ├────────────────┼───────────────────────┼─────────────────────────────┤
+  │ Subscription   │ ₹999/month unlimited  │ Jab bahut brands ho jaayein │
+  └────────────────┴───────────────────────┴─────────────────────────────┘
+
+  Start mein pay per search + credits pack rakho.
+
+  Ek baat yaad rakhna: Instagram handle toh public hota hai. Brand paisa sahi 
+  creator ki shortlist, data (engagement, price, audience) aur contact ke liye
+  de raha hai. Isliye matching quality aur data hi tumhara asli product hai.
+
+  ---
+
+  Creators kahan se aayenge
+
+  Apify se scrape → Database (shuruaat mein yahi main source)
+          +
+  Creator khud sign up kare → "Claim your profile"
+    (rates, barter, email add kare, IG connect kare)
+          +
+  Opt-out option (agar creator hatna chahe)
+
+  Claimed profiles ko results mein upar rakho, aur unpe "Verified" badge lagao.
+  Opt-out option zaroori hai, kyunki tum scraped data dikhake paisa le rahe ho.
+
+  ---
+
+  Website ke pages
+
+  Brand side:
+  1. Landing page
+  2. Sign up / Login
+  3. Search form
+  4. Results preview (blurred)
+  5. Payment
+  6. Unlocked results + creator detail page
+  7. Dashboard (history, credits)
+
+  Creator side:
+  8. Claim profile / sign up
+  9. Creator profile edit (rates, niche, barter)
+
+  Admin (sirf tumhare liye):
+  10. Data refresh (Apify run), users, payments
+
+  ---
+
+  System flow (backend)
+
+  Apify ──► Clean + enrich (engagement, LLM niche, price est.) ──► Database
+                                                                      │
+  Brand search ──► Filter ──► Score 0–100 ──► Rank ──► Preview (blur)
+                                                          │
+                                                Razorpay payment ✅
+                                                          │
+                                         Unlock + LLM explanation ──► Results
+
+  ---
+
+  Tech stack
+
+  ┌────────────────────────────────────┬───────────────────────────────┐
+  │                Kaam                │             Tool              │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ Website (frontend + backend)       │ Next.js                       │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ Database + Login                   │ Supabase                      │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ Payment                            │ Razorpay (India, UPI support) │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ Creator data                       │ Apify                         │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ AI (niche detection + explanation) │ LLM API                       │
+  ├────────────────────────────────────┼───────────────────────────────┤
+  │ Hosting                            │ Vercel (free)                 │
+  └────────────────────────────────────┴───────────────────────────────┘
+
+  ---
+
+  Build order
+
+  1. Apify se 200–300 creators scrape karke database mein daalo
+  2. Matching engine (filter + score)
+  3. Search form + results page
+  4. Login (Supabase)
+  5. Blur preview + Razorpay payment
+  6. AI explanation
+  7. Dashboard
+  8. Creator claim profile page
+
+  Kya main tumhare ojt folder mein Next.js + Supabase ka project setup karke
+  shuru karoon? Ya pehle Apify se creators ka data nikalna hai?
+
+❯ budget jane de buget ka kya woh brand apne aap hi creator se baat kar ke dekh 
+  legi bas hum usse best creator dhund ke dge aur hum creator bhii waise        
+  rakhege jo growwing ho aur phele se bade creator na ho                        
+
+⏺ Theek hai, budget hata dete hain. Brand creator se khud deal karegi, tumhara
+  kaam bas best creator dhoondh ke dena hai. "Sirf growing creators" wala focus
+  achha hai, aur isse tumhara platform baaki platforms se alag dikhega.
+
+  Isse kya badlega
+
+  ┌──────────────────────┬───────────────────────────────────────────────────┐
+  │        Hataya        │                     Jodna hai                     │
+  ├──────────────────────┼───────────────────────────────────────────────────┤
+  │ Budget field         │ Growth score: creator kitni tezi se badh raha hai │
+  ├──────────────────────┼───────────────────────────────────────────────────┤
+  │ Price estimate       │ Follower cap: bade creators bahar                 │
+  ├──────────────────────┼───────────────────────────────────────────────────┤
+  │ Budget fit (scoring) │ "Rising creator" ka filter aur badge              │
+  └──────────────────────┴───────────────────────────────────────────────────┘
+
+  ---
+
+  "Growing creator" kaun hai: definition
+
+  Followers: 1K–100K. Isse upar wale database mein hi nahi aayenge.
+
+  Growth ke signals:
+  1. Follower growth rate: pichle 30 din mein kitne % followers badhe
+  2. Reel reach: reel views ÷ followers. Agar views followers se zyada aa rahe
+     hain, toh Instagram uska content naye logon tak pahuncha raha hai, jo
+     growth ka sabse strong sign hai
+  3. Engagement trend: recent posts pe likes/comments purane posts se zyada hain
+     ya nahi
+  4. Consistency: hafte mein kitni baar post karta hai (regular creators hi grow
+     karte hain)
+
+  ---
+
+  Ek important technical baat
+
+  Apify ek baar scrape karega toh sirf aaj ka data milega, jaise "aaj 12,000
+  followers". Usse growth pata nahi chalti.
+
+  Solution:
+  - Day 1 se: signals 2, 3 aur 4 post data se turant mil jaate hain, isliye
+    shuruaat mein inhi se growth score banao
+  - Har hafte re-scrape karo aur follower count save karte jao (snapshots). 3–4
+    hafte baad signal 1 bhi mil jayega
+  - Iska matlab Apify credits har hafte lagenge, toh pehle creators kam rakho
+    (200–300)
+
+  Week 1: 12,000 followers  ─┐
+  Week 2: 12,600             │  → +15% per month 📈
+  Week 3: 13,100             │     Rising creator ✅
+  Week 4: 13,800  ───────────┘
+
+  ---
+
+  Updated search form
+
+  - Niche (food, skincare, fashion...)
+  - City / State
+  - Followers range (1K–10K, 10K–50K, 50K–100K)
+  - Target audience (age, gender)
+  - (Optional) "Sirf fast-growing creators dikhao" toggle
+
+  Updated scoring (0–100)
+
+  ┌─────────────────┬────────┐
+  │     Factor      │ Weight │
+  ├─────────────────┼────────┤
+  │ Niche match     │ 25     │
+  ├─────────────────┼────────┤
+  │ Growth score    │ 25     │
+  ├─────────────────┼────────┤
+  │ Engagement rate │ 20     │
+  ├─────────────────┼────────┤
+  │ Location match  │ 15     │
+  ├─────────────────┼────────┤
+  │ Audience fit    │ 10     │
+  ├─────────────────┼────────┤
+  │ Consistency     │ 5      │
+  └─────────────────┴────────┘
+
+  AI explanation ab aisi dikhegi:
+
+  ▎ "Priya (18K followers) is a fast-growing Pune food creator. Her reels get 
+  ▎ 2.3x more views than her follower count, and she gained 14% followers last 
+  ▎ month. Her audience matches your target city."
+
+  ---
+
+  Updated flow
+
+  Apify (weekly) ──► Snapshots save ──► Growth + engagement calculate
+                                                │
+                                      Filter: 1K–100K followers only
+                                                │
+                                            Database
+                                                │
+  Brand search (niche, city, followers, audience)
+          ↓
+  Filter → Score (growth focus) → Rank → Preview (blurred)
+          ↓
+  Pay → Unlock → Handle, contact, stats, AI explanation
+          ↓
+  Brand khud creator se baat karegi ✅
+
+  Ab flow final lag raha hai. Kya main project setup shuru karoon (Next.js +
+  Supabase), ya pehle Apify se 50 creators scrape karke dekhein ki growth wala
+  data kaisa milta hai?
+
+❯ haa toh ab mujhe flow bata                                                    
+
+⏺ Ye final flow hai, sab decisions ke saath.
+
+  🎯 Idea (ek line mein)
+
+  Chhote/homegrown brands search karte hain, aur website unhe best growing 
+  creators (1K–100K) dhoondh ke deti hai. Brand pay karke details unlock karti
+  hai aur creator se khud baat karti hai.
+
+  ---
+
+  1. Data flow: creators database mein kaise aayenge
+
+  Apify (Instagram scrape)
+     ↓
+  Sirf 1K–100K followers wale creators rakho
+     ↓
+  Har creator ka data calculate karo:
+     • Engagement rate
+     • Reel reach (views ÷ followers)
+     • Posting consistency
+     • Niche, city, language (AI se)
+     • Fake follower check
+     ↓
+  Database mein save karo
+     ↓
+  Har hafte dobara scrape karo → follower growth track karo 📈
+
+  ---
+
+  2. Brand ka flow
+
+  1. Website kholti hai (landing page)
+          ↓
+  2. Sign up / Login
+          ↓
+  3. Search form bharti hai
+       • Niche
+       • City / State
+       • Followers range
+       • Target audience (age, gender)
+          ↓
+  4. Results PREVIEW (free)
+       "18 creators found"
+       Top creators blurred, sirf score + stats dikhte hain
+          ↓
+  5. Pay karti hai (Razorpay / UPI)
+          ↓
+  6. Full results unlock
+       • Ranked list (best first)
+       • Match score (0–100)
+       • Instagram handle + contact
+       • Growth stats
+       • AI explanation: "Ye creator kyun best hai"
+          ↓
+  7. Creator se khud DM/email pe baat karti hai ✅
+          ↓
+  8. Dashboard: purani searches + unlocked creators
+
+  ---
+
+  3. Creator ka flow (optional, baad mein)
+
+  Creator apna profile dekhta hai
+     ↓
+  "Claim your profile" → sign up
+     ↓
+  Email, niche, city update karta hai
+     ↓
+  "Verified" badge milta hai → results mein upar aata hai
+     (ya opt-out karke hat bhi sakta hai)
+
+  ---
+
+  4. Matching engine: search ke time kya hota hai
+
+  Brand ka search
+     ↓
+  STEP 1: FILTER
+     Niche ✔  City ✔  Followers range ✔
+     ↓
+  STEP 2: SCORE (0–100)
+     Niche match      25
+     Growth score     25
+     Engagement       20
+     Location         15
+     Audience fit     10
+     Consistency       5
+     ↓
+  STEP 3: RANK (highest score first)
+     ↓
+  STEP 4: AI EXPLANATION (sirf unlock hone ke baad)
+
+  ---
+
+  5. Website ke pages
+
+  ┌─────────────────────┬───────────────┬────────────────────┐
+  │        Brand        │    Creator    │    Admin (tum)     │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Landing page        │ Claim profile │ Apify data refresh │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Login / Sign up     │ Edit profile  │ Users list         │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Search form         │               │ Payments           │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Results preview     │               │                    │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Payment             │               │                    │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Unlocked results    │               │                    │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Creator detail page │               │                    │
+  ├─────────────────────┼───────────────┼────────────────────┤
+  │ Dashboard           │               │                    │
+  └─────────────────────┴───────────────┴────────────────────┘
+
+  ---
+
+  6. Tech stack
+
+  Next.js (website) · Supabase (database + login) · Razorpay (payment) · Apify
+  (data) · LLM API (AI) · Vercel (hosting)
+
+  ---
+
+  7. Build order
+
+  1. Apify se creators scrape karke database mein daalo
+  2. Growth + engagement calculate karne ki script
+  3. Matching engine (filter + score + rank)
+  4. Search form + results page
+  5. Login
+  6. Blur preview + payment
+  7. AI explanation
+  8. Dashboard
+  9. Creator claim profile
+
+  ---
+
+  Ye flow ek doc mein save kar doon taaki sambhal ke rakh sako? Ya seedha Step 1
+  (Apify setup) se build shuru karein?
+
+❯ haa tu jo instagram graph api ke bare mai bata raha woh kya hai               
+
+⏺ Instagram Graph API kya hai
+
+  Ye Meta (Instagram ki company) ka official API hai. Iski madad se tumhari
+  website Instagram se data le sakti hai, aur woh bhi legally, permission ke
+  saath. Scraping chori-chhupe data uthana hai. API Meta ka official darwaza
+  hai, uske apne rules ke saath.
+
+  Ye sirf Professional accounts (Business ya Creator) pe kaam karta hai.
+  Personal accounts ka data nahi milta. Achhi baat ye hai ki zyada tar growing
+  creators ke paas Creator account hota hai.
+
+  ---
+
+  Tumhare kaam ke 2 features
+
+  1. Business Discovery: kisi bhi creator ka public data
+
+  Tum apne Instagram Business account se kisi dusre creator ka username daal ke
+  uska public data le sakte ho:
+
+  - Followers count, following count
+  - Bio, naam, profile pic
+  - Total posts
+  - Recent posts ke likes, comments, caption, date
+
+  Example request:
+  GET https://graph.facebook.com/v{version}/{tumhara-ig-id}
+    ?fields=business_discovery.username(priyafoodie){
+        followers_count, media_count,
+        media{like_count, comments_count, timestamp}
+    }
+    &access_token=TUMHARA_TOKEN
+
+  Ye free hai. Har hafte follower count check karke growth track karna isse ho
+  sakta hai, Apify credits kharch kiye bina.
+
+  2. Insights: creator ki audience ka data (creator ki permission se)
+
+  Jab creator khud tumhari website pe "Connect Instagram" karta hai (login +
+  permission), toh tumhe uska private data milta hai:
+
+  - Audience ki age, gender, city, country
+  - Reach, views, profile visits
+
+  Ye data scraping se kabhi nahi milta, aur brand ka "target audience" match
+  karne ke liye yahi sabse kaam ka hai. Woh data sirf audience demographics mein
+  hota hai, aur Meta usually ise tabhi deta hai jab account pe 100+ followers
+  hon.
+
+  ---
+
+  Limitations (ye jaanna zaroori hai)
+
+  ┌───────────────────────┬─────────────────────────────────────────────────┐
+  │      Limitation       │                     Matlab                      │
+  ├───────────────────────┼─────────────────────────────────────────────────┤
+  │ Username pehle se     │ API se "Pune ke food creators dhoondho" jaisa   │
+  │ pata hona chahiye     │ search nahi hota. Discovery Apify se hi karni   │
+  │                       │ padegi                                          │
+  ├───────────────────────┼─────────────────────────────────────────────────┤
+  │ Sirf Business/Creator │ Personal accounts ka data nahi milega           │
+  │  accounts             │                                                 │
+  ├───────────────────────┼─────────────────────────────────────────────────┤
+  │ Rate limits           │ Ek ghante mein limited requests. Thoda thoda    │
+  │                       │ karke weekly refresh karna padega               │
+  ├───────────────────────┼─────────────────────────────────────────────────┤
+  │ Setup lamba hai       │ Meta developer account, app, Facebook Page,     │
+  │                       │ token chahiye                                   │
+  ├───────────────────────┼─────────────────────────────────────────────────┤
+  │                       │ Public website pe dusre users (creators) ko     │
+  │ App Review            │ login karwane ke liye Meta se app approve       │
+  │                       │ karwana padta hai (business verification bhi    │
+  │                       │ lag sakta hai)                                  │
+  └───────────────────────┴─────────────────────────────────────────────────┘
+
+  Do versions hain. Meta ke paas abhi Graph API ke 2 versions hain: "Instagram
+  API with Facebook Login" aur "Instagram API with Instagram Login". Business
+  Discovery Facebook Login wale version mein milta hai. Setup karte waqt Meta ke
+  latest docs zaroor check karna, kyunki Meta ye cheezein badalta rehta hai.
+
+  ---
+
+  Setup ke liye kya chahiye
+
+  1. Apna Instagram account Professional (Business) mein convert karo
+  2. Ek Facebook Page banao aur usse Instagram link karo
+  3. developers.facebook.com pe developer account + app banao
+  4. Permissions lo (jaise instagram_basic, instagram_manage_insights)
+  5. Access token generate karo
+  6. Development mode mein test karo, live jaane se pehle App Review karwao
+
+  ---
+
+  Tumhare project mein ye kahan fit hoga
+
+  ┌──────────────────────────────────────┬──────────────────────────────────┐
+  │                 Kaam                 │           Kisse karoge           │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Naye creators dhoondhna (hashtag,    │ Apify                            │
+  │ niche)                               │                                  │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Har hafte followers/growth refresh   │ Graph API, Business Discovery    │
+  │                                      │ (free)                           │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ Creator "Claim profile" + audience   │ Graph API, Instagram login +     │
+  │ data                                 │ Insights                         │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ "Verified" badge                     │ Jisne Instagram connect kiya     │
+  └──────────────────────────────────────┴──────────────────────────────────┘
+
+  Apify → naye creators ke usernames mile
+     ↓
+  Graph API (Business Discovery) → har hafte stats refresh (free) 📈
+     ↓
+  Creator claim kare + Instagram connect → real audience data ✅ Verified
+
+  Isse tumhara Apify ka kharch kam hoga, data official hoga, aur verified
+  creators ka audience data bhi real hoga.
+
+  Kya main Meta developer app ka setup step-by-step karwa doon, ya pehle Apify
+  se shuru karein?
+
+❯ but isme mujhe manually creators dhundne padege na                            
+
+⏺ Agar sirf Graph API use karoge, toh haan, usernames khud dhoondhne padenge.
+  Lekin Apify se ye kaam automatic ho jaata hai. Tumhe ek bhi creator manually
+  nahi dhoondhna padega.
+
+  Automatic discovery kaise hogi
+
+  STEP 1: Hashtags ki list banao (sirf ek baar, khud)
+     #punefoodie  #mumbaifoodblogger  #skincareindia
+     #indianfashionblogger  #homegrownbrand  #fitnessindia ...
+          ↓
+  STEP 2: Apify Hashtag Scraper chalao
+     Har hashtag ki recent posts → un posts ke owners ke usernames
+          ↓
+  STEP 3: Apify Profile Scraper chalao un usernames pe
+     Followers, bio, posts, engagement
+          ↓
+  STEP 4: Script se auto-filter
+     ✔ 1K–100K followers
+     ✔ Active (last 30 din mein post)
+     ✔ Engagement theek hai (fake nahi)
+     ✘ Brand pages, meme pages, bade creators → bahar
+          ↓
+  STEP 5: Database mein save ✅
+          ↓
+  STEP 6: Har hafte Graph API se stats refresh (growth tracking)
+
+  Hashtags ki list ek baar banani hai. Baaki sab automatic hai, aur tum ise har
+  hafte schedule kar sakte ho taaki naye creators khud judte rahein.
+
+  ---
+
+  Aur creators dhoondhne ke automatic tareeke
+
+  ┌─────────────────────┬───────────────────────────────────────────────────┐
+  │       Tareeka       │                       Kaise                       │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Hashtags            │ Upar wala flow (main source)                      │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Location tags       │ "Pune", "Koregaon Park" jaise location ke posts → │
+  │                     │  local creators                                   │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Mentions / tags     │ Achhe creators ke posts mein jo dusre creators    │
+  │                     │ tagged hain unhe bhi uthao (snowball effect)      │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Homegrown brands ke │ Chhote brands jin creators ko tag karti hain, woh │
+  │  tagged posts       │  already collab-friendly hain ⭐                  │
+  ├─────────────────────┼───────────────────────────────────────────────────┤
+  │ Creator khud sign   │ Baad mein website pe "Claim profile / Join"       │
+  │ up kare             │                                                   │
+  └─────────────────────┴───────────────────────────────────────────────────┘
+
+  Best trick: homegrown brands ke "tagged" posts scrape karo. Jo creators
+  already chhote brands ke saath kaam kar chuke hain, woh tumhare platform ke
+  liye sabse perfect hain.
+
+  ---
+
+  Toh kaun kya karega
+
+  ┌───────────────────────────┬──────────────┬─────────────────────────────┐
+  │           Kaam            │     Tool     │           Manual?           │
+  ├───────────────────────────┼──────────────┼─────────────────────────────┤
+  │ Hashtag list banana       │ Tum          │ Haan, sirf ek baar (~50     │
+  │                           │              │ hashtags)                   │
+  ├───────────────────────────┼──────────────┼─────────────────────────────┤
+  │ Creators discover karna   │ Apify        │ ❌ Automatic                │
+  ├───────────────────────────┼──────────────┼─────────────────────────────┤
+  │ Filter karna (1K–100K,    │ Tumhari      │ ❌ Automatic                │
+  │ active)                   │ script       │                             │
+  ├───────────────────────────┼──────────────┼─────────────────────────────┤
+  │ Weekly growth refresh     │ Graph API    │ ❌ Automatic                │
+  ├───────────────────────────┼──────────────┼─────────────────────────────┤
+  │ Niche/city detect karna   │ AI           │ ❌ Automatic                │
+  └───────────────────────────┴──────────────┴─────────────────────────────┘
+
+  Kya main 5–6 niches ke liye starting hashtags ki list aur Apify ka pehla
+  scraping script bana doon?
+
+❯ toh usse accha mai appify se direct creators dhund scrap kar lu toh           
+
+⏺ Haan, shuruaat ke liye ye sabse simple aur sahi tareeka hai. Sab kuch Apify se
+  karo: discovery bhi, data bhi, weekly refresh bhi. Graph API ka setup lamba
+  hai, use baad ke liye chhod do.
+
+  Sirf Apify wala flow
+
+  Hashtags list (ek baar)
+     ↓
+  Apify Hashtag Scraper → usernames
+     ↓
+  Apify Profile Scraper → followers, bio, posts, likes, comments, reel views
+     ↓
+  Script: filter (1K–100K, active) + engagement + growth + AI niche
+     ↓
+  Database ✅
+     ↓
+  Har hafte Apify Profile Scraper dobara → growth track 📈
+
+  Fayde aur nuksaan
+
+  ┌────────────────────────────┬────────────────────────────────────────────┐
+  │          ✅ Fayde          │              ⚠️ Dhyan rakhna               │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ Ek hi tool, setup 1 din    │ Har scrape ke paise lagte hain. Weekly     │
+  │ mein                       │ refresh se kharch badhega                  │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ Reel views bhi milte hain  │ Audience data (age, city) nahi milega. AI  │
+  │                            │ se estimate karna padega                   │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ Personal accounts ka       │ Instagram ke terms ke khilaf hai. Chhote   │
+  │ public data bhi milta hai  │ scale pe chalta hai, par risk rehta hai    │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ Meta App Review ka         │ Kabhi kabhi Apify actor fail ho jaata hai  │
+  │ jhanjhat nahi              │ ya data adhoora aata hai                   │
+  └────────────────────────────┴────────────────────────────────────────────┘
+
+  Kharch kaise control karoge
+
+  - Shuru mein 200–300 creators rakho, hazaaron nahi
+  - Weekly refresh mein sirf profile data lo (followers count), poore posts har
+    hafte mat lo
+  - Posts ka detailed data har 2–4 hafte mein ek baar lo
+  - Apify ke free monthly credits se shuru karo. Apni zaroorat ke hisaab se
+    Apify ki website pe current pricing check kar lena
+
+  Graph API kab laana
+
+  Jab ye dono mein se koi ek ho:
+  1. Apify ka kharch zyada hone lage → weekly refresh Graph API se karo (free)
+  2. Brands ko real audience data chahiye ho → creators ko "Connect Instagram"
+     karwao
+
+  Abhi ke liye: sirf Apify. ✅
+
+  Kya main Apify ka pehla script likh doon (hashtag se creators nikalna + filter
+  + data save karna)?
+
+❯ apify se mujhe kya kya milegega ek baar dekh ke bata                          
+⏺ Fetch(https://apify.com/apify/instagram-profile-scraper)
+  ⎿  Received 45.9KB (200 OK)
+
+⏺ Fetch(https://apify.com/apify/instagram-hashtag-scraper)
+  ⎿  Received 62.3KB (200 OK)
+
+⏺ Maine Apify ke dono scrapers ke pages check kiye. Short mein: creator ka 
+  public data poora mil jaata hai, lekin audience ka data (age, gender, city) 
+  aur creator ka contact nahi milta. Har cheez ki detail neeche hai.
+
+  ---
+
+  1. Instagram Hashtag Scraper (creators dhoondhne ke liye)
+
+  Tum hashtag doge, jaise #punefoodie, aur har post ke liye ye milega:
+
+  ┌───────────────────┬─────────────────────────────────────────────────────┐
+  │       Data        │                       Fields                        │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Post kisne daali  │ ownerUsername, ownerFullName, ownerId               │
+  │ ⭐                │                                                     │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Post ki details   │ caption, hashtags, mentions, date, post URL         │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Engagement        │ likes, comments                                     │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Location ⭐       │ locationName, locationId (jaise "Pune,              │
+  │                   │ Maharashtra")                                       │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Reels pe extra    │ videoPlayCount (views), sharesCount, video          │
+  │                   │ duration, music                                     │
+  └───────────────────┴─────────────────────────────────────────────────────┘
+
+  Options: hashtags list, resultsType ("posts" ya "reels"), resultsLimit (har
+  hashtag se kitne results).
+
+  ownerUsername se tumhe creators ki list milegi, aur locationName se pata
+  chalega ki creator kis city ka hai.
+
+  ---
+
+  2. Instagram Profile Scraper (creator ka poora data)
+
+  Username doge toh ye milega:
+
+  Profile info
+  - username, fullName, biography, profile pic
+  - followersCount, followsCount, postsCount
+  - isBusinessAccount, businessCategoryName (jaise "Blogger", "Digital Creator")
+  - verified, private
+  - externalUrl (bio ka link, jaise Linktree ya website)
+
+  relatedProfiles ⭐: Instagram jo "similar accounts" dikhata hai, unki list.
+  Isse ek creator se naye creators automatically milte jaate hain.
+
+  Last 12 posts (latestPosts), har post ka:
+  - type (image / video / carousel)
+  - caption, hashtags, mentions
+  - likesCount, commentsCount
+  - videoViewCount (video/reel views)
+  - timestamp (kab post hua)
+  - taggedUsers (kisko tag kiya, jisse brand collabs pata chalte hain ⭐)
+  - isPinned
+
+  about section (country, account kab bana, purane usernames): ye sirf paid plan
+  mein milta hai.
+
+  ---
+
+  3. Is data se tum kya calculate kar paoge
+
+  ┌──────────────────┬──────────────────────────────────────────────────────┐
+  │  Tumhara metric  │                        Kaise                         │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Engagement rate  │ (avg likes + avg comments) ÷ followers, last 12      │
+  │                  │ posts se                                             │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Reel reach       │ avg reel views ÷ followers                           │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Consistency      │ 12 posts ki dates se posts per week                  │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Engagement trend │ Pehle 6 posts vs latest 6 posts compare              │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Growth           │ Har hafte followersCount save karke                  │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Niche            │ Bio + captions + hashtags → AI                       │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ City             │ Posts ka locationName + bio → AI                     │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Collab           │ taggedUsers / mentions mein brands                   │
+  │ experience       │                                                      │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Contact          │ Bio mein email ho toh text se nikal lo               │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ Fake check       │ Followers bahut zyada par likes/comments bahut kam   │
+  └──────────────────┴──────────────────────────────────────────────────────┘
+
+  ---
+
+  4. Kya NAHI milega ❌
+
+  - Audience ki age, gender, city. Ye sirf creator ke Instagram Insights mein
+    hota hai. Isko AI se estimate karna padega (language, content, location se)
+  - Email / phone. Sirf tab milega jab creator ne bio mein likha ho
+  - Follower history. Isliye har hafte scrape karke khud save karna padega
+  - Purane posts. Sirf latest 12
+  - Hidden likes. Agar creator ne likes hide kiye hain toh likesCount ki value
+    -1 aati hai, ise handle karna
+
+  ---
+
+  5. Kharch aur limits
+
+  ┌─────────────┬────────────────────────────────────────────┐
+  │             │                 Free plan                  │
+  ├─────────────┼────────────────────────────────────────────┤
+  │ Free credit │ $5 per month                               │
+  ├─────────────┼────────────────────────────────────────────┤
+  │ Rate        │ ~$2.60 per 1,000 results (profile ya post) │
+  ├─────────────┼────────────────────────────────────────────┤
+  │ Matlab      │ ~1,900 results har mahine free             │
+  └─────────────┴────────────────────────────────────────────┘
+
+  Ek example se samjho:
+  - 30 hashtags × 50 posts = 1,500 results, jisse ~800–1,000 unique creators
+    milenge
+  - Filter ke baad ~300 creators bachenge, jinka profile scrape = 300 results
+  - Total ~1,800 results, jo lagbhag free credit mein aa jaata hai ✅
+  - Weekly refresh (300 profiles × 4 hafte = 1,200/month) ke liye baad mein paid
+    plan lagega
+
+  Dhyan rakhna:
+  - Hashtag Scraper free plan pe sirf results ka pehla page deta hai
+  - Ek run mein ya toh posts ya reels, dono saath nahi
+  - Profile data mein relatedProfiles aur posts ki wajah se file badi hoti hai.
+    Export karte waqt jo nahi chahiye woh hata sakte ho
+  - Prices badalte rehte hain, isliye scrape karne se pehle Apify pe current
+    pricing dekh lena
+
+  ---
+
+  Tumhare liye best combo
+
+  Hashtag Scraper (reels mode) → usernames + city + reel views
+          ↓
+  Profile Scraper → followers, bio, 12 posts, related profiles
+          ↓
+  relatedProfiles se naye creators → wapas Profile Scraper (snowball 🔁)
+
+  Kya main ab ye script likh doon? Hashtag → creators → filter → database, sab
+  ek saath.
+
+  Sources:
+  - Apify Instagram Profile Scraper
+  - Apify Instagram Hashtag Scraper
+
+❯ apify ke badle open source scrapper bhii use kar sakte locally chalake        
+
+⏺ Haan, kar sakte ho. Open source scrapers free hain, par free ka matlab 
+  "aasaan" nahi hai. Apify ke paise asal mein proxies, blocking se bachaav aur
+  maintenance ke hain. Local chalaoge toh ye sab tumhe khud sambhalna padega.
+
+  Main open source options
+
+  Tool: Instaloader (Python)
+  Kya hai: Sabse popular. Profiles, posts, followers, hashtags
+  Login chahiye?: Profile ke liye kabhi kabhi nahi, par jaldi block hota hai.
+  Hashtag ke liye haan
+  Verdict: ⭐ Best option
+  ────────────────────────────────────────
+  Tool: instagrapi (Python)
+  Kya hai: Instagram ki mobile app ka private API copy karta hai, data zyada
+  milta hai
+  Login chahiye?: Haan, hamesha
+  Verdict: Powerful, par account ban ka risk zyada
+  ────────────────────────────────────────
+  Tool: Playwright / Selenium (apna scraper)
+  Kya hai: Browser khol ke page se data nikalna
+  Login chahiye?: Haan
+  Verdict: Slow, aur Instagram ka design badla toh code toot jaata hai
+
+  Instaloader ka example
+
+  import instaloader
+
+  L = instaloader.Instaloader()
+  # L.login("dummy_account", "password")  # zyada data ke liye login
+
+  profile = instaloader.Profile.from_username(L.context, "creator_username")
+
+  print(profile.followers)              # followers
+  print(profile.followees)              # following
+  print(profile.biography)              # bio
+  print(profile.mediacount)             # total posts
+  print(profile.is_business_account)
+  print(profile.business_category_name)
+
+  for i, post in enumerate(profile.get_posts()):
+      if i == 12:
+          break
+      print(post.date, post.likes, post.comments, post.video_view_count)
+
+  Problems jo aayengi ⚠️
+
+  1. Blocking. Instagram bina login ke zyada requests jaldi rok deta hai. Tumhe
+     "Please wait a few minutes" ya 401/429 errors milenge.
+  2. Login se account ban ho sakta hai. Apna personal account kabhi use mat
+     karna. Dummy account banao, aur maan ke chalo ki woh kabhi bhi ban ho sakta
+     hai.
+  3. IP block. Tumhare ghar ka IP block ho sakta hai. Isse bachne ke liye
+     proxies lagti hain, aur woh bhi paid hoti hain.
+  4. Slow chalana padega. Har request ke beech 5–30 second ka gap. 300 creators
+     mein kai ghante lag sakte hain.
+  5. Toot-ta rehta hai. Instagram cheezein badalta hai, aur Instaloader ka
+     hashtag feature aksar kaam nahi karta. Fix ka wait karna padta hai.
+  6. Legal risk same hai. Instagram ke terms dono ke against hain, chahe Apify
+     ho ya local. Login karke scrape karna aur bhi zyada strict maana jaata hai.
+
+  Apify vs Local
+
+  ┌────────────────────┬─────────────────────────┬──────────────────────────┐
+  │                    │          Apify          │   Local (Instaloader)    │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Kharch             │ $5/month free, phir     │ Free (proxies lagein toh │
+  │                    │ paid                    │  paid)                   │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Setup              │ 10 minute               │ 1–2 din + debugging      │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Blocking           │ Apify sambhalta hai     │ Tumhe sambhalna hai      │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Hashtag discovery  │ ✅ Achha chalta hai     │ ⚠️ Unreliable            │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Account ban risk   │ Tumhara account         │ Dummy account ban ho     │
+  │                    │ involved nahi           │ sakta hai                │
+  ├────────────────────┼─────────────────────────┼──────────────────────────┤
+  │ Scale (1000+       │ ✅                      │ ❌ Mushkil               │
+  │ creators)          │                         │                          │
+  └────────────────────┴─────────────────────────┴──────────────────────────┘
+
+  Mera suggestion: hybrid
+
+  Discovery (hashtag → naye creators)  →  Apify (ek baar, free credits mein)
+  Weekly refresh (sirf followers count) →  Instaloader local (free)
+
+  Discovery ka kaam bhaari hai aur Instaloader mein unreliable hai, isliye woh
+  Apify se karo. Weekly refresh mein bas ek halki request jaati hai (followers
+  count), toh woh Instaloader dheere dheere free mein kar lega. Isse Apify ka
+  monthly kharch lagbhag zero rahega.
+
+  Agar Instaloader bhi block hone lage, toh weekly refresh bhi Apify pe shift
+  kar dena. Tumhara code dono ke saath kaam kare, aisa design karenge.
+
+  Kya main is hybrid setup ka script likh doon? Apify discovery + Instaloader
+  weekly refresh + database.
