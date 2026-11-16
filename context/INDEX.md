@@ -4,128 +4,110 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-16 (S-002).
+Last rewritten: 2026-11-17 (S-003).
 
 ## Where things stand
 
-Brand Deal Matcher is a planned website for small and homegrown Indian brands.
-A brand enters niche, city, follower range and target audience; the site
-returns a ranked list of growing Instagram creators (1K–100K followers) with a
-0–100 match score. Search and a blurred preview are free; the brand pays
-(Razorpay/UPI) to unlock handles, contact, growth stats and an LLM-written
-explanation, then contacts the creator itself. The user treats it as a real
-product, not only the OJT/college project it started as. The full agreed
-design, with reasons, is in `docs/product-design.md`.
+Brand Deal Matcher is a website for small/homegrown Indian brands: a brand
+describes its product and gets ranked growing Instagram creators (1K–100K) with a
+match score and a reason. The project lives in `~/Documents/brand deal matcher`
+and is pushed to the private repo https://github.com/aarnavp25-sys/brand-deal-macher
+(`main`, first commit 9c90af0). Design: `docs/product-design.md` (product, flows,
+business) and `docs/data-and-matching.md` (verified Apify facts, pipeline,
+taxonomy, matching, LLM/AWS notes; supersedes the older Apify/scoring parts).
 
-Nothing is built. The workspace `~/Documents/brand deal matcher` (renamed from
-`~/Documents/ojt` on 2026-11-16) holds only `A.txt` (the raw transcript of the
-planning chat, S-001; formerly `hist001.txt`), `docs/`, `context/`,
-`CLAUDE.md` and `.claude/commands/`. There is no source code, no package
-manifest, no tests and no git repository. All stack and build-order statements
-are plans.
+A working prototype exists, all Python stdlib, all local. `pipeline/` scrapes
+with Apify under hard spend caps, filters, computes metrics, classifies with
+keywords (`keyword-v1`) into 16 categories and 42 product types, and loads
+Supabase (project `yqaducvspzrqokcqwlga`, ap-south-1, free; 7 tables, RLS on,
+no policies; raw JSON in Storage bucket `raw-scrapes`). Supabase held 270
+creators / 226 usable (active, not fake) before the last round; every category
+has 9–20 usable creators. `admin/` (port 8787) is a full local admin dashboard;
+`demo/` (port 8788) is the brand-facing demo: brief → "We understood" →
+~20 mixed creators (Specialist / Wider reach / Potential) with score breakdown
+and a templated explanation. Keys live only in `admin/.env` (gitignored).
 
-What the planning chat (S-001) settled: website only (the user refused a
-WhatsApp/concierge/manual stage); no budget or price anywhere, because the
-brand negotiates with the creator directly; only growing creators up to 100K
-followers; creator discovery through Apify (Hashtag Scraper in reels mode, then
-Profile Scraper, then a `relatedProfiles` snowball) rather than Graph API,
-because Graph API cannot search and would force the user to find usernames by
-hand; deterministic scoring with weights niche 25, growth 25, engagement 20,
-location 15, audience fit 10, consistency 5, with the LLM only explaining the
-breakdown; stack Next.js + Supabase + Razorpay + Apify + LLM API + Vercel; and
-a 9-step build order that starts with scraping creators into the database.
+What is weak: classification is keyword-based, so product matches are noisy
+(e.g. `rider_girls_pune` appears for men's jewelry because of "chain"), and
+creator gender and content quality are empty. Brief parsing and explanations are
+also keyword/template. All three wait for an LLM: no Anthropic key yet; the
+user's AWS account has $100 credits (Free plan, until 2027-05-16) but Bedrock
+access to Claude was never tried, and the user postponed AWS on 2026-11-17.
 
-How S-001 ended: Claude compared open-source scrapers with Apify and proposed a
-hybrid (Apify for discovery, Instaloader locally for the weekly
-followers-count refresh, with fallback to Apify), then asked whether to write
-that script. The user never answered; the next message in this workspace was
-S-002.
+How S-003 ended: the user asked to spend the remaining Apify credit and to try
+the Profile Scraper. A first round-4 script picked the wrong search terms; its
+run was aborted at $0.26 (97 items recovered). The corrected `round4b.sh` was
+still running in the background: remaining round-4 search (cap $0.40) → reels
+(cap $0.30) → load → Profile Scraper on 15 top creators writing 2026-11-17
+follower snapshots (the first second-date snapshots, i.e. first growth data).
+Apify had $0.86 left before round4b; the cycle resets 2026-12-16.
 
-S-002 (2026-11-16) did no product work. It read `A.txt` in full, moved
-the durable design into `docs/product-design.md`, and set up this context
-system. While reading it found several design gaps that will bite during the
-build (see Open decisions): the niche/city hard filter makes 40 of the 100
-score points constant; audience fit has no data source; growth needs weeks of
-snapshots before it means anything; the paywall's value is thin because
-handles are public; Apify pricing and field names are unverified. It also found
-that the transcript's paths point at `~/Desktop/ojt`, not this workspace.
-Mid-session the folder and transcript were renamed, which split the files
-across two folders; they were consolidated here. A stray `~/Documents/ojt` with
-duplicate copies remains; Claude was blocked from deleting it (it was the
-session's workspace), so the user must delete it.
-
-Current obstacle: none technical. The user has not picked the first build step,
-and the weekly-refresh method is undecided.
+Pending on the user: revoke the Supabase `sbp_…` token and regenerate the Apify
+token (both were pasted in chat); delete the stray `~/Documents/ojt` folder.
 
 ## Continue from here
 
-1. Ask the user which first step to take; both were offered and are unanswered:
-   (a) the scraping script: Apify Hashtag Scraper → Profile Scraper → filter
-   (1K–100K, posted in last 30 days) → save raw JSON + DB rows; or
-   (b) project setup: Next.js + Supabase in this folder.
-   Recommended: (a), because build order step 1 is real data, and the first
-   real Apify run verifies the unverified field names and pricing in
-   `docs/product-design.md`.
-2. Before writing the scraper, get the user's call on the weekly-refresh tool
-   (Open decision 1); the scraper's storage design (snapshots table) depends on it.
-3. Suggest `git init` before the first code is written; there is no version
-   control yet.
+1. Verify round4b's result (its scratchpad log may be gone): in admin
+   (`python3 admin/server.py`) check total/usable counts per category; in
+   Supabase check `creator_snapshots` for rows dated 2026-11-17; check Apify
+   usage (`/v2/users/me/limits`). Load anything that was scraped but not loaded.
+2. Commit and push the uncommitted changes (round-4 terms in
+   `pipeline/taxonomy.py`, `docs/data-and-matching.md`, docs pointer, context).
+   Push needs `gh auth setup-git` once, or the `-c credential.helper` form in 001.
+3. Next build step: LLM classification (`classification_method='llm'`) for all
+   creators — fills products with evidence, gender, content style; then vision
+   quality from thumbnails; then swap `parse_brief`/`explain` in `demo/server.py`
+   to Claude. Needs either an Anthropic API key or a Bedrock test in us-east-1.
+4. Before showing the demo: run its 6 example briefs and clean wrong product
+   links in admin (start with `rider_girls_pune` → men's jewelry).
 
 ## Topic -> file
 
 | Topic | File |
 |---|---|
-| Product idea, target users, positioning | docs/product-design.md; history in 001 (S-001) |
-| Why budget/price was removed (user quote) | docs/product-design.md; 001 (S-001) |
-| Why WhatsApp/concierge flow was refused | docs/product-design.md; 001 (S-001) |
-| Brand flow, pages, paywall, pricing examples | docs/product-design.md |
-| Apify actors: fields, inputs, limits, pricing | docs/product-design.md; 001 (S-001) |
-| Graph API: what it is, limits, why deferred | docs/product-design.md; 001 (S-001) |
-| Open-source scrapers (Instaloader etc.) vs Apify | 001 (S-001) |
-| Scoring weights and matching steps | docs/product-design.md |
-| Design gaps / contradictions found in transcript | 001 (S-002) |
-| Brand-interview message (English, 8 questions) | A.txt lines 606–639; summary 001 (S-001) |
-| Validation / real-world risks (marketplace, disintermediation, moat) | A.txt lines 371–523; summary 001 (S-001) |
-| Legal: Instagram ToS, DPDP, ASCI, 194R | docs/product-design.md |
-| Context system setup and rules | CLAUDE.md; 001 (S-002) |
-| Raw planning transcript | A.txt |
+| Product idea, positioning, brand flow, paywall | docs/product-design.md |
+| Why budget/price and WhatsApp flow were refused | docs/product-design.md; 001 (S-001) |
+| Apify actors, prices, filters, what they return | docs/data-and-matching.md |
+| Pipeline steps, metrics, fixes (median ER, posts/week, fake rule) | docs/data-and-matching.md; failures in 001 (S-003) |
+| 16 categories, product types, search terms per round | pipeline/taxonomy.py; docs/data-and-matching.md |
+| Matching: product fit, labels, weights, mix, explanation | docs/data-and-matching.md; demo/server.py |
+| Why DB-first instead of live scraping | docs/data-and-matching.md |
+| Claude model prices, Bedrock vs Claude Platform on AWS | docs/data-and-matching.md |
+| AWS credits, card question | 001 (S-003) |
+| Supabase schema, ref, keys handling | pipeline/schema.sql; 001 (S-003) |
+| Admin dashboard features | admin/index.html; 001 (S-003) |
+| Demo website and test briefs | demo/; 001 (S-003) |
+| Every failed attempt in S-003 (network, timeouts, wrong terms, git push) | 001 (S-003) |
+| GitHub repo and push method | README.md; 001 (S-003) |
+| Context system rules | CLAUDE.md; 001 (S-002) |
+| Raw first planning chat | A.txt |
 
 ## Open decisions
 
-1. Weekly follower-refresh tool. Options: (a) Apify Profile Scraper weekly
-   (simple, costs credits: 300 creators × 4 ≈ 1,200 results/month, over the
-   free tier); (b) hybrid with local Instaloader (free, but blocks, needs a
-   dummy account, contradicts the earlier "avoid" verdict); (c) Graph API
-   Business Discovery (free, official, but needs Meta app setup and works only
-   on Business/Creator accounts). Last proposal was (b); unanswered.
-2. First build step: scraping script vs Next.js + Supabase setup.
-3. Filter vs score overlap: keep niche/city as hard filters (then drop or
-   re-weight niche 25 + location 15), or make them soft (related niches,
-   nearby cities) so those points rank results.
-4. Audience fit (10 pts) and the target-audience form field: drop for now,
-   keep as a labelled LLM estimate, or wait for creator Instagram connect.
-5. Paywall value: what exactly an unlock sells, given handles are public and
-   contact is often missing. Pricing amounts (₹99 / ₹399 / ₹999) are only examples.
-6. Validation interviews: whether the brand message was sent and whether
-   interviews continue after the user refused the "watsapp wala" route.
-7. Pipeline language (Python script vs Node inside Next.js); not formally decided.
-8. Claude-made choices from S-002 the user may overrule: backfilled S-001
-   entry, design moved to docs/, auto-memory removed.
+1. LLM route: Anthropic API key (needs a card/prepaid) vs AWS Bedrock with the
+   $100 credits (free-plan access to Claude unverified; Amazon Nova fallback).
+   Model for bulk classification: Opus 5.5 (default) vs Haiku 5.5 (~20x cheaper).
+2. Weekly follower refresh: Apify (~$3/month for 300, over free tier with other
+   work) vs local Instaloader vs Graph API. Profile Scraper test (round4b) is the
+   first data point.
+3. Phone numbers in scraped bios: hide from brands or not (DPDP).
+4. Unlock price and what an unlock sells (handles are public).
+5. When to deploy (Amplify/Vercel) — user said local only for now.
 
 ## Ruled out
 
-- Budget field, price estimate, budget-fit score — user refused. (001, S-001)
-- WhatsApp / Google Form / concierge manual matching stage — user refused. (001, S-001)
-- Creators above 100K followers. (001, S-001)
-- Graph API as the discovery source — cannot search, needs known usernames. (001, S-001)
-- Paid creator-data APIs (Modash, HypeAuditor, Phyllo) — too costly. (001, S-001)
-- instagrapi and Playwright/Selenium scrapers — ban risk, brittle. (001, S-001)
-- Scraping at search time — slow, costly, can fail live. (001, S-001)
-- LLM computing the match score — not deterministic or defensible. (001, S-001)
+- Budget/price fields; WhatsApp/concierge flow; creators >100K. (001, S-001)
+- `relatedProfiles` snowball — Profile Scraper does not return it. (001, S-003)
+- Followers-count scraper for cheap refresh — same price as a profile. (001, S-003)
+- Live scraping at search time. (docs/data-and-matching.md)
+- "Lifestyle" as a main category. (docs/data-and-matching.md)
+- Raw Apify JSON in a jsonb column — statement timeout. (001, S-003)
+- Chatbot, login, Instagram login, payment in the demo — later. (001, S-003)
 
 ## Sessions
 
 | # | Date | Summary | File |
 |---|---|---|---|
 | S-001 | unknown (≤ 2026-11-16) | Product planning chat; backfilled from A.txt | 001 |
-| S-002 | 2026-11-16 | Deep read of A.txt; context system set up | 001 |
+| S-002 | 2026-11-16 | Deep read of transcript; context system set up | 001 |
+| S-003 | 2026-11-16 → 17 | Apify research; 16-category pipeline; 270 creators in Supabase; admin + demo; GitHub | 001 |

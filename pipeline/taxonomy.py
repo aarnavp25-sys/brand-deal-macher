@@ -82,6 +82,17 @@ for _cat, _terms in {
 }.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 
+# Round-4 search terms (2026-11-17): last Apify credit of the cycle, thinnest categories.
+for _cat, _terms in {
+    "Education & Finance": ["pune study creator", "marathi education creator", "upsc aspirant creator", "money tips hindi"],
+    "Jewelry & Accessories": ["handmade jewellery pune", "oxidised jewellery influencer", "pune watch lover"],
+    "Entertainment & Comedy": ["marathi reels creator", "hindi relatable reels", "pune skit creator"],
+    "Gaming": ["marathi gaming", "free fire creator india", "valorant india creator"],
+    "Music & Dance": ["mumbai singer", "pune guitarist"], "Home Decor & Handmade": ["pune plant lover", "diy decor india"],
+    "Sports": ["pune cricket", "pune cyclist"], "Tech & Gadgets": ["tech marathi"],
+}.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
 # product type: (category, keywords) — what a brand can sell, and evidence words in posts
 PRODUCT_TYPES = {
     "home baked goods": ("Food & Beverages", ["cake", "cookies", "brownie", "bake", "homebaker", "dessert"]),

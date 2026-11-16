@@ -1,5 +1,8 @@
 # Brand Deal Matcher — Product Design
 
+> **Updated 2026-11-17:** the Apify field list, the `relatedProfiles` snowball and the scoring
+> weights below are superseded by `docs/data-and-matching.md` (verified with real runs).
+
 Durable product knowledge: what the product is and why it is shaped this way.
 Source of every decision here: the planning session recorded in
 `context/001-project-genesis-and-context-setup.md` (S-001), whose raw transcript

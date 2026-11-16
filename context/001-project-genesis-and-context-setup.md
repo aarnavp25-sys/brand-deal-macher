@@ -100,3 +100,73 @@ Open:
 - The VS Code workspace and this Claude Code session were still pointed at `~/Documents/ojt`; the next session must be opened at `~/Documents/brand deal matcher`. Claude Code's auto-memory folder is keyed on the project path, so the new path starts with an empty one (the old one was emptied anyway).
 - Stray `~/Documents/ojt` still exists (copies of `CLAUDE.md`, `context/`, `docs/`, `.claude/commands/`; nothing unique). User to delete it by hand.
 - Claude-made choices for the user to confirm or overrule: S-001 numbered as a backfilled session in this file; product design placed in `docs/product-design.md`; auto-memory removed.
+
+---
+
+## S-003 · 2026-11-16 → 2026-11-17 · Apify research, 16-category data pipeline, Supabase, admin + demo, GitHub
+
+Same Claude Code conversation as S-002 (workspace still opened at the stray `~/Documents/ojt`; all files live in `~/Documents/brand deal matcher`). Durable results are in `docs/data-and-matching.md`.
+
+Asked:
+- "abhi mujhe ek baar mera work flow samjha do" → "brand deal matcher ke liye"
+- (pasted an Apify API token) "ispe instagram scapper dhund aur apne use case ke liye acche se dekh ki data scrap karta hai ... सारे parameters देख ले, कोई filter डालने का option आ रहा है ... 100K से नीचे"
+- "कितने कैटेगरीज बना सकते हैं ... हर कैटेगरी में हमें कितने क्रिएटर्स रखने चाहिए ... प्रोटोटाइप ... डेमो" → "तुमने जैसे बहुत सारे मेन जाने दिए, टैक है ... स्पोर्ट्स ... एंटरटेनमेंट"
+- Men's jewelry walkthrough; per-creator "पॉसिबल टारगेट ... उसने क्या क्या चीज़ों पे रील बनाई है"; watch specialist vs fashion creator; "दोनों को मिक्स ऑफ बोथ मिलना चाहिए ब्रांड को ... 20-30 क्रिएटर्स ... एडिटिंग अच्छी है, ये क्रिएटर्स की रीच अच्छी है"
+- "एग्जैक्ट वर्क फ्लो बता ... LLM मॉडल यूज़ करेंगे, क्या क्या मॉडल"; AWS credits; "live scraping better रहेगा या फिर पहले से स्क्रैप करा हुआ"
+- (pasted Supabase access token `sbp_…`) "tere pass total 4 dollars hai apify ke aur tujhe abhii haar category ke kuch creators dhundne hai aur usse superbas mai sotore kar"
+- "एक एडमिन डैशबोर्ड बना दे ... एडिट कर पाऊँ ... फ़िल्टर ... एक दिन पहले का, 2 दिन पहले का ... क्लोज पे रन करना, डिप्लॉय वगैरह नहीं करना"
+- "डेमो दिखाने के लिए एक वेबसाइट ... चैटबॉट ... इंस्टाग्राम यूज़र खुद से लॉगिन ... ये सब अभी मत डालना ... कोई आए ब्रांड ... एक्सप्लेन करे ब्रांड के हिसाब से और हम दिखा पाए"
+- AWS "100 credits mil gaye hai abhi bata mai kya karu" → "kahi pe bhi credit card ... daalna padega" → "haa toh th k hai isse jana abhi ke liye"
+- "baaki credits se naaye creators dhund ke supabase mai add kardo"; "yaha git repo bana li hai yha push hi kar do"; "instagram profile scrapper bhii use karke dekh lena"
+
+Done:
+- Explained workflows; design answers moved to `docs/data-and-matching.md`.
+- Apify research: listed store actors, read input schemas and pricing via API, ran tests (~$0.10): hashtag #punefoodie 15 reels, search "pune food blogger" 15, profile 6, followers-count 3, reel 2×6.
+- Supabase: applied `pipeline/schema.sql` via Management API (`/v1/projects/yqaducvspzrqokcqwlga/database/query`), 7 tables, RLS on with no policies; later added `raw_scrapes.storage_path`.
+- Wrote `pipeline/taxonomy.py`, `pipeline/apify_run.py` (spend cap via `maxTotalChargeUsd`, retries, re-attach), `pipeline/process.py` (filter/build/load/raw).
+- Search round 1 (47 terms × 15, $1.44, 533 items, run jvxxSuKnPnFxBjuZD), round 2 (19 city terms, $0.55, 202 items, run gkdquUu4E5RzFkCEn), reels 223×2 (~$1.17) → loaded 223 creators, 2,771 posts, 1,081 product links; 187 usable.
+- Round 3 (20 terms, $0.45, 160 items) + reels 47 → 47 new creators loaded; totals 270 / 226 usable.
+- Built `admin/server.py` + `admin/index.html` (port 8787): overview KPIs incl. added last 24h/2d/7d, creators table with all filters, date range, sort, bulk status/category/delete, CSV, edit drawer with products and posts, taxonomy editor, scrape runs, auth users. Tested with curl and Playwright.
+- Built `demo/server.py` + `demo/index.html` (port 8788): brief → "We understood" chips → ~20 mixed creators with score, label, breakdown bars, templated explanation. Tested 6 briefs.
+- Fixed posts_per_week in DB with one SQL update (median now 1.96).
+- Wrote `README.md`, `.gitignore`; `git init`, commit 9c90af0, pushed to private repo https://github.com/aarnavp25-sys/brand-deal-macher (main).
+- Updated `CLAUDE.md` Build/run section.
+
+Did not work:
+- `apify_run.py` polling crashed: `ConnectionResetError: [Errno 54] Connection reset by peer`. The Apify run kept going server-side; re-attached by run id. Added retries (never retry the POST that starts a run — could start a second billed run).
+- Dataset download with `limit=1000` hit `TimeoutError: The read operation timed out` (profile items are large). Fixed with pages of 100 through the retrying `call()`.
+- `python3 -I process.py` → `ModuleNotFoundError: No module named 'taxonomy'` (`-I` drops the script dir from sys.path). Fixed with `sys.path.insert` in process.py.
+- Inline `python3 -c` with `\"` inside f-strings → `SyntaxError: unexpected character after line continuation character` (several times). Use heredoc script files.
+- Loading raw Apify JSON into `raw_scrapes.items` jsonb → HTTP 500 `57014 canceling statement due to statement timeout`. Raw JSON now goes to Storage bucket `raw-scrapes`.
+- Mean-based ER gave 591% (viral post) → switched to median; `piyush.zgamer` still ~590% (data anomaly, left in DB).
+- posts_per_week was 1.4 for everyone (12 posts / 8.57 weeks) → span-based `posting_rate()`.
+- Fake rule "ER <0.5% at ≥10K" flagged accounts with 98x reel reach → added reach <0.3 condition (31 flagged).
+- Brand pages passed the filter (`7days_mens_wear`, bio "Premium Quality Only") → `BRANDISH` regex sets `status=review` (5 accounts).
+- Demo matching v1: "cakes" not matched (no plural forms); "gaming accessories" ranked Jewelry first; keyword product evidence false positives (`rider_girls_pune` via "chain", `babyshower_dance_group_morya_` via "ring"); gamers got 0 Specialist labels. All fixed in `demo/server.py`; `rider_girls_pune` still shows as #2 "wider" for men's jewelry (fix data in admin).
+- Profile Scraper has no reel views and no `relatedProfiles` (0/21) — snowball plan dead.
+- `git push` over HTTPS: `fatal: could not read Username for 'https://github.com': Device not configured`. Pushed with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push` (no global config change).
+- Round 4 first attempt (`round4.sh`): term list built as `[x for v in EXTRA_SEARCH_TERMS.values() for x in v][-22:]`, which flattens by category and picked round-3 terms too. Its run id was hidden by `| tail -1`. Found via `/acts/apify~instagram-search-scraper/runs?desc=1`, aborted run rn4Qji7O28b4GLCrF at $0.26 (97 items, recovered). Retried with a hardcoded list (`round4b.sh`).
+- Playwright click with a non-unique selector failed in strict mode (matched 50 cells); use `:first-child`.
+
+Established:
+- Apify facts, Claude/AWS pricing and matching design: see `docs/data-and-matching.md`.
+- Apify spend this cycle: $4.137 after the abort, before round4b.
+- Supabase: project ref `yqaducvspzrqokcqwlga`, ap-south-1, free, Postgres 17; legacy `service_role` key works for PostgREST and Storage. Kept locally only in `admin/.env` (gitignored, mode 600).
+- Git identity on this Mac: `aarnavp25-sys` / university email; `gh` logged in as aarnavp25-sys.
+- AWS: Free plan, $100 credits until 2027-05-16; Bedrock access for Anthropic models not tried.
+- Instagram bios contain phone numbers (e.g. WhatsApp) — DPDP decision needed before showing to brands.
+
+User decided:
+- 16 categories, including Tech, Sports, Gaming, Entertainment (user: "ये सारी चीज़ें तो भूल ही गया").
+- Per-creator product list (proven/possible) is the user's own idea; results must mix specialists and wider creators, 20–30, and rank by quality (editing, reach) too.
+- Admin and demo run locally only; no deploy. Demo excludes chatbot, login, Instagram login and payment for now ("ये सब अभी मत डालना ... बाद में लास्ट में").
+- AWS work postponed ("isse jana abhi ke liye").
+- Spend all remaining Apify credit on more creators; push the project to GitHub.
+
+Open:
+- `round4b.sh` (scratchpad, background task) was running when this entry was written: 12 remaining round-4 terms (cap $0.40) → reels (cap $0.30) → load → Profile Scraper on 15 top creators (cap $0.05) writing 2026-11-17 follower snapshots (first growth data). Next session: check Supabase counts, `creator_snapshots` with 2 dates, and Apify usage. Scratchpad files may be gone.
+- Uncommitted: round-4 terms in `pipeline/taxonomy.py`, `docs/data-and-matching.md`, the pointer line in `docs/product-design.md`, this journal entry, INDEX.
+- LLM classification not done (no Anthropic key; Bedrock untested); gender and content quality columns empty.
+- User should revoke the Supabase `sbp_…` token and regenerate the Apify token (both pasted in chat).
+- Stray `~/Documents/ojt` still exists (Claude was blocked from deleting it in S-002).
+- Admin (8787) and demo (8788) servers were running in the background.
