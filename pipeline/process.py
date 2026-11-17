@@ -21,8 +21,11 @@ TERM_CAT.update({t: c for c, ts_ in EXTRA_SEARCH_TERMS.items() for t in ts_})
 TERM_CAT["pune food blogger"] = "Food & Beverages"
 CITIES = ["pune", "mumbai", "delhi", "bangalore", "bengaluru", "hyderabad", "chennai", "kolkata", "ahmedabad",
           "jaipur", "indore", "nagpur", "nashik", "surat", "lucknow", "chandigarh", "goa", "kochi", "thane",
-          "noida", "gurgaon", "gurugram", "navi mumbai", "pimpri", "kolhapur", "aurangabad", "bhopal", "patna"]
-CITY_NORM = {"bengaluru": "Bangalore", "gurugram": "Gurgaon", "pimpri": "Pune", "navi mumbai": "Mumbai", "thane": "Mumbai"}
+          "noida", "gurgaon", "gurugram", "navi mumbai", "pimpri", "kolhapur", "aurangabad", "bhopal", "patna",
+          "vadodara", "baroda", "coimbatore", "dehradun", "ludhiana", "amritsar", "mysore", "mysuru",
+          "visakhapatnam", "vizag", "bhubaneswar", "guwahati", "raipur", "ranchi"]
+CITY_NORM = {"bengaluru": "Bangalore", "gurugram": "Gurgaon", "baroda": "Vadodara", "mysuru": "Mysore",
+             "vizag": "Visakhapatnam", "pimpri": "Pune", "navi mumbai": "Mumbai", "thane": "Mumbai"}
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 # bios that read like a shop/brand page rather than a creator -> status 'review'
 BRANDISH = re.compile(r"premium quality|dm to order|order now|cod available|cash on delivery|free shipping|"

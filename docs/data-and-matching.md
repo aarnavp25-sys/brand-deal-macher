@@ -112,5 +112,19 @@ Credits cannot pay Apify or Supabase. Do not run scrapers on AWS (IPs blocked).
   `ROUND8_TERMS`), never by slicing the merged `EXTRA_SEARCH_TERMS` (it flattens
   by category and mixes rounds).
 - Multiple free Apify accounts work the same way; each has its own $5/month.
+- Parallel runs (found 2026-11-17): a FREE account allows 5 concurrent jobs and 16 GB
+  actor memory. Search Scraper runs use 1 GB, Reel Scraper runs 4 GB, so at most 3 reel
+  runs fit at once; a 4th/5th start returns `HTTP 402 Payment Required` (memory, not
+  credit). Splitting terms or usernames across parallel runs costs the same per result
+  and cut a round from ~20 to ~8 minutes. Merge the reel outputs before `process.py build`.
+- PostgREST returns at most 1000 rows per request; `limit=10000` silently stops at 1000.
+  Page with `order=id&limit=1000&offset=…` (pipeline scripts and admin `apiAll`). A
+  truncated "existing creators" list would treat known creators as new.
+- A dataset download can fail mid-stream (`ValueError: invalid literal for int() with
+  base 16`); `apify_run.py` retries GETs, and a finished run can be re-downloaded for free
+  by passing its run id.
+- Term yield (rounds 9–11): city + niche terms returned ~13 profiles/term; content-style
+  terms ("room makeover india", "golden retriever india") returned ~4.5/term. Home decor
+  city terms return mostly shops.
 - City/niche search yields: round 5 241/636, round 7 350/727 kept; small-city
   terms for thin categories (round 8) returned few results (174 for 19 terms).

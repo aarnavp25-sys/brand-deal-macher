@@ -3,7 +3,7 @@
 usage: APIFY_TOKEN=... python3 apify_run.py <actor> <input.json> <out.json> <max_usd>
 The cap is passed as maxTotalChargeUsd, so Apify stops charging at that amount.
 """
-import json, sys, time, urllib.request, os
+import http.client, json, sys, time, urllib.request, os
 
 API = "https://api.apify.com/v2"
 TOKEN = os.environ["APIFY_TOKEN"]
@@ -17,7 +17,9 @@ def call(method, path, body=None, tries=5):
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 return json.loads(r.read())
-        except (OSError, json.JSONDecodeError) as e:
+        # ValueError covers JSONDecodeError and a broken chunked read ("invalid literal for int() with
+        # base 16"), which crashed a 2026-11-17 dataset download; HTTPException covers IncompleteRead.
+        except (OSError, ValueError, http.client.HTTPException) as e:
             # Never retry the POST that starts a run: a retry could start (and bill) a second run.
             if method == "POST" or attempt == tries - 1:
                 raise

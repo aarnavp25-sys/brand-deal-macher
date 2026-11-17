@@ -156,6 +156,58 @@ ROUND8_TERMS = {
 }
 for _cat, _terms in ROUND8_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+# Round-9 (2026-11-17, Apify account 4): new cities (NCR, Vadodara, Nashik, Dehradun, Patna,
+# Coimbatore) and regional-language terms; weighted towards the thinnest categories.
+ROUND9_TERMS = {
+    "Jewelry & Accessories": ["noida jewellery influencer", "gurgaon jewellery blogger", "vadodara jewellery influencer", "coimbatore jewellery blogger", "kundan jewellery creator", "anti tarnish jewellery reels", "mens accessories delhi", "watch collector mumbai"],
+    "Education & Finance": ["noida study creator", "patna upsc creator", "dehradun study creator", "marathi finance tips", "telugu finance creator", "tamil finance creator", "bengali study creator", "stock market marathi"],
+    "Tech & Gadgets": ["noida tech creator", "gurgaon tech creator", "telugu tech creator", "bengali tech creator", "tech reviewer marathi", "gadgets hindi reels"],
+    "Home Decor & Handmade": ["noida home decor", "gurgaon home decor", "vadodara home decor", "coimbatore home decor", "small home decor ideas india", "balcony garden india"],
+    "Pets": ["noida dog influencer", "gurgaon dog influencer", "pune cat lover", "indie dog india", "dehradun dog influencer"],
+    "Entertainment & Comedy": ["patna comedy creator", "telugu comedy reels", "punjabi comedy creator", "kannada comedy reels", "noida comedy creator"],
+    "Gaming": ["patna gamer", "noida gamer", "gurgaon gamer", "telugu gamer", "pune bgmi player"],
+    "Automobile": ["nashik bikers", "kolhapur bikers", "dehradun bikers", "pune car enthusiast", "gurgaon car enthusiast"],
+    "Fitness & Wellness": ["noida fitness influencer", "gurgaon fitness influencer", "nashik fitness influencer", "vadodara gym influencer"],
+    "Sports": ["nashik cricket creator", "kolhapur wrestling", "mumbai runners", "delhi runners"],
+    "Parenting & Kids": ["noida mom blogger", "gurgaon mom blogger", "nagpur mom blogger", "vadodara mom blogger"],
+    "Beauty & Skincare": ["noida makeup blogger", "gurgaon skincare creator", "nashik makeup blogger", "vadodara beauty blogger"],
+    "Fashion & Clothing": ["noida fashion blogger", "gurgaon fashion influencer", "nashik fashion blogger", "vadodara fashion blogger"],
+    "Food & Beverages": ["nashik food blogger", "vadodara food blogger"],
+    "Music & Dance": ["nashik singer"],
+    "Travel & Explore": ["dehradun travel creator"],
+}
+for _cat, _terms in ROUND9_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+# Round-10 (2026-11-17, account 4 remainder): seven thinnest categories. City terms for home
+# decor returned mostly shops in round 9 (5 kept of ~90), so it uses content-style terms instead.
+ROUND10_TERMS = {
+    "Jewelry & Accessories": ["jewellery styling tips", "oxidised jewellery styling", "silver jewellery reels", "mens rings india", "wrist watch collection india"],
+    "Education & Finance": ["kannada finance creator", "malayalam finance creator", "upsc preparation tips", "commerce student creator"],
+    "Home Decor & Handmade": ["room makeover india", "rental home makeover india", "home tour india", "indian home decor ideas", "terrace garden india"],
+    "Tech & Gadgets": ["kannada tech creator", "malayalam tech creator", "budget phone review hindi", "laptop review india"],
+    "Pets": ["golden retriever india", "persian cat india", "shih tzu india"],
+    "Automobile": ["kannada bikers", "kerala car enthusiast", "thar lovers india"],
+    "Entertainment & Comedy": ["marathi comedy reels", "bengali comedy reels", "malayalam comedy reels"],
+}
+for _cat, _terms in ROUND10_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+# Round-11 (2026-11-17, account 4 remainder): round 10's content-style terms returned only
+# 123 profiles for 27 terms, so back to city + niche terms, new north/east/south cities.
+ROUND11_TERMS = {
+    "Fashion & Clothing": ["ludhiana fashion blogger", "amritsar fashion blogger"],
+    "Jewelry & Accessories": ["ludhiana jewellery influencer", "mysore jewellery blogger"],
+    "Tech & Gadgets": ["vizag tech creator", "bhubaneswar tech creator"],
+    "Gaming": ["guwahati gamer", "ranchi gamer"],
+    "Automobile": ["ludhiana bikers", "guwahati bikers"],
+    "Education & Finance": ["ranchi study creator", "bhubaneswar study creator"],
+    "Pets": ["mysore dog lover", "ludhiana dog influencer"],
+    "Entertainment & Comedy": ["guwahati comedy creator", "odia comedy reels"],
+    "Beauty & Skincare": ["ludhiana makeup blogger", "guwahati makeup blogger"],
+    "Fitness & Wellness": ["raipur fitness influencer", "vizag fitness influencer"],
+    "Parenting & Kids": ["nashik mom blogger"],
+}
+for _cat, _terms in ROUND11_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND7_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND5_TERMS.items():

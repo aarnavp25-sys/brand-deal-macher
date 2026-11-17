@@ -54,6 +54,15 @@ async function api(path, opt = {}) {
   if (!r.ok) throw new Error((data && data.message) || ('HTTP ' + r.status));
   const cr = r.headers.get('Content-Range'); return { data, total: cr ? Number(cr.split('/')[1]) : null };
 }
+// Supabase returns at most 1000 rows per request (limit=10000 silently stopped at 1000), so page through.
+// The path must carry an order with a unique tie-breaker (id) so pages do not overlap.
+async function apiAll(path) {
+  const out = [];
+  for (let o = 0; ; o += 1000) {
+    const d = (await api(`${path}${path.includes('?') ? '&' : '?'}limit=1000&offset=${o}`)).data;
+    out.push(...d); if (d.length < 1000) return out;
+  }
+}
 async function loadTaxonomy() {
   CATS = (await api('categories?select=*&order=demo_rank')).data;
   PRODS = (await api('product_types?select=*&order=category,name')).data;
@@ -62,7 +71,7 @@ const opts = (list, sel, blank) => (blank !== undefined ? `<option value="">${es
 
 /* ---------- Overview ---------- */
 async function overview() {
-  const c = (await api('creators?select=id,niche_primary,follower_tier,city,status,fake_flag,scraped_at,followers,engagement_rate,reel_reach&limit=10000')).data;
+  const c = await apiAll('creators?select=id,niche_primary,follower_tier,city,status,fake_flag,scraped_at,followers,engagement_rate,reel_reach&order=id');
   const runs = (await api('raw_scrapes?select=cost_usd,item_count,created_at')).data;
   const within = d => c.filter(x => x.scraped_at && Date.now() - new Date(x.scraped_at) < d * 864e5).length;
   const usable = c.filter(x => x.status === 'active' && !x.fake_flag);
@@ -75,8 +84,19 @@ async function overview() {
   <div class="grid2"><div class="card"><h3>Usable creators by category</h3><table><thead><tr><th>Category</th><th class="n">Total</th><th class="n">Nano</th><th class="n">Micro</th><th class="n">Mid</th><th class="n">Median ER %</th><th class="n">Median reach</th><th style="width:30%"></th></tr></thead><tbody>
   ${Object.entries(by).map(([k, v]) => `<tr style="cursor:pointer" data-cat="${esc(k)}"><td>${esc(k)}</td><td class="n">${v.length}</td>${['nano', 'micro', 'mid'].map(t => `<td class="n">${v.filter(x => x.follower_tier === t).length}</td>`).join('')}<td class="n">${fmt(med(v.map(x => +x.engagement_rate)))}</td><td class="n">${med(v.map(x => +x.reel_reach)) ?? '—'}x</td><td><div class="bar" style="width:${v.length / max * 100}%"></div></td></tr>`).join('')}
   </tbody></table><p class="muted">Click a category to open it in Creators.</p></div>
-  <div class="card"><h3>Usable creators by city</h3><table><tbody>${Object.entries(cities).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join('')}</tbody></table></div></div>`;
+  <div class="card"><h3>Usable creators by city</h3><table><tbody>${Object.entries(cities).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card" style="margin-top:16px" id="apify"><h3>Apify credits (live)</h3><p class="muted">Loading…</p></div>`;
   document.querySelectorAll('[data-cat]').forEach(tr => tr.onclick = () => { F.cat = tr.dataset.cat; show('creators'); });
+  apifyCard();
+}
+async function apifyCard() {
+  const el = $('#apify'); if (!el) return;
+  let a; try { a = await (await fetch('/api/apify')).json(); } catch (e) { el.innerHTML = `<h3>Apify credits (live)</h3><p class="muted">${esc(e.message)}</p>`; return; }
+  const usd = v => v == null ? '—' : '$' + Number(v).toFixed(2), ok = a.filter(x => !x.error);
+  el.innerHTML = `<h3>Apify credits (live)</h3>${a.length ? `<table><thead><tr><th>Account</th><th>Username</th><th class="n">Used</th><th class="n">Left</th><th class="n">Monthly limit</th><th>Resets</th></tr></thead><tbody>
+  ${a.map(x => x.error ? `<tr><td>${esc(x.label)}</td><td colspan="5" class="muted">Error: ${esc(x.error)}</td></tr>` : `<tr><td>${esc(x.label)}</td><td>${esc(x.username)}</td><td class="n">${usd(x.used_usd)}</td><td class="n"><b>${usd(x.left_usd)}</b></td><td class="n">${usd(x.limit_usd)}</td><td>${esc((x.resets || '').slice(0, 10))}</td></tr>`).join('')}
+  ${ok.length > 1 ? `<tr><td><b>Total</b></td><td></td><td class="n">${usd(ok.reduce((s, x) => s + x.used_usd, 0))}</td><td class="n"><b>${usd(ok.reduce((s, x) => s + x.left_usd, 0))}</b></td><td class="n">${usd(ok.reduce((s, x) => s + x.limit_usd, 0))}</td><td></td></tr>` : ''}</tbody></table>` : ''}
+  <p class="muted">Accounts come from <code>APIFY_TOKENS=label:token,label:token</code> in admin/.env (restart the server after editing). Tokens stay in the local server.</p>`;
 }
 
 /* ---------- Creators ---------- */
@@ -91,12 +111,12 @@ function creatorQuery(forExport) {
   if (F.fmin) p.append('followers', 'gte.' + F.fmin); if (F.fmax) p.append('followers', 'lte.' + F.fmax);
   if (F.added && F.added !== 'custom') p.append('scraped_at', 'gte.' + new Date(Date.now() - F.added * 864e5).toISOString());
   if (F.added === 'custom') { if (F.from) p.append('scraped_at', 'gte.' + new Date(F.from).toISOString()); if (F.to) p.append('scraped_at', 'lt.' + new Date(new Date(F.to).getTime() + 864e5).toISOString()); }
-  p.set('order', F.sort + '.nullslast');
-  if (!forExport) { p.set('limit', F.size); p.set('offset', F.page * F.size); } else p.set('limit', 10000);
+  p.set('order', F.sort + '.nullslast,id');
+  if (!forExport) { p.set('limit', F.size); p.set('offset', F.page * F.size); }  // export pages via apiAll
   return 'creators?' + p.toString();
 }
 async function creators() {
-  const cities = [...new Set((await api('creators?select=city&limit=10000')).data.map(x => x.city || 'Unknown'))].sort();
+  const cities = [...new Set((await apiAll('creators?select=city&order=id')).map(x => x.city || 'Unknown'))].sort();
   const sel = (k, label, list, blank = 'All') => `<label>${label}<select data-f="${k}">${opts(list, F[k], blank)}</select></label>`;
   $('#main').innerHTML = `<div class="filters">
    <label>Search<input data-f="q" value="${esc(F.q)}" placeholder="username, name, bio"></label>
@@ -141,7 +161,7 @@ function bulkBar() {
   $('#bx').onclick = () => { selected.clear(); creatorTable(); };
 }
 async function exportCsv() {
-  const rows = (await api(creatorQuery(true))).data; if (!rows.length) return toast('Nothing to export');
+  const rows = await apiAll(creatorQuery(true)); if (!rows.length) return toast('Nothing to export');
   const keys = Object.keys(rows[0]); const cell = v => `"${String(Array.isArray(v) ? v.join('; ') : v ?? '').replace(/"/g, '""')}"`;
   const blob = new Blob([[keys.join(','), ...rows.map(r => keys.map(k => cell(r[k])).join(','))].join('\n')], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `creators-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -184,7 +204,7 @@ async function openCreator(id) {
 /* ---------- Taxonomy ---------- */
 async function taxonomy() {
   await loadTaxonomy();
-  const counts = {}; (await api('creators?select=niche_primary&status=eq.active&limit=10000')).data.forEach(x => counts[x.niche_primary] = (counts[x.niche_primary] || 0) + 1);
+  const counts = {}; (await apiAll('creators?select=niche_primary&status=eq.active&order=id')).forEach(x => counts[x.niche_primary] = (counts[x.niche_primary] || 0) + 1);
   $('#main').innerHTML = `<div class="card"><h3>Categories</h3><table><thead><tr><th>Rank</th><th>Name</th><th class="n">Active creators</th><th>Sub-tags (comma separated)</th><th></th></tr></thead><tbody>
   ${CATS.map(c => `<tr data-c="${esc(c.name)}"><td><input type="number" style="width:60px" value="${esc(c.demo_rank)}" data-r></td><td>${esc(c.name)}</td><td class="n">${counts[c.name] || 0}</td><td><input style="width:100%" value="${esc((c.sub_tags || []).join(', '))}" data-t></td><td><button class="b" data-save>Save</button></td></tr>`).join('')}
   <tr><td></td><td><input id="ncat" placeholder="New category name"></td><td></td><td><input id="ntags" style="width:100%" placeholder="sub-tags"></td><td><button class="b p" id="addc">Add</button></td></tr></tbody></table></div>
