@@ -127,6 +127,27 @@ ROUND6_TERMS = {
 }
 for _cat, _terms in ROUND6_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+# Round-7 (2026-11-17, Apify account 3): tier-2 cities, 4 terms per category.
+ROUND7_TERMS = {
+    "Food & Beverages": ["lucknow food blogger", "chandigarh food blogger", "indore food blogger", "ahmedabad food blogger"],
+    "Beauty & Skincare": ["chennai beauty blogger", "kolkata makeup blogger", "jaipur skincare creator", "lucknow makeup blogger"],
+    "Fashion & Clothing": ["chennai fashion blogger", "kolkata fashion blogger", "lucknow fashion blogger", "chandigarh fashion influencer"],
+    "Jewelry & Accessories": ["lucknow jewellery influencer", "indore jewellery blogger", "surat jewellery influencer", "watch reviewer hindi"],
+    "Home Decor & Handmade": ["lucknow home decor", "indore home decor", "chandigarh home decor", "goa home decor"],
+    "Fitness & Wellness": ["chennai fitness influencer", "kolkata fitness creator", "jaipur gym influencer", "lucknow fitness influencer"],
+    "Sports": ["jaipur cricket creator", "lucknow cricket creator", "goa football creator", "indian cycling creator"],
+    "Tech & Gadgets": ["jaipur tech creator", "lucknow tech creator", "ahmedabad tech creator", "tech reviewer tamil"],
+    "Gaming": ["jaipur gamer", "lucknow gamer", "ahmedabad gamer", "indore gamer"],
+    "Entertainment & Comedy": ["lucknow comedy creator", "jaipur comedy creator", "indore comedy creator", "bhojpuri comedy reels"],
+    "Music & Dance": ["chennai singer", "kolkata singer", "jaipur dancer", "lucknow singer"],
+    "Education & Finance": ["lucknow study creator", "jaipur career coach", "indore finance creator", "upsc motivation creator"],
+    "Parenting & Kids": ["chennai mom blogger", "kolkata mom blogger", "jaipur mom blogger", "ahmedabad mom blogger"],
+    "Travel & Explore": ["kolkata travel blogger", "chennai travel blogger", "jaipur travel blogger", "goa travel creator"],
+    "Automobile": ["lucknow bike rider", "indore bikers", "chandigarh car enthusiast", "kolkata bikers"],
+    "Pets": ["jaipur dog lover", "lucknow dog influencer", "chandigarh pet influencer", "goa dog influencer"],
+}
+for _cat, _terms in ROUND7_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND5_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 
