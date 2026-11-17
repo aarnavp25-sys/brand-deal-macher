@@ -228,16 +228,23 @@ def cmd_build(out, reels_path, paths):
 def upsert(table, rows, conflict=None):
     url, key = os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"]
     q = f"?on_conflict={conflict}" if conflict else ""
-    for i in range(0, len(rows), 500):
+    size = 100 if table == "posts" else 500  # 500 posts with captions timed out (2026-11-17)
+    for i in range(0, len(rows), size):
         req = urllib.request.Request(f"{url}/rest/v1/{table}{q}", method="POST",
-                                     data=json.dumps(rows[i:i + 500], ensure_ascii=False).encode(),
+                                     data=json.dumps(rows[i:i + size], ensure_ascii=False).encode(),
                                      headers={"apikey": key, "Authorization": f"Bearer {key}",
                                               "Content-Type": "application/json",
                                               "Prefer": "resolution=merge-duplicates,return=minimal"})
-        try:
-            urllib.request.urlopen(req, timeout=120).read()
-        except urllib.error.HTTPError as e:
-            sys.exit(f"  {table} rows {i}-{i + 500}: HTTP {e.code} {e.read().decode()[:500]}")
+        for attempt in range(3):  # upserts are idempotent, so a retry after a timeout is safe
+            try:
+                urllib.request.urlopen(req, timeout=120).read()
+                break
+            except urllib.error.HTTPError as e:
+                sys.exit(f"  {table} rows {i}-{i + size}: HTTP {e.code} {e.read().decode()[:500]}")
+            except OSError as e:
+                if attempt == 2:
+                    raise
+                print(f"  {table}: {e}; retrying", flush=True)
     print(f"  {table}: {len(rows)} rows")
 
 

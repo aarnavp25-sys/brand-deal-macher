@@ -93,6 +93,28 @@ for _cat, _terms in {
 }.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 
+# Round-5 search terms (2026-11-17, second Apify account): new cities, 4 per category.
+ROUND5_TERMS = {
+    "Food & Beverages": ["delhi food blogger", "bangalore food blogger", "hyderabad food blogger", "pune cafe hopping"],
+    "Beauty & Skincare": ["delhi makeup blogger", "bangalore skincare creator", "hyderabad beauty blogger", "pune skincare creator"],
+    "Fashion & Clothing": ["delhi mens fashion", "bangalore fashion blogger", "hyderabad fashion influencer", "mumbai streetwear"],
+    "Jewelry & Accessories": ["delhi jewellery influencer", "bangalore jewellery blogger", "hyderabad jewellery influencer", "indian sneaker collector"],
+    "Home Decor & Handmade": ["delhi home decor", "hyderabad home decor", "mumbai plant parent", "bangalore interior creator"],
+    "Fitness & Wellness": ["delhi fitness influencer", "bangalore fitness creator", "hyderabad gym influencer", "mumbai yoga teacher"],
+    "Sports": ["delhi cricket creator", "bangalore runners", "mumbai football creator", "hyderabad badminton"],
+    "Tech & Gadgets": ["delhi tech creator", "bangalore tech creator", "hyderabad tech creator", "tech tips hindi"],
+    "Gaming": ["delhi gamer", "bangalore gamer", "hyderabad gamer", "bgmi creator hindi"],
+    "Entertainment & Comedy": ["delhi comedy creator", "bangalore comedy creator", "hyderabad comedy reels", "hindi comedy skit"],
+    "Music & Dance": ["delhi singer", "bangalore dancer", "hyderabad dancer", "mumbai rapper"],
+    "Education & Finance": ["delhi finance creator", "bangalore career coach", "hyderabad study creator", "hindi finance creator"],
+    "Parenting & Kids": ["delhi mom blogger", "bangalore mom blogger", "hyderabad mom influencer", "pune parenting creator"],
+    "Travel & Explore": ["delhi travel blogger", "bangalore travel creator", "hyderabad travel blogger", "himachal travel creator"],
+    "Automobile": ["delhi bike rider", "bangalore moto vlogger", "hyderabad car reviewer", "mumbai bikers"],
+    "Pets": ["delhi dog influencer", "bangalore pet influencer", "hyderabad cat lover", "mumbai dog influencer"],
+}
+for _cat, _terms in ROUND5_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
 # product type: (category, keywords) — what a brand can sell, and evidence words in posts
 PRODUCT_TYPES = {
     "home baked goods": ("Food & Beverages", ["cake", "cookies", "brownie", "bake", "homebaker", "dessert"]),
