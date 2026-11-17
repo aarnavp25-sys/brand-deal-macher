@@ -170,3 +170,47 @@ Open:
 - User should revoke the Supabase `sbp_…` token and regenerate the Apify token (both pasted in chat).
 - Stray `~/Documents/ojt` still exists (Claude was blocked from deleting it in S-002).
 - Admin (8787) and demo (8788) servers were running in the background.
+
+---
+
+## S-004 · 2026-11-17 · Rounds 4b–8 across three Apify accounts → 1,010 creators; Profile Scraper refresh
+
+Same conversation as S-003, after its /context-write. Load gotchas are in `docs/data-and-matching.md` ("Load gotchas").
+
+Asked:
+- "dono apify account ka bata" → "<YOUR_API_TOKEN> ... ye token le isske bhi sare credits use karle" (placeholder, no token) → pasted account-2 token: "ye le aur instagram profile scrapper bhii try karke dekhna"
+- "haa acc 2 se 1.82 doloors bhii use kar lo"
+- pasted account-3 token: "ye le isse bhii cretors lete jaa" → "bacche hue 1.36 dollors bhi use kar lo"
+- "mujhe ye bata ki 223 phele the aur tune sirf 40 add kiye"; "saare tune admin dashboard mai add karde"; "abhii mujhe admin dashbird bata"
+
+Done:
+- round4b finished (account 1): +37 creators; Profile Scraper on 15 top creators wrote 2026-11-17 snapshots ($0.04).
+- Committed/pushed 4cc2b93 (docs, S-003 journal).
+- Round 5 (account 2, `ROUND5_TERMS` 64 terms, Delhi/Bangalore/Hyderabad): search 636 items $1.76, reels 226 creators $1.14, +226 creators; Profile Scraper refreshed 100 existing creators ($0.25, 0 errors) → 115 creators now have 2 snapshot dates. Commit 6a450ca.
+- Round 6 (account 2, `ROUND6_TERMS` 28 terms): +110 creators (search ~$0.83, reels $0.56). Commit 88d2a0f.
+- Round 7 (account 3, `ROUND7_TERMS` 64 terms, tier-2 cities): search 748 items $2.02, reels 320 creators $1.60, +320. Commits a644ac7, 3df1f14.
+- Round 8 (account 3, `ROUND8_TERMS` 19 terms, thinnest categories): search 174 items $0.47, reels 47 creators $0.24, +47. Commit 490a342.
+- Round scripts were derived with `sed` from the previous round's script (`round5.sh` … `round8.sh` in the session scratchpad) and verified (terms dict, caps, token file) before running.
+- Opened the admin dashboard with `open http://127.0.0.1:8787`.
+
+Did not work:
+- Round 5 load: posts upsert of 500 rows → `TimeoutError: The read operation timed out`; creators were loaded, posts/products/raw were not. Fixed `upsert()` (posts batch 100, retry on OSError) and re-ran `process.py load` for round 5.
+- Round 7 load: `HTTP 500 {"code":"21000", ... "ON CONFLICT DO UPDATE command cannot affect row a second time"}` at posts rows 3100–3200 (same collab reel id under two creators). Fixed with dedupe in `cmd_load`; reloaded round 7 (3,955 posts, 1,644 product links).
+- The round scripts pipe `process.py load` into `grep`, so a Python failure did not stop `set -e`; failures only showed in the log. Check logs for Traceback after every round.
+- The user's pasted URL `https://api.apify.com/v2/users/me/usage/monthly?token=<YOUR_API_TOKEN>` contained no token; asked for the real one.
+
+Established:
+- Totals after round 8: 1,010 creators, 863 usable (active, not fake), 12,515 posts, 5,037 product links. Usable per category 31 (Jewelry) to 92 (Travel). Cities: Pune 103, Mumbai 77, Delhi 56, Kolkata 54, Lucknow 53, Bangalore 53; ~208 unknown.
+- Apify balances 2026-11-17: account 1 $0.30, account 2 $0.43, account 3 $0.65 (all FREE, reset 2026-12-15). Tokens are in session-scratchpad files `.token`, `.token2`, `.token3` only.
+- Profile Scraper (100 profiles): 0 errors, still no reel views and no relatedProfiles; usable for the weekly follower refresh at $0.0026/creator.
+- Cost per usable creator ≈ $0.017 (search + 2 reels).
+
+User decided:
+- Spend all remaining credit on all three Apify accounts on more creators.
+- Use the Profile Scraper (for refresh) — tried and kept.
+
+Open:
+- LLM classification still not done; product matching is keyword-noisy; gender and quality empty.
+- Weekly refresh: run Profile Scraper on all usable creators once a week to build growth (~$2.25/week for 863 — more than one free account covers per month).
+- User must revoke/regenerate: Supabase `sbp_…`, Apify tokens for accounts 1, 2, 3 (all pasted in chat).
+- ~$1.38 left across accounts; next full credit 2026-12-15/16.

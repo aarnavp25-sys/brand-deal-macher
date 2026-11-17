@@ -97,3 +97,20 @@ Claude Platform on AWS has batches but bills through AWS Marketplace.
 AWS account: Free plan, $100 credits until 2027-05-16; whether the free plan
 allows Anthropic models on Bedrock is unverified (Amazon Nova is the fallback).
 Credits cannot pay Apify or Supabase. Do not run scrapers on AWS (IPs blocked).
+
+## Load gotchas (found 2026-11-17)
+
+- Upsert `posts` in batches of 100, not 500: 500 posts with captions timed out
+  (`TimeoutError`). Upserts are idempotent, so `upsert()` retries on timeout.
+- A collab reel can appear under two creators with the same post id. Postgres
+  rejects duplicate keys inside one upsert (`21000 ON CONFLICT DO UPDATE command
+  cannot affect row a second time`); `cmd_load` dedupes posts by id first.
+- Load only creators that are new: rebuilding an existing creator from search
+  data without reels would overwrite `avg_reel_views` with null. Round scripts
+  filter by usernames already in `creators`.
+- Generate round search terms from an explicit per-round dict (`ROUND5_TERMS` …
+  `ROUND8_TERMS`), never by slicing the merged `EXTRA_SEARCH_TERMS` (it flattens
+  by category and mixes rounds).
+- Multiple free Apify accounts work the same way; each has its own $5/month.
+- City/niche search yields: round 5 241/636, round 7 350/727 kept; small-city
+  terms for thin categories (round 8) returned few results (174 for 19 terms).
