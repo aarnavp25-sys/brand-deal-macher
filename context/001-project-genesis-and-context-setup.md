@@ -267,3 +267,21 @@ Established:
 
 Open:
 - Reload the VS Code Claude panel so the skills are picked up.
+
+---
+
+## S-007 · 2026-11-17 · Repo `.claude/` mirror removed; workspace layout written everywhere
+
+Asked:
+- "repo me .caude kyo hai waise agar need nahi hai to hata k updated code push kar do ache se"
+- "ye sab bhi context me update kar do ache se saari cindition ki kaha kaam karna hai ctuak root me kya kya hai wo sab"
+
+Done:
+- Removed `.claude/` from the repo (`git rm -r --cached .claude`, deleted locally, added `.claude/` to `.gitignore`); the skills stay only at `~/Documents/ojt/.claude/skills/`. Committed with the S-005/S-006 context as 25b8c02 and pushed; GitHub root now lists `.gitignore A.txt CLAUDE.md README.md admin context demo docs pipeline`.
+- Replaced the short "Location" note with a full "Location & layout" block (tree of `~/Documents/ojt` and the project, what is stale, where `.env` files are, rules for git, skills and servers) in: root `CLAUDE.md` and root `context/INDEX.md` (marked STALE COPY), project `CLAUDE.md`, project `context/INDEX.md`, both skill files. Updated the `project-location` auto-memory.
+
+Established:
+- Skills at `~/Documents/ojt/.claude/skills/` are not under version control; a deleted or broken skill cannot be restored from git.
+
+Open:
+- `pipeline/.env` (Apify token) does not exist; create it before the next scraping run.

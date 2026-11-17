@@ -4,13 +4,30 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-17 (S-006).
+Last rewritten: 2026-11-17 (S-007).
 
-> **Location (read first).** The VS Code workspace is `~/Documents/ojt`. The real project, its git repo
-> and the only current context live in `~/Documents/ojt/brand deal matcher/`. Do every step inside that
-> folder (`cd ~/Documents/ojt/"brand deal matcher"`): its `CLAUDE.md`, `context/INDEX.md`,
-> `context/NNN-*.md` and `docs/` are the current ones. The `CLAUDE.md`, `context/` and `docs/` at the
-> workspace root are stale S-002 copies kept on purpose — never read them as current, never write to them.
+> **Location & layout (read first; verified 2026-11-17).**
+> ```
+> ~/Documents/ojt/                      VS Code workspace — open THIS folder (Claude Code loads skills + CLAUDE.md here)
+> ├── .claude/skills/context-write/     /context-write skill — only copy, not in git
+> ├── .claude/skills/context-read/      /context-read skill — only copy, not in git
+> ├── CLAUDE.md                         STALE 2026-11-16 copy + this note (auto-loaded; edit only this note)
+> ├── context/  docs/                   STALE 2026-11-16 copies — never read as current, never write
+> ├── .playwright-mcp/                  Playwright test screenshots/logs — disposable
+> └── brand deal matcher/               THE PROJECT — do all work here (own git repo)
+>     ├── .git → github.com/aarnavp25-sys/brand-deal-macher (private, branch main)
+>     ├── CLAUDE.md  README.md  .gitignore  A.txt (first planning chat)
+>     ├── context/INDEX.md, context/001-*.md     current context (journal + index)
+>     ├── docs/product-design.md, docs/data-and-matching.md
+>     ├── pipeline/  apify_run.py process.py taxonomy.py schema.sql   (no .env: Apify token not stored)
+>     ├── admin/     server.py index.html .env.example  .env = Supabase key, gitignored, local only
+>     └── demo/      server.py index.html
+> ```
+> Rules: `cd ~/Documents/ojt/"brand deal matcher"` before any project, git or context step. Never edit the
+> stale root copies (only this note). Skills are edited at `~/Documents/ojt/.claude/skills/` and are not
+> versioned — back them up before big changes. Commit only real project changes, never just for moving
+> files. Network git needs `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
+> Servers: `python3 admin/server.py` (8787), `python3 demo/server.py` (8788), run from the project folder.
 
 ## Where things stand
 
@@ -68,7 +85,7 @@ They work: this INDEX was written by `/context-write` running from the skill.
 
 | Topic | File |
 |---|---|
-| Where the project and the current context live | this INDEX (Location); 001 (S-005) |
+| Workspace layout, where to work, what is stale | this INDEX (Location & layout); 001 (S-005, S-007) |
 | Product idea, positioning, brand flow, paywall | docs/product-design.md |
 | Why budget/price and WhatsApp flow were refused | docs/product-design.md; 001 (S-001) |
 | Apify actors, prices, filters, what they return | docs/data-and-matching.md |
@@ -115,3 +132,4 @@ They work: this INDEX was written by `/context-write` running from the skill.
 | S-004 | 2026-11-17 | Rounds 4b–8 on 3 Apify accounts → 1,010 creators; Profile Scraper refresh | 001 |
 | S-005 | 2026-11-17 | Project location fixed (ojt/"brand deal matcher"); commands repointed | 001 |
 | S-006 | 2026-11-17 | GitHub force-pushed to 40168a6; context commands → skills | 001 |
+| S-007 | 2026-11-17 | Repo `.claude/` mirror removed (25b8c02); full workspace layout written into context | 001 |
