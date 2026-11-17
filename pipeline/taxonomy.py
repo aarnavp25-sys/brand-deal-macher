@@ -146,6 +146,16 @@ ROUND7_TERMS = {
     "Automobile": ["lucknow bike rider", "indore bikers", "chandigarh car enthusiast", "kolkata bikers"],
     "Pets": ["jaipur dog lover", "lucknow dog influencer", "chandigarh pet influencer", "goa dog influencer"],
 }
+# Round-8 (2026-11-17, account 3 remainder): the five thinnest categories only.
+ROUND8_TERMS = {
+    "Jewelry & Accessories": ["nagpur jewellery influencer", "kochi jewellery blogger", "bhopal jewellery influencer", "silver jewellery creator india", "mens bracelet india"],
+    "Education & Finance": ["nagpur study creator", "bhopal career coach", "kochi finance creator", "marathi study tips"],
+    "Home Decor & Handmade": ["nagpur home decor", "bhopal home decor", "kochi home decor", "surat home decor"],
+    "Tech & Gadgets": ["nagpur tech creator", "bhopal tech creator", "kochi tech creator"],
+    "Gaming": ["nagpur gamer", "bhopal gamer", "kochi gamer"],
+}
+for _cat, _terms in ROUND8_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND7_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND5_TERMS.items():
