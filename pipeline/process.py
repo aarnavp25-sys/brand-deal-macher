@@ -254,7 +254,9 @@ def cmd_load(rows_path, raw_paths):
     upsert("product_types", [{"name": k, "category": c, "keywords": kws} for k, (c, kws) in PRODUCT_TYPES.items()])
     upsert("creators", rows["creators"])
     upsert("creator_snapshots", rows["snapshots"], "creator_id,taken_at")
-    upsert("posts", rows["posts"])
+    # a collab reel can appear under two creators with the same post id; Postgres rejects
+    # duplicate keys inside one upsert (21000), so keep the first copy (2026-11-17)
+    upsert("posts", list({p["id"]: p for p in reversed(rows["posts"])}.values()))
     upsert("creator_products", rows["creator_products"], "creator_id,product_type")
     cmd_raw(raw_paths)
 
