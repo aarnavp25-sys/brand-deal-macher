@@ -285,3 +285,62 @@ Established:
 
 Open:
 - `pipeline/.env` (Apify token) does not exist; create it before the next scraping run.
+
+---
+
+## S-008 · 2026-11-17 · Rounds 9–11 on Apify account 4 (parallel runs); admin 1000-row fix and credits card
+
+Asked:
+- "hinglish me baat karna ok" + `/context-read`
+- "3 account mai kitne credits baaki hai"
+- pasted a new Apify token: "ye le aur creators laa"
+- "kya tu script ko bahut sare instance me chalake ek sath bahut speed nahi badha sakte kya ki ek bar m ahe se credts use karke userd bahut speedme scrap ho ske"
+- "haa ab ache se jitni speed me kaise bhi bas full speed me scrap karna hai"
+- "waise abhi kitni speeed hai ? per minute ?"; "kitne creators hue"; "aur acc mai credits"
+- "update kar lo admin mai"; "haa saari cheeze git pe push karde"; "kar de" (this /context-write)
+
+Done:
+- `/context-read`: no live balance possible for accounts 1–3 (no tokens stored; old scratchpad `.token*` files gone), answered from the S-004 journal ($0.30 / $0.43 / $0.65).
+- The pasted token was a new, fourth account: username `obeying_mussel`, FREE, $5, $0 used, cycle 2026-11-17 → 2026-12-16. Token saved only to this session's scratchpad `.token`, later also to `admin/.env` as `APIFY_TOKENS=acc4:…` (gitignored).
+- Old round scripts were still on disk in the S-004 scratchpad (`/private/tmp/claude-501/-Users-aarnavmathakiya-Documents-ojt/ef84ece9-…/scratchpad/round4.sh … round8.sh`, plus `data/rows*.json`); round 9 was built from `round7.sh` with the new project path.
+- Added `ROUND9_TERMS` (72 terms: NCR, Vadodara, Nashik, Dehradun, Patna, Coimbatore, regional-language terms; weighted to thin categories) to `pipeline/taxonomy.py`; added vadodara/baroda, coimbatore, dehradun to `CITIES` in `pipeline/process.py`.
+- `round9.sh` started three parallel Search Scraper runs (24 terms each, cap $0.93 each): TXECznqU7Ndcfd37B, 9YXYeMNhYmb3CJAE4, eOkyOCOET1x2zxmA3. Measured speed: ~145 profiles/min combined (44–56 per run) vs ~45–50/min for one run before.
+- On "full speed": read account limits (5 concurrent jobs, 16 GB). Stopped `round9.sh` (TaskStop) and started `round9b.sh`, which re-attached to the three search runs by run id (no new charge) and split reels into 5 parallel runs.
+- Round 9 result: search runs 1 and 2 → 210 + 208 items; filter kept 153; 147 new creators loaded (creators/posts/products), 89 with reel views.
+- `round9c.sh` recovery: re-downloaded search run 0 by run id (321 items, free), new creators from it (85) + the 58 creators whose reel runs failed → 3 parallel reel runs (cap $0.30 each) → rebuilt and loaded 143 creators (136 with reel views). Uses paginated "existing creators" fetch.
+- Verified no pre-existing creator was overwritten by round 9: compared the 147 ids with every `rows*.json` from the S-004 scratchpad (1,026 ids) → 0 overlap.
+- Round 10 (`ROUND10_TERMS`, 27 content-style terms for the 7 thinnest categories; 3 search runs cap $0.35, 3 reel runs cap $0.22): 123 items, +26 creators.
+- Round 11 (`ROUND11_TERMS`, 21 city+niche terms, new cities Ludhiana, Amritsar, Guwahati, Ranchi, Vizag, Bhubaneswar, Mysore, Raipur; caps 3×$0.27 + 3×$0.15): 202 items, +88 creators. Added those cities (and mysuru/vizag aliases) to `CITIES`.
+- `pipeline/apify_run.py`: GET retries now also catch `ValueError` and `http.client.HTTPException`.
+- Admin: `admin/index.html` got `apiAll()` (pages `limit=1000&offset=…`, order with `id` tie-breaker) used by Overview, city filter, CSV export and category counts; Overview got an "Apify credits (live)" card. `admin/server.py` got `/api/apify` (reads `APIFY_TOKENS=label:token,...`, calls Apify `/users/me` and `/users/me/limits` in parallel, never sends tokens to the browser). `admin/.env.example` documents `APIFY_TOKENS`. Restarted admin (old pid 10662) and opened it with `open http://127.0.0.1:8787`.
+- Verified with curl: paginated overview query → 1,356 creators, 1,168 usable, 1,356 unique ids; CSV export query → 1,356 unique rows; `node --check` on the page script passed; `/api/apify` → acc4 used $4.635, left $0.365.
+- Durable findings (parallel limits, 402 meaning, 1000-row cap, chunked-read crash, term yield) → `docs/data-and-matching.md` "Load gotchas".
+- Committed 721f643 "Rounds 9-11 on Apify account 4; admin reads all rows and shows live Apify credits" and pushed (6257e08..721f643).
+
+Did not work:
+- Search run 0's client crashed while downloading the dataset: `ValueError: invalid literal for int() with base 16: b''` (broken chunked HTTP read). `apify_run.py` only retried `OSError`/`JSONDecodeError`. The run itself had SUCCEEDED; data recovered by re-attaching (round9c). Retry list fixed.
+- Reel runs 4 and 5 of round 9b failed at start with `HTTP Error 402: Payment Required` although the account had ~$2.5 left. Cause: Reel Scraper runs take 4 GB each; 16 GB account limit allows 3 at once (search runs take 1 GB). Their 58 creators were loaded without reel data and fixed in round9c.
+- `curl "$A/creators?select=id,username&limit=10000"` returned exactly 1,000 rows (PostgREST max rows) while the DB had 1,010+; round 9's "existing" list was therefore truncated. No harm found (0 overlap), but the same cap made the admin dashboard show at most 1,000 creators. Both fixed with pagination.
+- Round 10's content-style terms ("room makeover india", "golden retriever india", "kannada tech creator" …) returned only 123 profiles for 27 terms (~4.5/term) vs ~13/term for city+niche terms; only +26 creators for $0.47.
+- Home decor city terms in round 9 kept only ~5 of ~90 profiles (mostly shops / business accounts).
+- Playwright MCP could not open the admin page: "Browser is already in use for …/mcp-chrome-cdfe955, use --isolated". Admin was checked with curl + `node --check` instead; no screenshot.
+- In zsh, `echo =====` fails with "==== not found" (`=word` expansion); use `echo '-----'`.
+
+Established:
+- Apify FREE account: max 5 concurrent jobs, 16 GB actor memory; Search Scraper run = 1 GB, Reel Scraper run = 4 GB. 402 at run start can mean memory, not credit.
+- Parallel runs cost the same per result; a round took ~8 minutes instead of ~20.
+- Monthly usage keeps rising a little after runs finish (acc4: $4.598 right after round 11 → $4.635 later).
+- DB after round 11: 1,356 creators, 1,168 usable. Usable per category: Travel 113, Food 113, Beauty 102, Fashion 89, Music 89, Fitness 83, Parenting 71, Sports 68, Comedy 66, Automobile 66, Gaming 61, Tech 59, Pets 54, Home Decor 46, Education 45, Jewelry 43. Cities: unknown 284, Pune 111, Mumbai 92, Delhi 80, Kolkata 57, Bangalore 54, Lucknow 53, Chennai 49, Jaipur 45, Hyderabad 34, Nashik 30, Vadodara 28.
+- Account 4 spend: round 9 + recovery $3.17 (+232 creators), round 10 $0.47 (+26), round 11 $0.96 (+88).
+- `admin/.env` now holds the account-4 Apify token (`APIFY_TOKENS`); the Location & layout notes that say "no Apify token stored" are out of date for `admin/`.
+
+User decided:
+- Spend account 4's whole credit on new creators, as fast as possible ("full speed"), using parallel runs.
+- Push everything to GitHub.
+- Replies in Hinglish.
+
+Open:
+- Account 4 token was pasted in chat → regenerate it, then update `APIFY_TOKENS` in `admin/.env`. Add accounts 1–3 (new tokens) to `APIFY_TOKENS` to see them in the admin card; restart admin after editing.
+- Account 4 has ~$0.37 left (resets 2026-12-16): keep for a follower refresh.
+- Project `CLAUDE.md` still says "Current state: design only … no git repo" (stale since S-003).
+- Next real step unchanged: LLM classification (needs Anthropic key or Bedrock test).
