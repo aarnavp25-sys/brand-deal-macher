@@ -112,6 +112,21 @@ ROUND5_TERMS = {
     "Automobile": ["delhi bike rider", "bangalore moto vlogger", "hyderabad car reviewer", "mumbai bikers"],
     "Pets": ["delhi dog influencer", "bangalore pet influencer", "hyderabad cat lover", "mumbai dog influencer"],
 }
+# Round-6 (2026-11-17, account 2 remainder): thin categories, new cities.
+ROUND6_TERMS = {
+    "Jewelry & Accessories": ["jaipur jewellery influencer", "kolkata jewellery blogger", "chennai jewellery influencer", "ahmedabad jewellery blogger"],
+    "Home Decor & Handmade": ["chennai home decor", "kolkata home decor", "ahmedabad home decor", "jaipur home decor"],
+    "Entertainment & Comedy": ["kolkata comedy creator", "chennai comedy creator", "gujarati comedy creator", "tamil comedy reels"],
+    "Gaming": ["chennai gamer", "kolkata gamer"],
+    "Education & Finance": ["chennai finance creator", "kolkata study creator", "gujarati finance creator"],
+    "Sports": ["chennai cricket creator", "kolkata football creator"],
+    "Tech & Gadgets": ["chennai tech creator", "kolkata tech creator"],
+    "Fashion & Clothing": ["jaipur fashion blogger", "ahmedabad fashion blogger"],
+    "Pets": ["chennai dog influencer", "kolkata pet influencer"],
+    "Automobile": ["chennai bike rider", "jaipur bikers", "kochi moto vlogger"],
+}
+for _cat, _terms in ROUND6_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 for _cat, _terms in ROUND5_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 
