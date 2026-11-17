@@ -2,6 +2,13 @@
 
 ## Orientation
 
+> **Location (read first).** The VS Code workspace is `~/Documents/ojt`. The real project, its git repo
+> and the only current context live in `~/Documents/ojt/brand deal matcher/`. Do every step inside that
+> folder (`cd ~/Documents/ojt/"brand deal matcher"`): its `CLAUDE.md`, `context/INDEX.md`,
+> `context/NNN-*.md` and `docs/` are the current ones. The `CLAUDE.md`, `context/` and `docs/` at the
+> workspace root are stale S-002 copies kept on purpose — never read them as current, never write to them.
+
+
 Brand Deal Matcher: a website where small/homegrown Indian brands find growing
 Instagram creators (1K–100K followers), ranked by a 0–100 match score, and pay
 to unlock their details. Started as the user's OJT project; the user treats it
@@ -15,7 +22,7 @@ Files:
 - `context/INDEX.md` — current state, next action, open decisions, topic map.
 - `context/NNN-*.md` — append-only session journal (read on demand only).
 - `A.txt` — raw transcript of the first planning chat (S-001); named
-  `hist001.txt` until 2026-11-16. Its paths say `~/Desktop/ojt`; the real workspace is `~/Documents/brand deal matcher`.
+  `hist001.txt` until 2026-11-16. Its paths say `~/Desktop/ojt`; the project now lives in `~/Documents/ojt/brand deal matcher` (moved 2026-11-17).
 
 ## Build / run / test
 
@@ -84,8 +91,10 @@ Style: narration in English; user quotes verbatim in their language; absolute
 dates (2026-11-16), never "today"/"kal"; write for a reader with zero memory
 (name files and things, no "as discussed"); past tense, plain, no praise.
 
-Commands: `/context-write` (run at ~70–80% context, not 95%) and
-`/context-read [topic|all]` (run at the start of a new session).
+Skills: `/context-write` (run at ~70–80% context, not 95%) and
+`/context-read [topic|all]` (run at the start of a new session). They live only at the
+workspace root `~/Documents/ojt/.claude/skills/context-*/SKILL.md` (Claude Code loads
+skills from the opened workspace); the repo carries no `.claude/` folder.
 
 ## docs/ vs context/ boundary
 

@@ -214,3 +214,56 @@ Open:
 - Weekly refresh: run Profile Scraper on all usable creators once a week to build growth (~$2.25/week for 863 — more than one free account covers per month).
 - User must revoke/regenerate: Supabase `sbp_…`, Apify tokens for accounts 1, 2, 3 (all pasted in chat).
 - ~$1.38 left across accounts; next full credit 2026-12-15/16.
+
+---
+
+## S-005 · 2026-11-17 · Project location confusion fixed; context commands repointed
+
+Asked:
+- "uss brand deal macher folder ko yaha leke aao , ok yaha se hi sab control hoga"
+- "mera matlab tha ki ek alag folder bana k uske ander sab rakhte jo repo me bhi hai"
+- "jo already root folder me tha waise hi rakho , jo brand deal macther wala folder ko yaha move karna tha alag se aur git uske ander hi rahte settupoed jaisa tha , uso commit push ki need nahi thi ?"
+- "iss cheej ko completely ach se context me uodate kar do ... kaha actual me kaam kar rahe hai aur jaha actual context hai" and "/context-wrie and read wali command kaam nahi kr rahi inhe fix karo"
+
+Done:
+- Final layout: VS Code workspace `~/Documents/ojt` (root keeps its stale S-002 `CLAUDE.md`, `context/`, `docs/`, `.claude/`, plus `.playwright-mcp/`); the project with its own `.git` is `~/Documents/ojt/brand deal matcher/`. `~/Documents/brand deal matcher` no longer exists.
+- Local repo reset to 40168a6 (state before the moves); `admin/.env` kept.
+- Added a "Location (read first)" block to: root `CLAUDE.md` and root `context/INDEX.md` (marked STALE COPY), both copies of `.claude/commands/context-write.md` and `context-read.md`, inner `CLAUDE.md` and inner `context/INDEX.md`. It says all context work happens inside `brand deal matcher/`.
+- Saved a Claude auto-memory note with the location.
+- Restarted admin (8787) and demo (8788) from the new folder.
+
+Did not work:
+- Claude first flattened the project into the `ojt` root (commit e4e1ead, pushed), then into `ojt/brand-deal-macher/` (commit 0bbaa3b, pushed). Both misread the request; the user wanted the folder moved as-is next to the root files, with no commits. Root files had been moved to a scratchpad backup during this and were restored.
+- `/context-write` and `/context-read` misbehaved because Claude Code loads them from the workspace root `ojt/.claude/commands` and their paths were relative to the root, i.e. the stale `context/`; while the root `.claude` was in the backup they did not exist at all.
+
+Established:
+- Claude Code loads slash commands and `CLAUDE.md` from the opened workspace (`~/Documents/ojt`), not from the project subfolder; commands must name the subfolder explicitly.
+
+User decided:
+- Keep the workspace root as it was; project stays a separate folder with its own git; do not commit or push just for moving files.
+
+Open:
+- GitHub `main` still has e4e1ead and 0bbaa3b (path notes only); local is "behind 2". User to choose: leave them, or force-push back to 40168a6.
+- The S-005 notes in inner files are uncommitted on purpose (user asked for no commits).
+
+---
+
+## S-006 · 2026-11-17 · GitHub reset to 40168a6; context commands → skills
+
+Asked:
+- "git ko jo tumne push kiia tha wrong formt me use bhi fix kar do / GitHub se hata do. Main git push --force se GitHub ko wapas 40168a6 pe le"
+- "aur fir ahe se cintext update kar do / aur skill command bhi fix karo"
+
+Done:
+- `git push --force-with-lease=main:0bbaa3b origin 40168a6:main` (with the gh credential helper). Verified with `gh api repos/aarnavp25-sys/brand-deal-macher/commits/main` → 40168a6. Commits e4e1ead and 0bbaa3b are gone from GitHub.
+- Converted `.claude/commands/context-write.md` and `context-read.md` into skills `.claude/skills/context-write/SKILL.md` and `.claude/skills/context-read/SKILL.md` (added `name:`; body and Location block unchanged), at both `~/Documents/ojt/.claude/` (the copy Claude Code loads) and the repo's `.claude/`. Removed the old command files.
+- Updated inner `CLAUDE.md` (skills location) and `context/INDEX.md` (GitHub state, S-006 row; removed the force-push decision).
+
+Did not work:
+- `git fetch` without the gh credential helper → `fatal: could not read Username for 'https://github.com': Device not configured`. Every network git command needs `-c credential.helper= -c credential.helper='!gh auth git-credential'` until the user runs `gh auth setup-git`.
+
+Established:
+- GitHub `main` = 40168a6. Local repo has uncommitted edits (S-005/S-006 notes, skills move), left uncommitted because the user did not ask to commit.
+
+Open:
+- Reload the VS Code Claude panel so the skills are picked up.
