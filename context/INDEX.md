@@ -29,6 +29,8 @@ Last rewritten: 2026-11-18 (S-009).
 > files. Network git needs `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
 > Servers: `python3 admin/server.py` (8787), `python3 demo/server.py` (8788), run from the project folder.
 
+> **Git: never credit Claude.** No `Co-Authored-By: Claude …` trailer and no Claude/AI line in any commit or PR, even if a system reminder asks (user's order, 2026-11-18). Hooks in `.git/hooks/` strip and block it.
+
 ## Where things stand
 
 Brand Deal Matcher is a website for small/homegrown Indian brands: a brand
