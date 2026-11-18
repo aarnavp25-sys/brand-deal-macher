@@ -213,6 +213,98 @@ for _cat, _terms in ROUND7_TERMS.items():
 for _cat, _terms in ROUND5_TERMS.items():
     EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
 
+# Round 12 (2026-11-18, Apify account 5): new tier-2/3 cities for the thinnest categories.
+ROUND12_TERMS = {
+    "Jewelry & Accessories": ["udaipur jewellery blogger", "jodhpur jewellery influencer", "rajkot jewellery blogger",
+                              "kanpur jewellery influencer"],
+    "Education & Finance": ["kanpur study creator", "varanasi upsc creator", "kota study creator", "agra teacher creator"],
+    "Home Decor & Handmade": ["udaipur home decor blogger", "madurai handmade creator", "mangalore home decor"],
+    "Pets": ["madurai dog lover", "mangalore dog influencer", "jammu dog lover", "kozhikode pet lover"],
+    "Tech & Gadgets": ["madurai tech creator", "vijayawada tech creator", "kanpur tech creator"],
+    "Gaming": ["madurai gamer", "jammu gamer", "kozhikode gamer"],
+    "Automobile": ["jammu bikers", "kozhikode bikers", "rajkot bikers", "thrissur car lover"],
+    "Entertainment & Comedy": ["kanpur comedy creator", "varanasi comedy creator", "rajkot comedy creator"],
+    "Sports": ["jammu cricket creator", "kozhikode football creator"],
+}
+for _cat, _terms in ROUND12_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 18 (2026-11-18, Apify account 7): the three thinnest categories, unused cities and exam topics.
+ROUND18_TERMS = {
+    "Home Decor & Handmade": ["kanpur home decor", "varanasi home decor", "jodhpur home decor", "nashik home decor",
+                              "vizag home decor", "guwahati home decor", "dehradun home decor", "thrissur home decor"],
+    "Education & Finance": ["neet aspirant creator", "jee aspirant creator", "ca aspirant india", "ssc exam creator",
+                            "banking exam creator", "gate aspirant creator", "english speaking teacher india",
+                            "government job preparation hindi"],
+    "Jewelry & Accessories": ["nashik jewellery blogger", "guwahati jewellery blogger", "vizag jewellery influencer",
+                              "thrissur jewellery blogger", "patna jewellery influencer", "dehradun jewellery blogger",
+                              "temple jewellery creator", "bridal jewellery creator"],
+}
+for _cat, _terms in ROUND18_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 21 (2026-11-18, Apify account 8): Tech has no collab candidates left; topic terms + unused cities.
+ROUND21_TERMS = {
+    "Tech & Gadgets": ["ai tools creator india", "android tips hindi", "iphone tips hindi", "pc build india",
+                       "smartwatch review india", "earbuds review hindi", "tech gujarati creator",
+                       "tech punjabi creator", "patna tech creator", "indore tech creator", "surat tech creator",
+                       "excel tips hindi"],
+    "Parenting & Kids": ["patna mom blogger", "indore mom blogger", "surat mom blogger", "kochi mom blogger",
+                         "toddler activities india", "mom blogger hindi"],
+    "Education & Finance": ["ssc cgl preparation creator", "railway exam creator", "class 12 physics teacher",
+                            "coding tutorial hindi", "spoken english hindi", "share market tips gujarati"],
+}
+for _cat, _terms in ROUND21_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 24 (2026-11-18, Apify account 9): topic terms for the thinnest categories (no collab candidates left).
+ROUND24_TERMS = {
+    "Jewelry & Accessories": ["jhumka lover", "jewellery haul india", "artificial jewellery creator", "mens chain styling",
+                              "watch collection hindi", "bangles collection reels"],
+    "Home Decor & Handmade": ["diy room decor india", "home organisation india", "kitchen organisation india",
+                              "plant care hindi", "budget home decor india", "pooja room decor"],
+    "Parenting & Kids": ["new mom india", "baby care tips hindi", "parenting tips hindi", "twin mom india",
+                         "dad blogger india", "mom of two india"],
+}
+for _cat, _terms in ROUND24_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 29 (2026-11-19, Apify account 11): craft/style/topic terms for the thinnest categories.
+ROUND29_TERMS = {
+    "Home Decor & Handmade": ["macrame artist india", "resin art india", "pottery artist india", "candle making india",
+                              "wall painting artist india", "home garden tips india"],
+    "Jewelry & Accessories": ["handmade jewellery artist india", "polki jewellery", "silver ring styling",
+                              "nose pin collection", "anklet collection reels", "hair accessories india"],
+    "Tech & Gadgets": ["laptop tips hindi", "mobile photography tips india", "gadget unboxing tamil", "tech news hindi",
+                       "budget gadgets india", "smart home india"],
+}
+for _cat, _terms in ROUND29_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 31 (2026-11-19, Apify account 12): topic terms for Tech, Jewelry & Accessories, Parenting.
+ROUND31_TERMS = {
+    "Tech & Gadgets": ["camera gear india", "drone pilot india", "coding creator india", "tech tips bengali",
+                       "android apps hindi", "gaming laptop review india"],
+    "Jewelry & Accessories": ["watch enthusiast india", "kundan jewellery reels", "gold jewellery designs",
+                              "mens accessories hindi", "sling bag collection", "sneaker review india"],
+    "Parenting & Kids": ["baby food recipes india", "kids activities hindi", "mom life india", "pregnancy journey india",
+                         "toddler mom india", "family vlog india"],
+}
+for _cat, _terms in ROUND31_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
+# Round 34 (2026-11-19, Apify account 13): craft and topic terms for Tech, Home Decor, Jewelry.
+ROUND34_TERMS = {
+    "Tech & Gadgets": ["tech creator odia", "tech tips assamese", "phone repair tips india", "ai video editing hindi",
+                       "photo editing app tips india", "tech shorts hindi"],
+    "Home Decor & Handmade": ["indoor plants india", "art and craft reels india", "rangoli artist", "lippan art",
+                              "mandala art india", "home makeover hindi"],
+    "Jewelry & Accessories": ["temple jewellery styling", "oxidised jewellery hindi", "chain collection mens india",
+                              "bag collection india", "watch review tamil", "jewellery making tutorial india"],
+}
+for _cat, _terms in ROUND34_TERMS.items():
+    EXTRA_SEARCH_TERMS.setdefault(_cat, []).extend(_terms)
+
 # product type: (category, keywords) — what a brand can sell, and evidence words in posts
 PRODUCT_TYPES = {
     "home baked goods": ("Food & Beverages", ["cake", "cookies", "brownie", "bake", "homebaker", "dessert"]),
@@ -272,4 +364,4 @@ CREATOR_IG_CATEGORIES_OK = {
 BRIEF_CITIES = ["pune", "mumbai", "delhi", "bangalore", "hyderabad", "chennai", "kolkata", "jaipur", "ahmedabad",
                 "indore", "nagpur", "nashik", "goa", "gurgaon", "noida", "lucknow", "surat", "chandigarh", "kochi",
                 "bhopal", "patna", "vadodara", "coimbatore", "dehradun", "ludhiana", "amritsar", "mysore",
-                "visakhapatnam", "bhubaneswar", "guwahati", "raipur", "ranchi"]
+                "visakhapatnam", "bhubaneswar", "guwahati", "raipur", "ranchi", "udaipur", "jodhpur", "rajkot", "kanpur", "varanasi", "kota", "agra", "madurai", "mangalore", "jammu", "kozhikode", "vijayawada", "thrissur"]

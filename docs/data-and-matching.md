@@ -28,6 +28,12 @@ the `relatedProfiles` snowball and the scoring weights in `product-design.md`.
 - Broad terms ("… influencer india") return mostly >100K or <1K accounts.
   City + niche terms ("pune home decor", "tech tips marathi") yield far more
   1K–100K creators. Observed keep rates: 33%, 24%, 33% across rounds.
+- **Collab snowball beats search (rounds 12–13, 2026-11-18).** Usernames that our creators tag as
+  coauthors (collab posts) or @mention are free candidates already in `posts`. Profile Scraper on 768
+  coauthor candidates kept 40% (search: 24–33%) and cost ~$0.012 per new usable creator incl. reels
+  (city+niche search: ~$0.016). Candidates inherit the source creator's category, so picking them from
+  thin categories fills those. Mentions alone are mostly brands (Flipkart, Nykaa); prefer coauthors.
+  New creators add new candidates, so the pool grows each round (~3,300 coauthor candidates left).
 - Polling/downloading through flaky networks needs retries; a crashed client does
   not stop the Apify run — re-attach by run id (`apify_run.py … <run_id>`).
 
@@ -47,6 +53,12 @@ bios that read like shops (`BRANDISH` regex) get `status = review`.
 Known defect: `cmd_build` uses `(avg_views or 0)`, so a creator with no reel data
 counts as reach 0 and is flagged on low ER alone (6 of 166 flagged creators on
 2026-11-18). Fix: no reel data → `status = review`, not `fake_flag`.
+
+Every fake-flagged creator gets `creators.fake_reason`: the rule in plain words with the creator's own
+numbers (shown in admin). Creators loaded without reel data (reel runs that ran out of credit, or no reels in
+90 days) get reels later with `process.py reels <reels.json>`, which updates views, reach, the fake check and
+reel posts for creators already in the DB (category/products are not re-run). About half of the usable
+creators without reel data simply post no reels; re-scraping them returns nothing.
 
 Classification `keyword-v1`: category = keyword share across posts + bio + search
 term; products = keyword hits per post. Category level is usable; product level

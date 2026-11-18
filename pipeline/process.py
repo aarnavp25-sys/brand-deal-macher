@@ -4,12 +4,13 @@ usage:
   python3 process.py filter <out_usernames.json> <search.json> [more search.json ...]
   python3 process.py build  <out_rows.json> <reels.json> <search.json> [more ...]
   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... python3 process.py load <rows.json> [raw run files ...]
+  SUPABASE_URL=... SUPABASE_SERVICE_KEY=... python3 process.py reels <reels.json> [more ...]   (reel data for existing creators)
 
 Classification here is keyword-based ("keyword-v1"): category from post/bio
 keyword share plus the search term that found the creator. The LLM step will
 replace it later (classification_method = 'llm').
 """
-import json, os, re, sys, statistics as st, urllib.request
+import json, os, re, sys, statistics as st, urllib.parse, urllib.request
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -23,14 +24,33 @@ CITIES = ["pune", "mumbai", "delhi", "bangalore", "bengaluru", "hyderabad", "che
           "jaipur", "indore", "nagpur", "nashik", "surat", "lucknow", "chandigarh", "goa", "kochi", "thane",
           "noida", "gurgaon", "gurugram", "navi mumbai", "pimpri", "kolhapur", "aurangabad", "bhopal", "patna",
           "vadodara", "baroda", "coimbatore", "dehradun", "ludhiana", "amritsar", "mysore", "mysuru",
-          "visakhapatnam", "vizag", "bhubaneswar", "guwahati", "raipur", "ranchi"]
+          "visakhapatnam", "vizag", "bhubaneswar", "guwahati", "raipur", "ranchi", "udaipur", "jodhpur", "rajkot", "kanpur", "varanasi", "kota", "agra", "madurai", "mangalore", "jammu", "kozhikode", "vijayawada", "thrissur", "calicut", "banaras", "mangaluru"]
 CITY_NORM = {"bengaluru": "Bangalore", "gurugram": "Gurgaon", "baroda": "Vadodara", "mysuru": "Mysore",
-             "vizag": "Visakhapatnam", "pimpri": "Pune", "navi mumbai": "Mumbai", "thane": "Mumbai"}
+             "vizag": "Visakhapatnam", "calicut": "Kozhikode", "banaras": "Varanasi",
+            "mangaluru": "Mangalore", "pimpri": "Pune", "navi mumbai": "Mumbai", "thane": "Mumbai"}
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 # bios that read like a shop/brand page rather than a creator -> status 'review'
 BRANDISH = re.compile(r"premium quality|dm to order|order now|cod available|cash on delivery|free shipping|"
                       r"shipping|wholesale|booking open|free delivery|our store|shop now|manufacturer", re.I)
 COLLAB = re.compile(r"collab|dm for|for promo|promotion|pr friendly|business enquir|business inquir|work with|paid promo", re.I)
+
+
+# Fake rule (all three must hold): 10K+ followers, engagement < 0.5%, median reel views < 0.3x followers.
+FAKE_MIN_FOLLOWERS, FAKE_MAX_ER, FAKE_MAX_REACH = 10000, 0.5, 0.3
+
+
+def fake_reason(followers, er, avg_views):
+    """Plain-words reason with the creator's own numbers, or None if not fake. Shown in admin."""
+    if er is None or not followers or followers < FAKE_MIN_FOLLOWERS or er >= FAKE_MAX_ER:
+        return None
+    base = f"{followers:,} followers (10K+) but engagement only {er:.2f}% (below {FAKE_MAX_ER}%)"
+    if avg_views is None:
+        # known defect: no reel data counts as reach 0 (docs/data-and-matching.md, Metrics)
+        return base + "; no reel data, so reel reach could not be checked (flag may be wrong, review manually)"
+    reach = avg_views / followers
+    if reach >= FAKE_MAX_REACH:
+        return None
+    return base + f" and reels reach only {reach:.2f}x followers (median {round(avg_views):,} views, below {FAKE_MAX_REACH}x)"
 
 
 def ts(x):
@@ -174,7 +194,8 @@ def cmd_build(out, reels_path, paths):
         bio = it.get("biography") or ""
         em = EMAIL.search(bio)
         # low ER alone is not fake: some low-ER accounts get 98x followers in reel views
-        fake = bool(er is not None and f >= 10000 and er < 0.5 and (avg_views or 0) / f < 0.3)
+        why_fake = fake_reason(f, er, avg_views)
+        fake = why_fake is not None
         brand_like = bool(BRANDISH.search(bio))
         rows["creators"].append({
             "id": pid, "username": u, "full_name": it.get("fullName"), "bio": bio, "followers": f,
@@ -195,7 +216,7 @@ def cmd_build(out, reels_path, paths):
             # Use the real time span the recent posts cover instead.
             "posts_per_week": posting_rate(posts),
             "last_post_at": max(p["timestamp"] for p in posts if p.get("timestamp")),
-            "fake_flag": fake, "classification_method": "keyword-v1",
+            "fake_flag": fake, "fake_reason": why_fake, "classification_method": "keyword-v1",
             "status": "review" if brand_like else "active",
             "source_keyword": it.get("searchTerm"), "scraped_at": NOW.isoformat(),
             "updated_at": NOW.isoformat()})
@@ -292,9 +313,63 @@ def cmd_raw(raw_paths):
                                 "cost_usd": d.get("cost_usd")}])
 
 
+def cmd_reels(reels_paths):
+    """Add reel data to creators already in the DB (reels missing at first load, or a monthly refresh):
+    median reel views, reel reach, the fake check, and the reel posts. Category/products are not re-run."""
+    url, key = os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"]
+    H = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    by_user = {}
+    for path in reels_paths:
+        for r in json.load(open(path))["items"]:
+            u = ((r.get("inputUrl") or "").rstrip("/").split("/")[-1] or r.get("ownerUsername") or "").lower()
+            if u and r.get("videoPlayCount") is not None:
+                by_user.setdefault(u, []).append(r)
+    if not by_user:
+        print("no reels with views"); return
+    names = list(by_user)
+    creators = []
+    for i in range(0, len(names), 100):  # look the creators up by username, 100 per request
+        q = urllib.parse.quote("(" + ",".join(f'"{n}"' for n in names[i:i + 100]) + ")")
+        req = urllib.request.Request(f"{url}/rest/v1/creators?select=id,username,followers,engagement_rate&username=in.{q}", headers=H)
+        creators += json.loads(urllib.request.urlopen(req, timeout=120).read())
+    posts, updated, fakes = [], 0, 0
+    for c in creators:
+        rl = by_user.get(c["username"].lower(), [])
+        if not rl or not c["followers"]:
+            continue
+        f, er = c["followers"], (float(c["engagement_rate"]) if c["engagement_rate"] is not None else None)
+        avg_views = st.median(r["videoPlayCount"] for r in rl)
+        why = fake_reason(f, er, avg_views)
+        body = {"avg_reel_views": round(avg_views), "reel_reach": round(avg_views / f, 2), "fake_flag": why is not None,
+                "fake_reason": why, "updated_at": NOW.isoformat()}
+        req = urllib.request.Request(f"{url}/rest/v1/creators?id=eq.{urllib.parse.quote(c['id'])}", method="PATCH",
+                                     data=json.dumps(body).encode(), headers={**H, "Prefer": "return=minimal"})
+        urllib.request.urlopen(req, timeout=60).read()
+        updated += 1; fakes += why is not None
+        for p in rl:
+            if not p.get("id"):
+                continue
+            cap, tags = post_text(p)
+            posts.append({
+                "id": p["id"], "creator_id": c["id"], "shortcode": p.get("shortCode"), "url": p.get("url"),
+                "type": p.get("type"), "source": "reel", "posted_at": p.get("timestamp"),
+                "likes": p["likesCount"] if (p.get("likesCount") or -1) >= 0 else None,
+                "comments": p.get("commentsCount"), "views": p.get("videoPlayCount"),
+                "caption": (p.get("caption") or "")[:2000], "hashtags": p.get("hashtags") or [],
+                "mentions": p.get("mentions") or [], "location": p.get("locationName"),
+                "is_pinned": p.get("isPinned"), "paid_partnership": p.get("paidPartnership"),
+                "coauthors": [x.get("username") for x in (p.get("coauthorProducers") or []) if x.get("username")],
+                "product_labels": [k for k, (_, kws) in PRODUCT_TYPES.items() if any(kw_hit(w, cap, tags) for w in kws)],
+                "thumbnail_url": p.get("displayUrl")})
+    upsert("posts", list({p["id"]: p for p in reversed(posts)}.values()))
+    print(f"creators updated with reel data: {updated} (fake after reels: {fakes}); reel owners not in DB: "
+          f"{len(by_user) - len(creators)}")
+
+
 if __name__ == "__main__":
-    cmd, out = sys.argv[1], sys.argv[2]
+    cmd, out = sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None
     if cmd == "filter": cmd_filter(out, sys.argv[3:])
     elif cmd == "build": cmd_build(out, sys.argv[3], sys.argv[4:])
     elif cmd == "load": cmd_load(out, sys.argv[3:])
     elif cmd == "raw": cmd_raw(sys.argv[2:])
+    elif cmd == "reels": cmd_reels(sys.argv[2:])
