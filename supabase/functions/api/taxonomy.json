@@ -1,0 +1,671 @@
+{
+ "categories": {
+  "Food & Beverages": [
+   "food",
+   "foodie",
+   "recipe",
+   "cafe",
+   "restaurant",
+   "bake",
+   "cake",
+   "dessert",
+   "chai",
+   "biryani",
+   "streetfood",
+   "eats",
+   "kitchen",
+   "cooking",
+   "misal",
+   "vadapav"
+  ],
+  "Beauty & Skincare": [
+   "skincare",
+   "skin",
+   "makeup",
+   "beauty",
+   "serum",
+   "sunscreen",
+   "haircare",
+   "hair",
+   "lipstick",
+   "grooming",
+   "beard",
+   "glow",
+   "spf"
+  ],
+  "Fashion & Clothing": [
+   "fashion",
+   "outfit",
+   "ootd",
+   "style",
+   "styling",
+   "saree",
+   "kurta",
+   "streetwear",
+   "lookbook",
+   "wear",
+   "menswear",
+   "thrift",
+   "fit check"
+  ],
+  "Jewelry & Accessories": [
+   "jewellery",
+   "jewelry",
+   "earrings",
+   "necklace",
+   "ring",
+   "chain",
+   "bracelet",
+   "watch",
+   "watches",
+   "bag",
+   "sneakers",
+   "accessories",
+   "oxidised"
+  ],
+  "Home Decor & Handmade": [
+   "decor",
+   "homedecor",
+   "interior",
+   "plants",
+   "plant",
+   "candle",
+   "handmade",
+   "craft",
+   "diy",
+   "artwork",
+   "gifting",
+   "home tour"
+  ],
+  "Fitness & Wellness": [
+   "fitness",
+   "gym",
+   "workout",
+   "yoga",
+   "protein",
+   "fatloss",
+   "fat loss",
+   "muscle",
+   "transformation",
+   "nutrition",
+   "diet",
+   "wellness",
+   "bodybuilding"
+  ],
+  "Sports": [
+   "cricket",
+   "football",
+   "running",
+   "marathon",
+   "cycling",
+   "badminton",
+   "sports",
+   "athlete",
+   "kabaddi",
+   "tennis",
+   "match"
+  ],
+  "Tech & Gadgets": [
+   "tech",
+   "gadget",
+   "unboxing",
+   "smartphone",
+   "iphone",
+   "android",
+   "laptop",
+   "review",
+   "earbuds",
+   "ai tools",
+   "apps",
+   "setup"
+  ],
+  "Gaming": [
+   "gaming",
+   "gamer",
+   "bgmi",
+   "pubg",
+   "freefire",
+   "valorant",
+   "esports",
+   "gameplay",
+   "stream",
+   "minecraft",
+   "gta"
+  ],
+  "Entertainment & Comedy": [
+   "comedy",
+   "funny",
+   "skit",
+   "meme",
+   "memes",
+   "relatable",
+   "prank",
+   "humour",
+   "humor",
+   "standup",
+   "acting"
+  ],
+  "Music & Dance": [
+   "dance",
+   "dancer",
+   "choreography",
+   "singing",
+   "singer",
+   "cover",
+   "music",
+   "guitar",
+   "song",
+   "rap",
+   "bollywood dance"
+  ],
+  "Education & Finance": [
+   "finance",
+   "money",
+   "stock",
+   "investing",
+   "trading",
+   "sip",
+   "mutualfund",
+   "study",
+   "career",
+   "upsc",
+   "exam",
+   "education",
+   "learn"
+  ],
+  "Parenting & Kids": [
+   "mom",
+   "mommy",
+   "motherhood",
+   "parenting",
+   "baby",
+   "toddler",
+   "kids",
+   "momlife",
+   "pregnancy",
+   "newborn"
+  ],
+  "Travel & Explore": [
+   "travel",
+   "trip",
+   "trek",
+   "trekking",
+   "explore",
+   "wanderlust",
+   "staycation",
+   "hills",
+   "beach",
+   "roadtrip",
+   "itinerary"
+  ],
+  "Automobile": [
+   "bike",
+   "biker",
+   "car",
+   "cars",
+   "motovlog",
+   "ride",
+   "royalenfield",
+   "ktm",
+   "automobile",
+   "superbike",
+   "modified"
+  ],
+  "Pets": [
+   "dog",
+   "dogs",
+   "puppy",
+   "cat",
+   "cats",
+   "kitten",
+   "pet",
+   "pets",
+   "doggo",
+   "petcare",
+   "labrador",
+   "indie dog"
+  ]
+ },
+ "products": {
+  "home baked goods": [
+   "Food & Beverages",
+   [
+    "cake",
+    "cookies",
+    "brownie",
+    "bake",
+    "homebaker",
+    "dessert"
+   ]
+  ],
+  "packaged snacks": [
+   "Food & Beverages",
+   [
+    "snack",
+    "chips",
+    "namkeen",
+    "makhana"
+   ]
+  ],
+  "beverages": [
+   "Food & Beverages",
+   [
+    "coffee",
+    "chai",
+    "tea",
+    "juice",
+    "smoothie",
+    "drink"
+   ]
+  ],
+  "restaurants & cafes": [
+   "Food & Beverages",
+   [
+    "cafe",
+    "restaurant",
+    "eatery",
+    "dine"
+   ]
+  ],
+  "skincare": [
+   "Beauty & Skincare",
+   [
+    "skincare",
+    "serum",
+    "sunscreen",
+    "moisturizer",
+    "facewash",
+    "spf"
+   ]
+  ],
+  "makeup": [
+   "Beauty & Skincare",
+   [
+    "makeup",
+    "lipstick",
+    "foundation",
+    "kajal",
+    "eyeliner"
+   ]
+  ],
+  "haircare": [
+   "Beauty & Skincare",
+   [
+    "haircare",
+    "shampoo",
+    "hair oil",
+    "conditioner"
+   ]
+  ],
+  "men's grooming": [
+   "Beauty & Skincare",
+   [
+    "beard",
+    "trimmer",
+    "grooming",
+    "shave",
+    "aftershave"
+   ]
+  ],
+  "perfume": [
+   "Beauty & Skincare",
+   [
+    "perfume",
+    "fragrance",
+    "attar",
+    "scent",
+    "deodorant"
+   ]
+  ],
+  "women's ethnic wear": [
+   "Fashion & Clothing",
+   [
+    "saree",
+    "kurti",
+    "lehenga",
+    "ethnic",
+    "kurta set"
+   ]
+  ],
+  "women's western wear": [
+   "Fashion & Clothing",
+   [
+    "dress",
+    "top",
+    "jeans",
+    "western wear"
+   ]
+  ],
+  "men's clothing": [
+   "Fashion & Clothing",
+   [
+    "menswear",
+    "shirt",
+    "mens fashion",
+    "men's fashion",
+    "tshirt",
+    "kurta"
+   ]
+  ],
+  "streetwear": [
+   "Fashion & Clothing",
+   [
+    "streetwear",
+    "oversized",
+    "hoodie",
+    "cargo"
+   ]
+  ],
+  "women's jewelry": [
+   "Jewelry & Accessories",
+   [
+    "earrings",
+    "necklace",
+    "jhumka",
+    "oxidised",
+    "bangles"
+   ]
+  ],
+  "men's jewelry": [
+   "Jewelry & Accessories",
+   [
+    "chain",
+    "ring",
+    "bracelet",
+    "mens jewelry",
+    "men's jewellery"
+   ]
+  ],
+  "watches": [
+   "Jewelry & Accessories",
+   [
+    "watch",
+    "watches",
+    "wristwatch",
+    "timepiece"
+   ]
+  ],
+  "bags": [
+   "Jewelry & Accessories",
+   [
+    "bag",
+    "handbag",
+    "backpack",
+    "tote"
+   ]
+  ],
+  "footwear": [
+   "Jewelry & Accessories",
+   [
+    "sneakers",
+    "shoes",
+    "footwear",
+    "heels",
+    "sandals"
+   ]
+  ],
+  "sunglasses": [
+   "Jewelry & Accessories",
+   [
+    "sunglasses",
+    "shades",
+    "eyewear"
+   ]
+  ],
+  "home decor": [
+   "Home Decor & Handmade",
+   [
+    "decor",
+    "homedecor",
+    "interior",
+    "cushion",
+    "wall art"
+   ]
+  ],
+  "plants & gardening": [
+   "Home Decor & Handmade",
+   [
+    "plant",
+    "plants",
+    "garden",
+    "succulent"
+   ]
+  ],
+  "candles & gifting": [
+   "Home Decor & Handmade",
+   [
+    "candle",
+    "gift",
+    "hamper",
+    "gifting"
+   ]
+  ],
+  "handmade crafts": [
+   "Home Decor & Handmade",
+   [
+    "handmade",
+    "craft",
+    "crochet",
+    "resin art",
+    "pottery"
+   ]
+  ],
+  "gym wear": [
+   "Fitness & Wellness",
+   [
+    "gymwear",
+    "activewear",
+    "gym wear",
+    "leggings"
+   ]
+  ],
+  "supplements": [
+   "Fitness & Wellness",
+   [
+    "protein",
+    "whey",
+    "supplement",
+    "creatine",
+    "preworkout"
+   ]
+  ],
+  "healthy food": [
+   "Fitness & Wellness",
+   [
+    "healthy",
+    "diet",
+    "millet",
+    "oats",
+    "nutrition"
+   ]
+  ],
+  "yoga & wellness": [
+   "Fitness & Wellness",
+   [
+    "yoga",
+    "meditation",
+    "wellness",
+    "ayurveda"
+   ]
+  ],
+  "sports gear": [
+   "Sports",
+   [
+    "bat",
+    "jersey",
+    "football boots",
+    "racket",
+    "sports gear"
+   ]
+  ],
+  "smartphones": [
+   "Tech & Gadgets",
+   [
+    "iphone",
+    "smartphone",
+    "samsung",
+    "oneplus",
+    "pixel"
+   ]
+  ],
+  "audio & wearables": [
+   "Tech & Gadgets",
+   [
+    "earbuds",
+    "headphones",
+    "smartwatch",
+    "speaker",
+    "tws"
+   ]
+  ],
+  "laptops & pc": [
+   "Tech & Gadgets",
+   [
+    "laptop",
+    "macbook",
+    "pc build",
+    "keyboard",
+    "monitor"
+   ]
+  ],
+  "phone accessories": [
+   "Tech & Gadgets",
+   [
+    "phone case",
+    "charger",
+    "powerbank",
+    "cover"
+   ]
+  ],
+  "apps & software": [
+   "Tech & Gadgets",
+   [
+    "app",
+    "ai tool",
+    "software",
+    "chatgpt"
+   ]
+  ],
+  "gaming gear": [
+   "Gaming",
+   [
+    "controller",
+    "gaming mouse",
+    "headset",
+    "gaming phone",
+    "trigger"
+   ]
+  ],
+  "music gear": [
+   "Music & Dance",
+   [
+    "guitar",
+    "mic",
+    "microphone",
+    "keyboard piano"
+   ]
+  ],
+  "courses & edtech": [
+   "Education & Finance",
+   [
+    "course",
+    "upsc",
+    "exam",
+    "study",
+    "notes"
+   ]
+  ],
+  "finance apps": [
+   "Education & Finance",
+   [
+    "sip",
+    "mutual fund",
+    "demat",
+    "trading app",
+    "investing"
+   ]
+  ],
+  "baby products": [
+   "Parenting & Kids",
+   [
+    "baby",
+    "diaper",
+    "toddler",
+    "newborn",
+    "kids toys"
+   ]
+  ],
+  "travel stays": [
+   "Travel & Explore",
+   [
+    "stay",
+    "homestay",
+    "resort",
+    "villa",
+    "hotel"
+   ]
+  ],
+  "travel gear": [
+   "Travel & Explore",
+   [
+    "luggage",
+    "suitcase",
+    "travel bag",
+    "trolley"
+   ]
+  ],
+  "bike & car accessories": [
+   "Automobile",
+   [
+    "helmet",
+    "riding gear",
+    "car accessories",
+    "dashcam"
+   ]
+  ],
+  "pet products": [
+   "Pets",
+   [
+    "pet food",
+    "dog food",
+    "cat food",
+    "pet toy",
+    "treats"
+   ]
+  ]
+ },
+ "cities": [
+  "pune",
+  "mumbai",
+  "delhi",
+  "bangalore",
+  "hyderabad",
+  "chennai",
+  "kolkata",
+  "jaipur",
+  "ahmedabad",
+  "indore",
+  "nagpur",
+  "nashik",
+  "goa",
+  "gurgaon",
+  "noida",
+  "lucknow",
+  "surat",
+  "chandigarh",
+  "kochi",
+  "bhopal",
+  "patna",
+  "vadodara",
+  "coimbatore",
+  "dehradun",
+  "ludhiana",
+  "amritsar",
+  "mysore",
+  "visakhapatnam",
+  "bhubaneswar",
+  "guwahati",
+  "raipur",
+  "ranchi"
+ ]
+}

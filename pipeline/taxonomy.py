@@ -267,3 +267,9 @@ CREATOR_IG_CATEGORIES_OK = {
     "Fashion model", "Coach", "Entrepreneur", "Personal coach", "Makeup artist", "Chef",
     "Just for fun", "Pet", "Traveler",
 }
+
+# Cities the brief parser recognises in a brand's text (demo + Edge Function).
+BRIEF_CITIES = ["pune", "mumbai", "delhi", "bangalore", "hyderabad", "chennai", "kolkata", "jaipur", "ahmedabad",
+                "indore", "nagpur", "nashik", "goa", "gurgaon", "noida", "lucknow", "surat", "chandigarh", "kochi",
+                "bhopal", "patna", "vadodara", "coimbatore", "dehradun", "ludhiana", "amritsar", "mysore",
+                "visakhapatnam", "bhubaneswar", "guwahati", "raipur", "ranchi"]

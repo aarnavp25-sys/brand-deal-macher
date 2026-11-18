@@ -344,3 +344,53 @@ Open:
 - Account 4 has ~$0.37 left (resets 2026-12-16): keep for a follower refresh.
 - Project `CLAUDE.md` still says "Current state: design only … no git repo" (stale since S-003).
 - Next real step unchanged: LLM classification (needs Anthropic key or Bedrock test).
+
+---
+
+## S-009 · 2026-11-17 → 2026-11-18 · Demo 1000-row fix; viva prep; Bedrock LLM tests → Nova 2 Lite; skill cleanup proposed
+
+Asked:
+- "abhii mujhe demo webiste ka link de locally wala"; "admin dashbord dikha"
+- "mujhe ek baar bata saari cheeze kaise use horaha hai aur kyu"; "mera abhii viva type hai ek mentor mujhe puche gi mujhe usse explain karna hai"; "taxonomy meaning"; "ye jo fake? hai woh kyu hai"; "ye profiles update kaise karege aur kab karege"; "kya ye bata mujhe koi script run karke ya kuch aur karke nhii kar sakte"; "1000 creators ko uopdate karne mai kitna cost lagega aur woh minimize kaise kar sakte hai"
+- "mujhe ye bata kimi 3.1 kaisa rehga ?"; "abhii llm final mat kar"
+- pasted a short-term Bedrock key: "ye le llm ke liye api key" → "tk h karke ke dekh"
+- "nova 2 lite ya haiku konsa best hoga"; "dono use karne pe kya costing aayegi"
+- pasted a long-term Bedrock key: "isma dekh kon kons a sa availble ha kimi 3.1 priorty ha or free crdits pa chal ra ha washa bhi sarr modal bata jo chal reh a"
+- "koi bhii meri dei hu priority mat lena tu apne hissab se mujhe bata mere use case ke hissab se kya use karna chaiye"; "ek baar saare model pe try karke dekh aur mujhe bata"
+- "haa toh tk h abhii nova 2 lite final kar but abhii kuch mat karna mai kahu tabhii karna tk h"
+- "Fix what /usage flagged. Show me each change before you make it." + "Find the skills I have not used in the last month and turn them off in my settings."
+
+Done:
+- `demo/server.py` had the same PostgREST 1000-row cap as admin (S-008): only 1,000 of 1,168 usable creators, 1,000 of 6,720 product links and 1,000 snapshots were loaded. Added `rest_all()` (pages `limit=1000&offset`, ordered by a unique key) for creators, `creator_products`, `creator_snapshots`; added 22 cities to the demo `CITIES` list. Restarted demo; verified 1,168 creators / 6,720 links / 115 growth; brief "handmade oxidised jewellery for women in Vadodara" → 57 matched, top score 76. **Not committed** (user not yet asked).
+- Explained the whole system, taxonomy, fake flag, refresh plan and costs for the user's viva (chat only, no files).
+- Found the fake-flag defect (6 of 166 flagged creators have no reel data) → `docs/data-and-matching.md` (Metrics).
+- Refresh plan proposed, nothing built: Profile Scraper every 2 weeks ($0.0026/creator ≈ $3 per 1,168); reels monthly for top ~300; reuse profiles that reappear in search (~165 in rounds 9–11); Instagram Graph API Business Discovery for professional accounts (~874 of 1,168 have an IG category) — unverified, needs the user's own IG professional account + Facebook Page + Meta app.
+- Kimi K3.1 web research: Moonshot direct $2/$10 per MTok; recommended against it for this task.
+- Short-term Bedrock key (region `ap-southeast-2`, 12 h): Claude Haiku/Sonnet/Opus 5.5 → 403 "not available for this account"; Nova Lite and Nova 2 Lite worked. Script `nova_test.py` (session scratchpad) ran 20 creators (one per category + `rider_girls_pune` + random, seed 7) on both; keyword vs Nova Lite vs Nova 2 Lite judged by reading each creator: category 17 / 15 / 20 of 20.
+- Long-term Bedrock key (IAM user `BedrockAPIKey-wxuw`): listed 83 models in Sydney; probed 73 text models with one tiny call each → 47 work (incl. Kimi K3.1 `global.moonshotai.kimi-k3.1`, K3, K2.5, Nova, Qwen, DeepSeek, gpt-oss, Mistral, Gemma, GLM, MiniMax, Nemotron; Claude 4.x appeared to work).
+- `bakeoff.py` ran the same 20 creators on all 47 models (12 parallel), scored against gold labels; `bakeoff_retry.py` retried failures with 3 then 2 workers. Downloaded AWS's public Bedrock price list for Sydney for real costs. Results and model facts → `docs/data-and-matching.md` (LLM / AWS notes).
+- Restarted admin (8787) and demo (8788) as background tasks after both had stopped.
+- Skill cleanup: scanned all transcripts in `~/.claude/projects/*/*.jsonl` for Skill calls and slash commands; found the `skillOverrides` setting (`"name": "off"`); proposed turning off 27 skills in `~/.claude/skills` + `impeccable:impeccable` in `~/.claude/settings.json`. **No change made** — waiting for the user's yes.
+
+Did not work:
+- Admin and demo servers started with `nohup … &` in S-008 had stopped by 2026-11-18 (`Connection refused` on 8787 broke the first Nova test run). Restarted with run_in_background.
+- Claude 4.x on Bedrock: first tiny probes returned OK, but real requests returned `404 Model use case details have not been submitted for this account` → 0 results for Claude in the bake-off.
+- Bake-off: 191 calls failed with `403 Authentication failed: Please make sure your API Key is valid` at 12 parallel requests, randomly across models; after one 3-worker retry still 149. Not a bad key (same key kept working). The second retry (2 workers, 403 now retried) was interrupted by the user; each model ended with 10–20 of 20 creators.
+- `/usage` output is not visible to Claude; asked the user to paste it.
+- `zsh`: `echo =====` fails ("==== not found"); use `echo '-----'`.
+
+Established:
+- Bedrock key scope, blocked models, Claude use-case form, Marketplace billing, intermittent 403s, official prices → `docs/data-and-matching.md`.
+- Transcript history on this machine covers only 2026-11-13 → 2026-11-18, so "unused in the last month" cannot be measured; skills used in that window: `context-write` 6, `context-read` 4, `claude-api` 2, `frontend-design` 1 (plugin `claude-plugins-official`), plus `update-config` on 2026-11-18.
+- Bake-off result files (`nova20.json`, `bakeoff.json`, `bedrock_probe.json`, price JSON) live only in the session scratchpad and may be gone.
+
+User decided:
+- "abhii llm final mat kar" (2026-11-17), then after the tests: Nova 2 Lite is the final LLM — "nova 2 lite final kar but abhii kuch mat karna mai kahu tabhii karna". Nothing to run until the user says so.
+- Asked for a model choice by use case, not by the user's Kimi preference.
+
+Open:
+- Commit `demo/server.py` (1000-row fix + cities) and this context update — not committed.
+- On the user's go: Nova 2 Lite classification of all 1,356 creators into separate fields/table (no overwrite of keyword-v1), then an image (content quality) test.
+- Skill cleanup: apply `skillOverrides` only after the user approves the list; `/usage` fixes need its output pasted.
+- User must rotate: both Bedrock keys, Apify account-4 token, earlier Apify/Supabase tokens (all pasted in chat). The long-term Bedrock key is not stored in the project.
+- Fake-flag defect fix (`process.py cmd_build`), refresh script, Graph API check — not started.

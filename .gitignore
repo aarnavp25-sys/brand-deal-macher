@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .DS_Store
 .claude/
+# Supabase CLI local state (holds the linked account's email)
+supabase/.temp/

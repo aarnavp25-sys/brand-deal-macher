@@ -44,6 +44,9 @@ posts/week = recent posts / weeks since the oldest of them (Apify gives only 12
 posts, so a fixed 60-day window capped everyone at 1.4); fake flag = followers
 ≥10K and ER <0.5% **and** reach <0.3 (low ER alone flagged viral accounts);
 bios that read like shops (`BRANDISH` regex) get `status = review`.
+Known defect: `cmd_build` uses `(avg_views or 0)`, so a creator with no reel data
+counts as reach 0 and is flagged on low ER alone (6 of 166 flagged creators on
+2026-11-18). Fix: no reel data → `status = review`, not `fake_flag`.
 
 Classification `keyword-v1`: category = keyword share across posts + bio + search
 term; products = keyword hits per post. Category level is usable; product level
@@ -94,9 +97,45 @@ Claude prices (cached 2026-11-03): Opus 5.5 $4/$20 per MTok, Sonnet 5.5 $2/$10,
 Haiku 5.5 $0.10/$0.50; Message Batches 50% off. On Amazon Bedrock the model id
 is `anthropic.claude-opus-5-5` and Anthropic Message Batches are not available;
 Claude Platform on AWS has batches but bills through AWS Marketplace.
-AWS account: Free plan, $100 credits until 2027-05-16; whether the free plan
-allows Anthropic models on Bedrock is unverified (Amazon Nova is the fallback).
-Credits cannot pay Apify or Supabase. Do not run scrapers on AWS (IPs blocked).
+AWS account: Free plan, $100 credits until 2027-05-16. Credits cannot pay Apify
+or Supabase. Do not run scrapers on AWS (IPs blocked).
+
+**Chosen LLM: Amazon Nova 2 Lite on Bedrock** (`global.amazon.nova-2-lite-v1:0`,
+Sydney `ap-southeast-2`), decided 2026-11-18 after the tests below. Reasons: best
+balance on our data (category 100%, product ~79%, shop 95% on the 20-creator
+test), fastest (~1.7 s), takes images, and it is Amazon's own model so the AWS
+credits certainly pay for it. Weakness: `global` routing (data may leave the
+region) — the in-region fallback would be Claude Haiku 4.5 (`au.`) if DPDP needs it.
+
+What Bedrock allows on this account (verified 2026-11-17/18 with Bedrock API keys):
+- The API key works only in `ap-southeast-2`; other regions return
+  `not authorized to perform: bedrock:CallWithBearerToken` (explicit deny).
+- 47 of 73 text models answer. Blocked with "not available for this account":
+  Claude 5.x (Haiku/Sonnet/Opus 5.5, Opus 5, Sonnet 5, Fable 5–5.2), Claude Opus
+  4.7/4.8, OpenAI GPT-5.x/6.x, xAI Grok, GLM-5.3 — third-party Marketplace-billed
+  models, which the Free plan blocks.
+- Claude 4.x (Haiku 4.5, Sonnet 4.6, Opus 4.5/4.6) needs the one-time "Anthropic use
+  case details" form in the Bedrock console (HTTP 404 until then). Claude models are
+  absent from AWS's public Bedrock price list, i.e. billed via Marketplace; whether
+  the credits cover them is unverified.
+- Under ~12 parallel requests the key intermittently returns
+  `403 Authentication failed`; retry with backoff and ≤2–3 parallel calls.
+- Official per-MTok prices (Sydney, public price list
+  `pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/current/ap-southeast-2/index.json`):
+  Nova 2 Lite $0.32/$2.63 (global), Nova Lite $0.063/$0.252, gpt-oss-120b
+  $0.15/$0.62, DeepSeek V3.2 $0.64/$1.91, Kimi K2.5 $0.62/$3.09, Kimi K3 $3/$15
+  (global); Kimi K3.1 not listed.
+
+Model test (same prompt, same 20 creators, gold labels written by reading each
+creator; 10–20 creators per model because of the 403s): per creator ~2,030 input
+and ~110 output tokens. Top results: gpt-oss-safeguard-20b/120b 94% category /
+94% product, gpt-oss-120b 90/90 (text only), DeepSeek V3.2 100/83, Kimi K3 100/83
+(~$20 for 1,356 creators, 7 s), Nova 2 Lite 100/79 (~$1.25), Kimi K2.5 100/75,
+Kimi K3.1 100/70 (10 creators). Worst: Gemma 3 4B (product 21%), Kimi K2 Thinking
+(category 58%, 19 s). Big "reasoning" models did not beat small ones on this
+fixed-list task. Keyword-v1 on the same 20: category 17/20, a wrong product on
+~17/20, 0 of 4 shops caught (a bakery, a furniture store, a gym and an arcade were
+all "usable creators").
 
 ## Load gotchas (found 2026-11-17)
 
