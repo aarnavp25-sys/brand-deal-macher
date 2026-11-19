@@ -1,2 +1,1 @@
-# Only pipeline/llm_classify.py needs this; everything else is Python stdlib.
-anthropic==2.5.0
+# Nothing to install: the whole pipeline (including llm_classify.py via OpenRouter) is Python stdlib only.

@@ -126,7 +126,7 @@ only parsed the brief. The user rejected "just a matching score in descending or
 
 The demo page calls `POST /functions/v1/api/match` and `GET /functions/v1/api/meta`; `demo/server.py` only
 serves the page and `/config.js` (URL + public anon key). Security: the service-role key and
-`ANTHROPIC_API_KEY` live only in Supabase secrets; tables have RLS on with no policies, so the anon key reads
+`OPENROUTER_API_KEY` live only in Supabase secrets; tables have RLS on with no policies, so the anon key reads
 nothing directly; CORS allow-list (`ALLOWED_ORIGINS`); JWT check (anon key); body ≤4 KB, brief ≤600
 chars, enum checks; per-client rate limit 30 matches / 10 min via `api_hit()` (salted IP hash,
 `api_rate_limit`, execute revoked from anon); responses never include email or bio; errors are generic.
@@ -186,10 +186,17 @@ What Bedrock allows on this account (verified 2026-11-17/18 with Bedrock API key
 **Bedrock blocked (2026-11-18).** Every model on the account (Nova, gpt-oss, DeepSeek) returned
 `400 Error 002: Access to Bedrock models is not allowed for this account`; listing models still worked,
 so it is an account-level block, not the key. Only fix reported by others: an AWS Support case
-(Account and billing). A later key returned `403 Authentication failed` (expired/revoked). Plan instead:
-**Claude Haiku 5.5 via the Anthropic API with Message Batches** (~$0.05/$0.25 per MTok batched) —
-~$0.70 for 6,224 creators; brief parsing per search ~$0.0001. Not yet run: needs `ANTHROPIC_API_KEY`
-in `admin/.env`, then a 20-creator check against the gold labels before the full batch.
+(Account and billing). A later key returned `403 Authentication failed` (expired/revoked).
+**Decision 2026-11-20 (user): forget AWS; use OpenRouter.** Model `anthropic/claude-haiku-5.5` ($0.10/$0.50 per
+MTok, cache reads $0.01; structured outputs supported per OpenRouter's public model list, 2026-11-20). A
+`:batch` variant is listed at half price but its mechanics are untested, so runs are real-time.
+Credit plan for the creator profiles (measured 2026-11-20): only the 5,399 creators search can show (active, not
+fake); ~950 input tokens per creator + ~2,100 fixed instructions (marked for prompt caching) + ~300 out →
+~$1.45 with caching, ~$2.48 without (+ OpenRouter's fee on buying credit). Order: `credits` (free) → `test`
+(20 gold, ~$0.02; check cached and reasoning tokens) → `run --limit 100 --max-usd 0.10` (pilot, review) →
+`run --max-usd <cap>`. `run` adds up the real cost OpenRouter reports per call and stops before the cap; every
+reply is saved at once (resumable). Posts are marked TOP/LOW (≥2× / ≤½ the creator's median likes) so the model
+sees what the audience responds to. Per search: brand profile + shortlist review ≈ $0.002.
 Prompt v2 (`pipeline/llm_classify.py`, `PROMPT_VERSION v2`) adds `audience_gender`, `audience_age`,
 `audience`, `can_promote`. Measured size: ~1,000 tokens fixed instructions + ~1,000 per creator
 (14 posts, captions ≤450 chars) + ~180 out. Hashtags are sent twice (in the caption and as a list) —

@@ -1,31 +1,35 @@
-"""Classify creators with Claude Haiku 5.5 (Anthropic API) and write the result to `creator_llm`.
+"""Profile creators in depth with Claude Haiku 5.5 through OpenRouter and write the result to `creator_llm`.
 
-usage:
-  python3 pipeline/llm_classify.py estimate        # how many creators are left + estimated cost; no API call
-  python3 pipeline/llm_classify.py test            # the 20 gold creators (pipeline/gold20.py), real-time, ~$0.01
-  python3 pipeline/llm_classify.py batch --yes     # submit one Message Batch for every creator not done yet
-  python3 pipeline/llm_classify.py collect         # wait for the submitted batch, write results to creator_llm
+usage (all from the project folder):
+  python3 pipeline/llm_classify.py estimate                     # free: creators left, tokens, cost range
+  python3 pipeline/llm_classify.py credits                      # free: OpenRouter credit used / left on the key
+  python3 pipeline/llm_classify.py test                         # 20 gold creators (pipeline/gold20.py), ~$0.02
+  python3 pipeline/llm_classify.py run --limit 100 --max-usd 0.10 --yes   # pilot: 100 creators, stops at $0.10
+  python3 pipeline/llm_classify.py run --max-usd 2.50 --yes     # everyone not done yet, stops at $2.50
 
-Needs in admin/.env: SUPABASE_URL, SUPABASE_SERVICE_KEY, ANTHROPIC_API_KEY. Needs the `anthropic` package
-(`python3 -m pip install -r pipeline/requirements.txt`); the rest of the pipeline is stdlib only.
-Prompt v4 (2026-11-20) adds how the creator talks (role, credibility), niche, price level, whose products they
-feature, content values, scope (niche/category/broad) and a brand-fit note; `test` prints them for review (the
-gold set only scores category, products and shop). keyword-v1 labels in `creators` / `creator_products` are never touched. Creators with a row of the same
-PROMPT_VERSION are skipped, so nothing is paid for twice. Cost guards: thinking off, structured output limited
-to the fixed lists, max_tokens 1024, `batch` refuses to run without --yes and prints the estimate first.
+Needs in admin/.env: SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENROUTER_API_KEY. Python stdlib only.
+Only creators shown in search (status active, not fake) are sent. Creators with a row of the same PROMPT_VERSION are
+skipped, so nothing is paid for twice; every reply is saved at once, so an interrupted run loses nothing.
+Credit guards: `run` needs --yes and --max-usd and stops before the cap (it adds up the real cost OpenRouter
+reports for each call); thinking off; structured output limited to the fixed lists; max_tokens 900; the fixed
+instructions are marked for prompt caching (~2,100 of the ~3,000 input tokens per creator); 2 retries at most.
+Prompt v4 (2026-11-20): how the creator talks (role, credibility), niche, price level, whose products they feature,
+content values, scope (niche/category/broad), brand-fit note, audience. `test` prints them for review (the gold
+set scores only category, products and shop). keyword-v1 labels in `creators` / `creator_products` are untouched.
 """
-import argparse, json, os, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import argparse, json, os, statistics, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 
-MODEL = "claude-haiku-5-5"
+MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
+OPENROUTER = "https://openrouter.ai/api/v1"
 PROMPT_VERSION = "v4-profile-2026-11-20"
-PRICE_IN, PRICE_OUT = 0.10, 0.50  # USD per million tokens, Claude Haiku 5.5 (prompts <100K); batches are 50% off
+PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
-STATE = os.path.join(HERE, ".state", "llm_batch.json")  # gitignored: id of the submitted batch
+WORKERS = 6
 CATS = list(CATEGORIES)
 PRODS = {k: v[0] for k, v in PRODUCT_TYPES.items()}
 GENDERS = ["male", "female", "mixed/brand", "unknown"]
@@ -136,14 +140,33 @@ def load_env():
         raise SystemExit("Missing in admin/.env: " + ", ".join(missing))
 
 
-def client():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise SystemExit("Missing ANTHROPIC_API_KEY in admin/.env")
-    try:
-        import anthropic
-    except ImportError:
-        raise SystemExit("Install the SDK first: python3 -m pip install -r pipeline/requirements.txt")
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], max_retries=4)
+def openrouter(path, body=None, timeout=90):
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        raise SystemExit("Missing OPENROUTER_API_KEY in admin/.env")
+    req = urllib.request.Request(OPENROUTER + path, method="POST" if body is not None else "GET",
+                                 data=None if body is None else json.dumps(body).encode(),
+                                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                                          "X-Title": "Brand Deal Matcher"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def call(user):
+    """One profile request; at most 2 retries on network/5xx/429. Returns the OpenRouter JSON."""
+    for attempt in range(3):
+        try:
+            return openrouter("/chat/completions", params(user))
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode()[:300]
+            if e.code in (400, 401, 402, 403):   # bad request, bad key, out of credit: never retry
+                raise SystemExit(f"OpenRouter HTTP {e.code}: {msg}")
+            if attempt == 2:
+                raise RuntimeError(f"OpenRouter HTTP {e.code}: {msg}")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            if attempt == 2:
+                raise RuntimeError(f"OpenRouter: {e}")
+        time.sleep(3 * (attempt + 1))
 
 
 def rest(path, method="GET", body=None, prefer=None):
@@ -180,13 +203,21 @@ def rest_all(path):
 def prompt(c, posts):
     lines = [f"Username: @{c['username']}", f"Name: {c.get('full_name') or ''}",
              f"Instagram category: {c.get('ig_category') or 'none'}", f"Followers: {c['followers']}",
-             f"Bio: {(c.get('bio') or '').strip()}", "", "Recent posts:"]
+             f"Bio: {(c.get('bio') or '').strip()}", "",
+             "Recent posts (TOP = far more likes or views than this creator's usual post, LOW = far fewer):"]
+    likes = [p["likes"] for p in posts if p.get("likes")]
+    med = statistics.median(likes) if likes else None
     for i, p in enumerate(posts, 1):
         cap = " ".join((p.get("caption") or "").split())[:450]
         low = cap.lower()
         # captions usually contain their hashtags already; send only the ones not in the caption (~10-15% fewer tokens)
         tags = " ".join("#" + h for h in (p.get("hashtags") or [])[:12] if "#" + h.lower() not in low)
         extra = []
+        if med and p.get("likes") is not None:
+            if p["likes"] >= 2 * med:
+                extra.append("TOP")
+            elif p["likes"] <= med / 2:
+                extra.append("LOW")
         if p.get("paid_partnership"):
             extra.append("paid partnership")
         if p.get("coauthors"):
@@ -198,11 +229,16 @@ def prompt(c, posts):
 
 
 def params(user):
-    return {"model": MODEL, "max_tokens": 1024,
-            "thinking": {"type": "disabled"},  # Haiku 5.5 thinks by default; thinking tokens bill as output
-            "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
-            "messages": [{"role": "user", "content": user}],
-            "output_config": {"format": {"type": "json_schema", "schema": SCHEMA}}}
+    return {"model": MODEL, "max_tokens": 900, "temperature": 0,
+            "reasoning": {"enabled": False},  # Haiku 5.5 thinks by default; thinking tokens bill as output
+            "messages": [
+                # fixed instructions first and marked for caching: the same ~2,100 tokens for every creator
+                {"role": "system", "content": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]},
+                {"role": "user", "content": user}],
+            "response_format": {"type": "json_schema",
+                                "json_schema": {"name": "creator_profile", "strict": True, "schema": SCHEMA}},
+            "provider": {"require_parameters": True},  # only providers that honour the JSON schema
+            "usage": {"include": True}}  # OpenRouter returns the real cost of the call
 
 
 def clean(o, n_posts):
@@ -266,10 +302,12 @@ def clean(o, n_posts):
             "confidence": conf}, bad
 
 
-def message_row(creator_id, n_posts, msg):
-    """Turn one Messages API reply into a creator_llm row."""
-    text = next((b.text for b in msg.content if b.type == "text"), "")
-    if msg.stop_reason == "refusal":
+def message_row(creator_id, n_posts, resp):
+    """Turn one OpenRouter reply into a creator_llm row (+ its cost in USD)."""
+    ch = (resp.get("choices") or [{}])[0]
+    msg = ch.get("message") or {}
+    text = msg.get("content") or ""
+    if msg.get("refusal"):
         fields, bad = clean(None, n_posts)
         bad = ["refusal"]
     else:
@@ -278,14 +316,18 @@ def message_row(creator_id, n_posts, msg):
         except ValueError:
             o = None
         fields, bad = clean(o, n_posts)
-        if msg.stop_reason == "max_tokens":
+        if ch.get("finish_reason") == "length":
             bad.append("max_tokens")
-    u = msg.usage
+    u = resp.get("usage") or {}
+    reasoning = ((u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
+    if reasoning:
+        bad.append(f"reasoning_tokens {reasoning}")
     return {"creator_id": creator_id, "model": MODEL, "prompt_version": PROMPT_VERSION, **fields,
             "posts_seen": n_posts, "invalid": bad, "raw": text,
-            "input_tokens": (u.input_tokens or 0) + (getattr(u, "cache_read_input_tokens", 0) or 0)
-                            + (getattr(u, "cache_creation_input_tokens", 0) or 0),
-            "output_tokens": u.output_tokens, "classified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            "input_tokens": u.get("prompt_tokens"), "output_tokens": u.get("completion_tokens"),
+            "cached_tokens": (u.get("prompt_tokens_details") or {}).get("cached_tokens"),
+            "cost_usd": u.get("cost"),
+            "classified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
 def save(rows):
@@ -293,8 +335,10 @@ def save(rows):
         rest("creator_llm?on_conflict=creator_id", "POST", rows[i:i + 200], "resolution=merge-duplicates,return=minimal")
 
 
-def load_work(only_usernames=None, redo=False):
-    creators = rest_all("creators?select=id,username,full_name,bio,ig_category,followers&order=id")
+def load_work(only_usernames=None, redo=False, everyone=False):
+    creators = rest_all("creators?select=id,username,full_name,bio,ig_category,followers,status,fake_flag&order=id")
+    if not everyone:  # only creators that search can show
+        creators = [c for c in creators if c["status"] == "active" and not c["fake_flag"]]
     if only_usernames:
         creators = [c for c in creators if c["username"] in only_usernames]
     done = set() if redo else {r["creator_id"] for r in rest_all(
@@ -302,120 +346,145 @@ def load_work(only_usernames=None, redo=False):
     todo = [c for c in creators if c["id"] not in done]
     posts = {}
     for p in rest_all("posts?select=id,creator_id,source,type,caption,hashtags,coauthors,paid_partnership,location,"
-                      "posted_at&order=id"):
+                      "likes,views,posted_at&order=id"):
         posts.setdefault(p["creator_id"], []).append(p)
     for v in posts.values():
         v.sort(key=lambda p: p.get("posted_at") or "", reverse=True)
     return creators, todo, {c["id"]: posts.get(c["id"], [])[:MAX_POSTS] for c in todo}
 
 
-def estimate(todo, posts, batch=True):
-    sys_tok = len(SYSTEM) // 4 + 400  # + the JSON schema
-    user_tok = sum(len(prompt(c, posts[c["id"]])) // 4 for c in todo)
-    tin, tout = sys_tok * len(todo) + user_tok, 300 * len(todo)  # v4 profile reply ~250-320 tokens
-    cost = tin / 1e6 * PRICE_IN + tout / 1e6 * PRICE_OUT
-    return tin, tout, cost / 2 if batch else cost
+def estimate(todo, posts):
+    """(input tokens, output tokens, cost if the cache works, cost if it does not)."""
+    sys_tok = len(SYSTEM) / 3.6 + 500  # + the JSON schema
+    user_tok = sum(len(prompt(c, posts[c["id"]])) / 3.6 for c in todo)
+    tout = 300 * len(todo)
+    out_cost = tout / 1e6 * PRICE_OUT
+    cached = user_tok / 1e6 * PRICE_IN + sys_tok * len(todo) / 1e6 * PRICE_CACHED + out_cost
+    uncached = (user_tok + sys_tok * len(todo)) / 1e6 * PRICE_IN + out_cost
+    return user_tok + sys_tok * len(todo), tout, cached, uncached
 
 
 def cmd_estimate():
     creators, todo, posts = load_work()
-    tin, tout, cost = estimate(todo, posts)
-    print(f"creators {len(creators)}, to classify {len(todo)}; ~{tin / 1e6:.1f}M input + ~{tout / 1e6:.2f}M output "
-          f"tokens; batch cost ~${cost:.2f} (before prompt-cache savings)")
+    tin, tout, lo, hi = estimate(todo, posts)
+    print(f"creators shown in search {len(creators)}, still to profile {len(todo)}; ~{tin / 1e6:.1f}M input + "
+          f"~{tout / 1e6:.2f}M output tokens; cost ~${lo:.2f} with prompt caching, ~${hi:.2f} without "
+          f"(+ OpenRouter's fee when buying credit)")
+
+
+def cmd_credits():
+    d = openrouter("/key")["data"]
+    lim = d.get("limit")
+    print(f"OpenRouter key: used ${d.get('usage', 0):.4f}" + (f" of ${lim:.2f} limit" if lim else "")
+          + (f", left ${d.get('limit_remaining'):.4f}" if d.get("limit_remaining") is not None else ""))
+    try:
+        c = openrouter("/credits")["data"]
+        print(f"account credit: bought ${c['total_credits']:.2f}, used ${c['total_usage']:.4f}, "
+              f"left ${c['total_credits'] - c['total_usage']:.4f}")
+    except Exception:
+        pass
+
+
+def run(todo, posts, max_usd, label):
+    """Profile `todo` in parallel; save every 10 rows; stop before `max_usd` of real cost."""
+    rows, buf, lock = [], [], threading.Lock()
+    spent = {"usd": 0.0, "n": 0, "fail": 0}
+    stop = threading.Event()
+    per = max(estimate(todo[:200], posts)[3] / max(len(todo[:200]), 1), 0.0001)  # pessimistic cost of one call
+
+    def one(c):
+        if stop.is_set():
+            return
+        with lock:  # reserve the worst-case cost of this call before sending it
+            if spent["usd"] + per * (WORKERS + 1) > max_usd:
+                stop.set()
+                return
+        try:
+            resp = call(prompt(c, posts[c["id"]]))
+        except RuntimeError as e:
+            with lock:
+                spent["fail"] += 1
+            print(f"  failed @{c['username']}: {e}", flush=True)
+            return
+        row = message_row(c["id"], len(posts[c["id"]]), resp)
+        cost = row["cost_usd"] if row["cost_usd"] is not None else per
+        with lock:
+            spent["usd"] += cost
+            spent["n"] += 1
+            rows.append((c["username"], row))
+            buf.append(row)
+            if len(buf) >= 10:
+                save(buf[:])
+                buf.clear()
+            if spent["n"] % 100 == 0:
+                print(f"  {label}: {spent['n']} done, ${spent['usd']:.4f} spent", flush=True)
+
+    with ThreadPoolExecutor(WORKERS) as ex:
+        list(ex.map(one, todo))
+    if buf:
+        save(buf)
+    return rows, spent, stop.is_set()
+
+
+def summary(rows, spent, capped, max_usd):
+    tin = sum(r["input_tokens"] or 0 for _, r in rows)
+    tout = sum(r["output_tokens"] or 0 for _, r in rows)
+    cached = sum(r["cached_tokens"] or 0 for _, r in rows)
+    bad = [(u, r["invalid"]) for u, r in rows if r["invalid"]]
+    print(f"\nprofiled {spent['n']}, failed {spent['fail']}; tokens in {tin} (cached {cached}) out {tout}; "
+          f"real cost ${spent['usd']:.4f}" + (f"; STOPPED at the ${max_usd} cap" if capped else ""))
+    if rows and not cached:
+        print("NOTE: no cached tokens reported — prompt caching did not apply; full run costs the higher estimate.")
+    for u, b in bad[:10]:
+        print(f"  check @{u}: {b}")
 
 
 def cmd_test():
     from gold20 import GOLD, score
-    cl = client()
-    creators, todo, posts = load_work(set(GOLD), redo=True)
+    creators, todo, posts = load_work(set(GOLD), redo=True, everyone=True)
     print(f"test on {len(todo)} gold creators, model {MODEL}", flush=True)
-    rows, lock = [], threading.Lock()
-
-    def one(c):
-        msg = cl.messages.create(**params(prompt(c, posts[c["id"]])))
-        row = message_row(c["id"], len(posts[c["id"]]), msg)
-        with lock:
-            rows.append((c["username"], row))
-
-    with ThreadPoolExecutor(4) as ex:
-        list(ex.map(one, todo))
+    rows, spent, capped = run(todo, posts, 0.10, "test")
     tot = {"cat": 0, "prod": 0, "shop": 0}
     for u, r in sorted(rows):
         s = score(u, r)
         for k in tot:
             tot[k] += s[k]
         mark = lambda b: "ok" if b else "XX"  # noqa: E731
-        print(f"{u:32} cat {mark(s['cat'])} {r['category']!s:24} prod {mark(s['prod'])} "
-              f"{[p['type'] for p in r['products']]} shop {mark(s['shop'])} | audience {r['audience_gender']}, "
-              f"{r['audience_age']}: {r['audience_desc']} | {r['invalid'] or ''}")
-        print(f"{'':32} niche: {r['niche']} | {r['creator_role']} ({r['credibility']}: {r['credibility_note']}) | "
-              f"price {r['price_segment']} | products for {r['products_for']} | {r['content_values']} | "
-              f"scope {r['scope']}\n{'':32} brand fit: {r['brand_fit']}")
-    n = len(rows)
-    tin, tout = sum(r["input_tokens"] for _, r in rows), sum(r["output_tokens"] for _, r in rows)
-    cost = tin / 1e6 * PRICE_IN + tout / 1e6 * PRICE_OUT
+        print(f"\n@{u}: cat {mark(s['cat'])} {r['category']} | prod {mark(s['prod'])} {[p['type'] for p in r['products']]}"
+              f" | shop {mark(s['shop'])}\n  niche: {r['niche']} | {r['creator_role']} ({r['credibility']}: "
+              f"{r['credibility_note']})\n  price {r['price_segment']} | products for {r['products_for']} | "
+              f"values {r['content_values']} | scope {r['scope']}\n  audience {r['audience_gender']}, "
+              f"{r['audience_age']}: {r['audience_desc']}\n  brand fit: {r['brand_fit']}")
+    n = len(rows) or 1
     print(f"\nscore: category {tot['cat']}/{n}, product {tot['prod']}/{n}, shop {tot['shop']}/{n} "
           f"(Nova 2 Lite on the same set: category 100%, product 79%, shop 95%)")
-    print(f"tokens in {tin} out {tout}; this test cost ~${cost:.4f} (real-time price)")
-    save([r for _, r in rows])
-    print("saved to creator_llm (these 20 will be skipped by the batch)")
+    summary(rows, spent, capped, 0.10)
+    print("saved to creator_llm (these 20 will be skipped by `run`)")
 
 
-def cmd_batch(yes):
-    from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
-    from anthropic.types.messages.batch_create_params import Request
-    if os.path.exists(STATE):
-        raise SystemExit(f"A batch was already submitted ({json.load(open(STATE))['id']}); run `collect` first.")
+def cmd_run(limit, max_usd, yes):
     creators, todo, posts = load_work()
-    tin, tout, cost = estimate(todo, posts)
-    print(f"to classify {len(todo)} of {len(creators)}; estimated batch cost ~${cost:.2f}")
+    todo = todo[:limit] if limit else todo
+    tin, tout, lo, hi = estimate(todo, posts)
+    print(f"to profile now: {len(todo)} (shown in search: {len(creators)}); estimated ${lo:.2f}-${hi:.2f}; "
+          f"cap ${max_usd}")
     if not todo:
         return
     if not yes:
-        raise SystemExit("Nothing sent. Re-run with --yes to submit the batch.")
-    cl = client()
-    reqs = [Request(custom_id=c["id"], params=MessageCreateParamsNonStreaming(**params(prompt(c, posts[c["id"]]))))
-            for c in todo]
-    b = cl.messages.batches.create(requests=reqs)
-    os.makedirs(os.path.dirname(STATE), exist_ok=True)
-    json.dump({"id": b.id, "n": len(reqs), "posts_seen": {c["id"]: len(posts[c["id"]]) for c in todo}},
-              open(STATE, "w"))
-    print(f"submitted batch {b.id} with {len(reqs)} requests; run `collect` (most batches finish within an hour)")
-
-
-def cmd_collect():
-    if not os.path.exists(STATE):
-        raise SystemExit("No submitted batch (pipeline/.state/llm_batch.json).")
-    st = json.load(open(STATE))
-    cl = client()
-    while True:
-        b = cl.messages.batches.retrieve(st["id"])
-        rc = b.request_counts
-        print(f"{b.processing_status}: processing {rc.processing}, succeeded {rc.succeeded}, errored {rc.errored}",
-              flush=True)
-        if b.processing_status == "ended":
-            break
-        time.sleep(60)
-    rows, errors, tin, tout = [], 0, 0, 0
-    for res in cl.messages.batches.results(st["id"]):
-        if res.result.type != "succeeded":
-            errors += 1
-            continue
-        row = message_row(res.custom_id, st["posts_seen"].get(res.custom_id, 0), res.result.message)
-        tin += row["input_tokens"]
-        tout += row["output_tokens"]
-        rows.append(row)
-    save(rows)
-    cost = (tin / 1e6 * PRICE_IN + tout / 1e6 * PRICE_OUT) / 2
-    print(f"saved {len(rows)} rows; not succeeded {errors} (run `batch --yes` again to retry only those); "
-          f"tokens in {tin} out {tout}; batch cost ~${cost:.2f}")
-    os.remove(STATE)
+        raise SystemExit("Nothing sent. Add --yes to run.")
+    if max_usd <= 0:
+        raise SystemExit("Give a spending cap with --max-usd.")
+    rows, spent, capped = run(todo, posts, max_usd, "run")
+    summary(rows, spent, capped, max_usd)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["estimate", "test", "batch", "collect"])
-    ap.add_argument("--yes", action="store_true", help="really submit the batch (it costs money)")
+    ap.add_argument("cmd", choices=["estimate", "credits", "test", "run"])
+    ap.add_argument("--yes", action="store_true", help="really send requests (they cost money)")
+    ap.add_argument("--limit", type=int, default=0, help="profile at most this many creators")
+    ap.add_argument("--max-usd", type=float, default=0, help="stop before this much real cost")
     a = ap.parse_args()
     load_env()
-    {"estimate": cmd_estimate, "test": cmd_test, "batch": lambda: cmd_batch(a.yes), "collect": cmd_collect}[a.cmd]()
+    {"estimate": cmd_estimate, "credits": cmd_credits, "test": cmd_test,
+     "run": lambda: cmd_run(a.limit, a.max_usd, a.yes)}[a.cmd]()

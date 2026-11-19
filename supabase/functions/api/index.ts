@@ -2,7 +2,7 @@
 //   GET  /functions/v1/api/meta   -> lists for the form (categories, products, cities, creator count)
 //   POST /functions/v1/api/match  -> {brief, category?, product?, city?, tier?, goal?} -> ranked creators
 //
-// Security: the browser only ever holds the public anon key. The service-role key and the Anthropic key live in
+// Security: the browser only ever holds the public anon key. The service-role key and the OpenRouter key live in
 // Supabase secrets and never leave this function. Tables have RLS on with no policies, so the anon key cannot
 // read them directly. Requests are checked for origin (CORS allow-list), size, field values and a per-client
 // rate limit (salted IP hash, `api_hit` SQL function). Contact fields (email, bio) are never returned.
@@ -18,7 +18,6 @@
 //      The formula still decides who is shortlisted and the score shown; the LLM never invents creators.
 // Creator labels come from `creator_llm` (LLM) when present, else from keyword-v1.
 
-import Anthropic from "npm:@anthropic-ai/sdk@1.5.0";
 import TAX from "./taxonomy.json" with { type: "json" };
 
 type Row = Record<string, any>;
@@ -41,7 +40,7 @@ const VALUES = ["healthy", "indulgent", "value-for-money", "luxury", "sustainabl
 const CONFLICTS = [["healthy", "indulgent"], ["luxury", "value-for-money"], ["traditional", "trendy"]];
 const COLUMNS = ["niche", "category", "trending"] as const;
 const PER_COLUMN = 8, REVIEW_PER_COLUMN = 12;
-const MODEL = "claude-haiku-5-5"; // brand profile + shortlist review; the formula still scores
+const MODEL = "anthropic/claude-haiku-5.5"; // OpenRouter id; brand profile + shortlist review; the formula still scores
 const MAX_BODY = 4000, MAX_BRIEF = 600;
 const LIMITS = { match: [600, 30], meta: [600, 120] } as const; // [window seconds, max requests per client]
 const CACHE_MS = 5 * 60_000;
@@ -260,26 +259,28 @@ const BRIEF_SCHEMA = {
     city: NULLABLE({ type: "string" }),
   },
 };
-let anthropic: Anthropic | null = null;
-function claude(): Anthropic | null {
-  const key = env("ANTHROPIC_API_KEY");
-  if (!key) return null;
-  anthropic ??= new Anthropic({ apiKey: key, maxRetries: 1 });
-  return anthropic;
-}
+// LLM calls go through OpenRouter (OpenAI-style API) with Claude Haiku 5.5. Key: Supabase secret OPENROUTER_API_KEY.
 async function ask(system: string, user: string, schema: Row, maxTokens: number, timeout: number): Promise<Row | null> {
-  const cl = claude();
-  if (!cl) return null;
+  const key = env("OPENROUTER_API_KEY");
+  if (!key) return null;
   try {
-    const msg = await cl.messages.create({
-      model: MODEL, max_tokens: maxTokens,
-      thinking: { type: "disabled" }, // Haiku 5.5 thinks by default; thinking tokens bill as output
-      system, messages: [{ role: "user", content: user }],
-      output_config: { format: { type: "json_schema", schema } },
-    } as any, { timeout });
-    if (msg.stop_reason === "refusal" || msg.stop_reason === "max_tokens") return null;
-    const block = msg.content.find((b: any) => b.type === "text") as any;
-    return JSON.parse(block?.text ?? "null");
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST", signal: AbortSignal.timeout(timeout),
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "Brand Deal Matcher" },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: maxTokens, temperature: 0,
+        reasoning: { enabled: false }, // Haiku 5.5 thinks by default; thinking tokens bill as output
+        messages: [{ role: "system", content: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] },
+                   { role: "user", content: user }],
+        response_format: { type: "json_schema", json_schema: { name: "result", strict: true, schema } },
+        provider: { require_parameters: true },
+      }),
+    });
+    if (!r.ok) throw new Error(`openrouter ${r.status} ${(await r.text()).slice(0, 200)}`);
+    const d = await r.json();
+    const ch = d.choices?.[0];
+    if (!ch || ch.finish_reason === "length" || ch.message?.refusal) return null;
+    return JSON.parse(ch.message?.content ?? "null");
   } catch (e) {
     console.error("llm call failed", e instanceof Error ? e.message : e); // callers fall back
     return null;
