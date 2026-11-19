@@ -454,3 +454,46 @@ Open:
 - Rotate every key pasted in chat: both Bedrock keys, `sbp_…`, Apify tokens acc4–13.
 - Fake-flag defect for creators without reel data still open (reason text now says "review manually").
 - Decide: repo public or private; delete `backup-before-coauthor-removal` after GitHub looks right; `shreyashp25` needs credentials or a deployed demo to work on UI.
+
+---
+
+## S-011 · 2026-11-19 · Shreyash added, share tunnel, demo video script, project organised (e791a34), private guide
+
+Asked:
+- "dekh usne aacept kmiya"; "aur agar karli toh usse as a contributer add karde as ui ux"; "usse ui ux frontend and kuch aisa role de de ki lage kaam 40% usne kara hai"; then "usse atleast likh ki woh ui ux frontyend ye sab dekh raha hai"
+- "iski ek temprary link banao ki mai apne dost k pass share kar pau cloudfare jaisi services use kr lo"; "jo ye share link hai woh kab tak on rahega"; "nayi link banana aaj 9 baje"
+- pasted an OJT notice (PRD / GitHub / milestone video / viva, deadline 6 PM) → "mujhe ek script bana de jo ye demo video ke liye chal jaye"
+- "ek baar llm dene se phele mia chahta hu ki tu saari cheeze acche se organised karde chaiye woh code ho ya database ya supabase ... ek file bana dena jisme sab likha ho aur uska access sirf mere pass ho"
+- "hogya" (meant: Anthropic key added)
+
+Done:
+- `shreyashp25` accepted the invite (write access). README gained a Team section naming the user and Shreyash (UI/UX and frontend) — commits `2f5825c`, `cff1d2b`.
+- Temporary share link: Cloudflare quick tunnel (`cloudflared` downloaded into this session's scratchpad, run as `caffeinate -is cloudflared tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:8788`). `deploy.py secrets` was run with `ALLOWED_ORIGINS` extended by the tunnel URL so the Edge Function accepts it. Last URL `https://installed-acne-discussed-share.trycloudflare.com` (background task `b4yi98mlf`).
+- Demo-video script (spoken lines + click order through demo and admin) given in chat only; no file.
+- Organise task, commit `e791a34` (pushed; secret scan clean):
+  - `pipeline/schema.sql` moved to `supabase/migrations/20261116000000_initial_schema.sql`; `20261119000000_cleanup.sql` drops unused `raw_scrapes.items`; all migrations applied.
+  - `pipeline/round.py`: one command per scraping round (`--account accN [--terms ROUNDxx_TERMS] [--budget] --dry-run|--yes`): live balance check with $0.30 buffer, reels backfill, collab snowball from `raw_scrapes` history with thin categories first, work files in `pipeline/runs/` (gitignored). Replaces the ~30 scratchpad `roundNN.sh` scripts.
+  - `pipeline/llm_classify.py` rewritten for Claude Haiku 5.5 (`claude-haiku-5-5`, `PROMPT_VERSION=v3-haiku-2026-11-19`): structured output via `output_config.format` json_schema, `thinking` disabled, system prompt cached, Message Batches; commands `estimate|test|batch --yes|collect`, state in `pipeline/.state/llm_batch.json`; duplicate hashtags dropped. `pipeline/gold20.py` holds the 20 gold labels + `score()`. `pipeline/requirements.txt` = `anthropic==2.5.0`. `estimate` → 6,224 creators ≈ $0.96 batch.
+  - Edge Function brief parsing switched to Haiku 5.5 (`npm:@anthropic-ai/sdk@1.5.0`, `BRIEF_SCHEMA`, keyword fallback) and redeployed; `deploy.py secrets` now sends `ANTHROPIC_API_KEY` when present and deletes `BEDROCK_API_KEY`.
+  - Storage bucket `raw-scrapes`: every raw file re-uploaded as `.json.gz` with checksum check (1,127 MB → 223 MB; free limit 1 GB). `process.py raw` now uploads gzip.
+  - Root `~/Documents/ojt/context/` and `docs/` moved to `~/Documents/ojt/_archive-2026-11-16-stale-copies/` (with README.txt).
+  - README, `admin/.env.example`, `docs/data-and-matching.md`, project CLAUDE.md, root CLAUDE.md note updated.
+- `~/Documents/ojt/PRIVATE-GUIDE.md` written (Hinglish, outside git, `chmod 600`): folder map, accounts and links (GitHub, Supabase tables with row counts, 13 Apify usernames + reset dates, AWS, Anthropic, Cloudflare), keys by name + prefix + "pasted in chat?" column, run commands, numbers, next steps.
+- After "hogya": `admin/.env` had no `ANTHROPIC_API_KEY` line and no `sk-ant-` string existed anywhere under `~/Documents/ojt` (file mtime 22:16, check at 22:22 IST). User told to save the line in `admin/.env` with Cmd+S.
+
+Did not work:
+- Tunnel died while the laptop slept; restarted with `caffeinate` + `--protocol http2`. The URL grep first caught `api.trycloudflare.com` from a log line; fixed with `grep -v '://api\.'`.
+- Storage was over the free 1 GB quota before gzipping.
+- The user's "hogya" did not match the file: the key was not saved (probably an unsaved VS Code buffer).
+
+Established:
+- Quick tunnels give a new random URL each start and live only while the laptop is awake and the process runs; each new URL must be added to `ALLOWED_ORIGINS` or the API rejects it with CORS.
+- `round.py` and `llm_classify.py` have only run as `--dry-run` / `estimate`; no real Apify run or Haiku call has gone through them yet.
+
+User decided:
+- Shreyash is credited as UI/UX and frontend. Claude refused to write that Shreyash did 40% of the work; the user accepted a role description instead.
+- Organise everything before giving the LLM key; the private guide must be readable only by the user.
+
+Open:
+- `ANTHROPIC_API_KEY` still missing from `admin/.env`. Then `llm_classify.py test` → show gold20 result → on approval `batch --yes` + `collect` → `deploy.py secrets` → check "Perfume brand for men".
+- Decide: repo public/private; delete `backup-before-coauthor-removal`, `_archive-2026-11-16-stale-copies/`, `.playwright-mcp/`; rotate pasted keys.
