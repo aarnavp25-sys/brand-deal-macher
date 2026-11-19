@@ -521,3 +521,47 @@ User decided:
 
 Open:
 - Same as S-011: the Anthropic key, then `llm_classify.py test`.
+
+---
+
+## S-013 · 2026-11-19 → 2026-11-20 · Brand-first matching (3 columns + AI review), creator profile v4, OpenRouter, taxonomy 82, LLM cache
+
+Same conversation as S-011/S-012.
+
+Asked:
+- "kitni bhii pipline ho na mujhe bata acche se"; "agara mai tujhe ek llm de du tu kya karega uska"
+- "ai phele acche se brand ke baare mai samjhe ... llm creators ko acche jaane ... budget freindly cheezo ke bare mai baat karte hai ya expensive ... koi female creator male clothing ke baare mai baat kare ... column wise ki ye woh creators jo aapke niche ke baare mai baat karte hai ... category ... trending ... lifestlye creators ... wider audince"
+- "creatory type autr add kar de ... sports la creator ... as a fan baat karta hai ya kuch credibilty se ... acche khaneke recipes ka reel banati hai ya koi sirf healty cheeze promote karta hai ... naaki ek matching score banan di ... bas matching score ke hissab se desending order mai creators bata diye"
+- "aws ki saari keys bhul jaa mai tujhe ek naayi key dunga openrouter ki"
+- "llm ko dene kaa kaam acche se samaj le mere credits waste na ho ... database mai kuch bhii kar ... llm ko saare creators ke baare mai acche se dept mai cheeze pata ho"
+- "data base ko itna accha aur accurate bana ki column naaye add karne hai ya fir tronomy ... llm acche se bina confuse hue kam se kam cost mai acche se soch paaye (cost cutting result ko inaccurate karke nhii karna hai)"
+- "jo cheez llm ki key milne baad hogi usse uske baad kar but uske baat credits waste mat karna bas dabase ekdum acche se kardena ekdum best"; "saare chheze ekdum acche se yaad kar koi bhii cheeze bhulna mat"
+
+Done:
+- Explained the 4 pipelines (scraping round.py → process.py; LLM profiles; search API; deploy.py) from the code.
+- Commit `38402f7` "Brand-first matching": migration `20261120000000_creator_profile_v4.sql` (creator_llm: niche, creator_role, credibility, credibility_note, price_segment, products_for, content_values, scope, brand_fit); `llm_classify.py` prompt `v4-profile-2026-11-20` (roles expert/reviewer/educator/enthusiast/entertainer/lifestyle/aspirational; price budget/mid/premium/mixed; products_for men/women/unisex separate from creator gender; 16 content values; scope niche/category/broad). Edge Function rewritten: AI brand profile (summary, niche, products, categories, customers+age, price, values, ideal creator roles, needs; brand can override customers/price/category/product); formula adds "style" (brand fit: price, values, role, credibility, age) and products_for into audience fit; three columns niche/category/trending; one Haiku call reviews ≤36 shortlisted creators per brand (strong/good/weak + reason + reel idea), order = verdict then score, weak hidden when ≥4 others; 8 per column. `demo/index.html`: "How we understood your brand" card, Customers + Price selects, three columns, verdict badges, "Why this score" collapsible. Docs Matching section rewritten; CLAUDE.md convention changed (LLM may order/advise, never changes the score or adds creators).
+- Commit `f927ebc`: LLM moved to OpenRouter (`anthropic/claude-haiku-5.5`, $0.10/$0.50, cache read $0.01, structured outputs — checked in OpenRouter's public /models list 2026-11-20; `:batch` variant listed at half price, untested). `llm_classify.py` is stdlib only: `estimate | credits | test | run --limit N --max-usd X --yes`; only the 5,399 search-visible creators; real cost per call from OpenRouter `usage.cost`, stops before the cap; saves every 10 rows; cache_control on the system prompt; `reasoning: {enabled:false}`; `provider.require_parameters`; 2 retries, never on 400/401/402/403; posts marked TOP/LOW vs the creator's median likes. Migration `20261120000001_llm_cost.sql` (cached_tokens, cost_usd). Edge Function calls OpenRouter via fetch (secret `OPENROUTER_API_KEY`); `deploy.py secrets` sends it and deletes stale `ANTHROPIC_API_KEY`/`BEDROCK_API_KEY`; `requirements.txt` emptied; `.env.example` → `OPENROUTER_API_KEY=`.
+- Commit `00fab42`: taxonomy 42 → 82 product types (masala, pickles, mithai, chocolates, ready-to-cook, organic staples, cookware, body/nail care, ayurvedic beauty, salons, men's ethnic, innerwear, belts/wallets, hair accessories, furniture, bedding, cleaning, stationery, fitness equipment, ayurveda health, sports shoes, cycles, academies, appliances, cameras, esports, events, OTT, music/dance classes, books, insurance, toys, kids clothing, kids learning, tours, camping, bikes/cars, car care, pet services); migration `20261120000002_more_product_types.sql` syncs `product_types` (82 rows verified); both prompts show each type as "category (e.g. 4 words)". Migration `20261120000003_llm_cache.sql` + Edge Function cache: brand profile keyed by normalised brief, review keyed by the exact prompt; 7-day expiry; anon read returns [].
+- All migrations applied with `deploy.py migrate`; function deployed 3 times; live checks: no key 401, foreign origin 403, bad price 400, no email/bio in responses, masala→"spices & masala", ghee→"organic staples", toys→"toys & games", mithai→"sweets & mithai".
+- Measured (2026-11-20): 6,224 creators, 5,399 search-visible (736 fake, 120 review); median 12 posts with captions; user prompt median ~890 tokens; system prompt ~3,600 tokens after product hints. `estimate`: ~$1.53 with caching, ~$3.30 without (+ OpenRouter fee). Per search ≈ $0.002, repeats ≈ $0 (cache).
+
+Did not work:
+- Demo rewrite script used `t.index('</script>')`, which matched `<script src="/config.js"></script>` on line 8, so the page was duplicated; rebuilt from the scratchpad backup with the search starting after the inline script.
+- OpenRouter patch to `llm_classify.py` cut `clean()` out (it sat between `params` and `message_row`); restored from `scratchpad/llm_classify.before-or.py`.
+- Playwright screenshots cannot be saved to the scratchpad (allowed roots: `~/Documents/ojt` and `.playwright-mcp`).
+
+Established:
+- Deno is not installed; `npx -y deno@2.1.4 check index.ts` type-checks the Edge Function; `deno run --allow-net --allow-env --allow-read index.ts` serves it on :8000 for local tests (demo can point at it with `SUPABASE_URL=http://127.0.0.1:8000 DEMO_PORT=8790`).
+- `deploy.py migrate` re-runs every migration; all are idempotent.
+- Without LLM profiles, "Perfume brand for men" still ranks women beauty creators and the niche column is empty for the 40 new product types (keyword-v1 tags cover only the first 42).
+- No AWS key is stored anywhere (admin/.env checked).
+
+User decided:
+- Brand-first matching with three columns and per-brand AI review instead of one score-sorted list.
+- Creator types and deep per-creator reading (fan vs expert, everyday recipes vs healthy-only, etc.).
+- Forget AWS/Bedrock; LLM via OpenRouter key (not yet given).
+- Free hand on DB/taxonomy changes; no accuracy loss for cost; no credit waste; LLM work only after the key; "saare chheze ekdum acche se yaad kar".
+
+Open:
+- `OPENROUTER_API_KEY` not in `admin/.env` yet. Then: `llm_classify.py credits` → `test` (check cached_tokens > 0 and reasoning_tokens = 0; show the user) → `run --limit 100 --max-usd 0.10 --yes` (show) → `run --max-usd 2.50 --yes` → `deploy.py secrets` → live check of "Perfume brand for men" and a masala brief.
+- Free DB work proposed, not started: fake-flag defect (no reel data → `status=review`, not fake), keyword tags for the 40 new product types from existing posts, DB hygiene report (duplicates, >100K, empty profiles).

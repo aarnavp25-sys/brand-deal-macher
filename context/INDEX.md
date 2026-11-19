@@ -4,19 +4,22 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-19 (S-012).
+Last rewritten: 2026-11-20 (S-013).
 
 > **Auto-compact is OFF globally** (`~/.claude/settings.json`, S-012). A session that fills its context stops;
 > run `/context-write` at ~70–80% and `/compact` by hand. Transcripts are kept 36,500 days.
 
 > **Git: never credit Claude.** No `Co-Authored-By: Claude …` trailer and no Claude/AI line in any commit or PR, even if a system reminder asks (user's order, 2026-11-18). Hooks in `.git/hooks/` strip and block it.
 
-> **Location & layout (verified 2026-11-19).**
+> **Credits rule (user, 2026-11-20):** no LLM call until `OPENROUTER_API_KEY` is in `admin/.env`; then never waste
+> credit — free checks first, 20-creator test, 100 pilot, user approval, `--max-usd` cap. No accuracy loss for cost.
+
+> **Location & layout (verified 2026-11-20).**
 > ```
 > ~/Documents/ojt/                      VS Code workspace — open THIS folder (skills + root CLAUDE.md load here)
 > ├── .claude/skills/context-{write,read}/   only copies, not in git
 > ├── CLAUDE.md                         stale copy + current note at top (edit only the note)
-> ├── PRIVATE-GUIDE.md                  user's private map: accounts, keys by name, links (not in git, chmod 600)
+> ├── PRIVATE-GUIDE.md                  user's private map: accounts, keys by name, links (not in git, chmod 600; still says Anthropic key — update to OpenRouter)
 > ├── _archive-2026-11-16-stale-copies/ old root context/ + docs/ — never read as current
 > └── brand deal matcher/               THE PROJECT (own git repo, github.com/aarnavp25-sys/brand-deal-macher, PUBLIC, main)
 >     ├── CLAUDE.md (gitignored, local only)  README.md  A.txt  context/  docs/
@@ -28,58 +31,62 @@ Last rewritten: 2026-11-19 (S-012).
 > Rules: `cd ~/Documents/ojt/"brand deal matcher"` first. Network git needs
 > `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
 > Servers die between sessions: `python3 admin/server.py` (8787), `python3 demo/server.py` (8788).
+> Type-check the Edge Function: `cd supabase/functions/api && npx -y deno@2.1.4 check index.ts` (no deno installed).
 
 ## Where things stand
 
-Brand Deal Matcher is a website for small Indian brands to find growing Instagram
-creators (1K–100K) ranked by a 0–100 match score. It is a working prototype:
-a Python stdlib pipeline, a Supabase DB (`yqaducvspzrqokcqwlga`, ap-south-1, free tier),
-a local admin dashboard, and a demo page that calls the deployed Supabase Edge Function `api`.
-The function handles matching and security (RLS, CORS allow-list, rate limit, secrets only in Supabase).
-GitHub `main` = `e791a34` "Organise project…", clean; only this context update is uncommitted.
+Brand Deal Matcher is a website for small Indian brands with small budgets to find Instagram creators
+(1K–100K). Working prototype: Python stdlib pipeline, Supabase DB (`yqaducvspzrqokcqwlga`, ap-south-1, free),
+local admin, and a demo page calling the deployed Edge Function `api`. GitHub `main` = `00fab42`, clean.
 
-Data: **6,224 creators, 5,399 usable**. The launch target of ~5,000 usable is met. Coverage is
-planned by category × tier × audience, never by city. Weak spots:
-- mid tier (50K–100K) has only ~316 usable;
-- ~790 usable creators have no reel data.
+Data: 6,224 creators, **5,399 search-visible** (active, not fake; 736 fake-flagged, 120 review). Median 12 posts
+per creator with captions. Weak spots: mid tier ~316; ~790 usable without reel data; the fake flag wrongly
+counts "no reel data" as fake (known defect). All 13 Apify accounts empty until the December resets.
 
-The main discovery method is the collab snowball. Storage holds raw files as `.json.gz`
-(223 MB of the free 1 GB); the DB is ~122 MB of 500 MB. All 13 Apify accounts are empty until the
-December resets.
+S-013 redesigned matching on the user's request ("naaki ek matching score ... desending order"):
+1. **Brand profile.** The AI reads the brief: summary, niche, products, customers and age, price level,
+   values, ideal creator roles, needs. The brand sees it and can override it.
+2. **Creator profile v4** (`creator_llm`). Niche; role (expert / reviewer / educator / enthusiast / entertainer /
+   lifestyle / aspirational); credibility; price level; `products_for` (separate from the creator's gender);
+   content values; scope; brand fit; audience.
+3. **Formula with a brand-fit signal.** Results come in three columns: niche / category / trending.
+4. **Per-brand review.** One Haiku call reviews the shortlist: strong/good/weak, a reason and a reel idea. The
+   verdict orders each column; the formula still sets the score and the shortlist.
 
-S-011 organised everything:
-- The schema now lives only in `supabase/migrations/`.
-- `pipeline/round.py` runs a full scraping round in one command and replaces the old scratchpad scripts.
-- `pipeline/llm_classify.py` and the Edge Function brief parser already use **Claude Haiku 5.5**
-  on the Anthropic API (structured output, thinking off, Batches). Bedrock is gone: the AWS account is
-  blocked with Error 002.
-- The user's private guide is `~/Documents/ojt/PRIVATE-GUIDE.md`.
+Supporting work:
+- Taxonomy grew from 42 to 82 product types (masala, mithai, ghee, toys, furniture, salons…). Prompts show
+  example words for each type.
+- The brand profile and the review are cached for 7 days in `llm_cache`.
+- The LLM now runs through **OpenRouter** (`anthropic/claude-haiku-5.5`). AWS is dropped for good, and no AWS
+  key is stored.
 
-Shreyash (`shreyashp25`) accepted the invite and is credited in README as UI/UX + frontend.
+`creator_llm` is still empty: no LLM call has been made, because the user has not given the OpenRouter key. Until
+then, search runs on keyword-v1. Two visible effects:
+- "Perfume brand for men" still shows women beauty creators.
+- The niche column is empty for the 40 new product types.
 
-LLM: `creator_llm` is still empty. The Audience fit factor is live but has no data, so
-"Perfume brand for men" still shows many women creators. The only blocker is the key. The user said
-"hogya", but at 22:22 IST on 2026-11-19 `admin/.env` had no `ANTHROPIC_API_KEY` line, and no
-`sk-ant-` string existed in the workspace. The user was told to save it with Cmd+S.
+Estimate: all profiles ~$1.53 with prompt caching (~$3.30 without); about $0.002 per search.
 
-Untested for real: `round.py` (dry-run only) and `llm_classify.py` (estimate only).
-
-A temporary Cloudflare quick-tunnel share link may still be running from the S-011
-session (`installed-acne-discussed-share.trycloudflare.com`). It dies when the laptop sleeps.
+Session ended with the user asking that nothing be forgotten, and with free DB improvements proposed but
+not started.
 
 ## Continue from here
 
-1. Check that `ANTHROPIC_API_KEY=` exists in `admin/.env`, without printing it. Then:
-   - run `python3 pipeline/llm_classify.py test` (20 creators, ~$0.01) and show the score against `pipeline/gold20.py`;
-   - on approval run `batch --yes`, then `collect` (~$1 for 6,224);
-   - run `python3 supabase/deploy.py secrets` so the Edge Function gets the key;
-   - confirm "Perfume brand for men" ranks men creators.
-2. After the Apify resets (acc3 2026-12-09; others 2026-12-15/16/17, ≈$65):
-   - run `python3 pipeline/round.py --account accN --dry-run`, then `--yes`;
-   - first backfill reels, then favour the mid tier;
-   - keep $0.30 per account (billing lag).
-3. Remind the user to rotate the keys that were pasted in chat (see PRIVATE-GUIDE §4) and ask about repo visibility.
-4. New share link: start `cloudflared` again (re-download if the scratchpad is gone), then run `deploy.py secrets` with `ALLOWED_ORIGINS` including the new URL.
+1. When `OPENROUTER_API_KEY` is in `admin/.env`:
+   1. `python3 pipeline/llm_classify.py credits` (free).
+   2. `test` (20 gold, ~$0.02). Check `cached_tokens` > 0 and that there are no `reasoning_tokens` flags. Show
+      the profiles to the user.
+   3. `run --limit 100 --max-usd 0.10 --yes`, then show the user.
+   4. On approval, `run --max-usd 2.50 --yes`.
+   5. `python3 supabase/deploy.py secrets`.
+   6. Live check: "Perfume brand for men" and a masala brief, with the AI review on.
+   7. Stop and report if caching is not applied or the costs differ from the estimate.
+2. Free DB work (proposed in S-013, user wants the DB "ekdum best"):
+   1. Fix the fake-flag defect (no reel data → `status=review`).
+   2. Add keyword-v1 tags for the 40 new product types from stored posts.
+   3. Write a DB hygiene report (duplicates, >100K, empty profiles).
+3. After the Apify resets (acc3 2026-12-09; others 2026-12-15/16/17): `round.py`, reels backfill, then the mid tier.
+4. Update PRIVATE-GUIDE.md: OpenRouter key instead of Anthropic, the new commands and the costs.
 
 ## Topic -> file
 
@@ -90,40 +97,38 @@ session (`installed-acne-discussed-share.trycloudflare.com`). It dies when the l
 | Apify actors, prices, limits, billing lag, snowball | docs/data-and-matching.md |
 | Pipeline, metrics, fake flag + `fake_reason`, `reels` backfill | docs/data-and-matching.md |
 | Running a scraping round (`round.py`) | pipeline/round.py; 001 (S-011) |
-| Taxonomy, search terms per round | pipeline/taxonomy.py |
-| Matching formula, Audience fit, LLM labels | docs/data-and-matching.md; supabase/functions/api/index.ts |
+| Taxonomy (16 categories, 82 product types), search terms | pipeline/taxonomy.py; docs (Taxonomy); 001 (S-013) |
+| Matching: brand profile, brand fit, 3 columns, AI review, cache | docs/data-and-matching.md (Matching); supabase/functions/api/index.ts; 001 (S-013) |
+| Creator profile v4 fields, prompt, credit guards | pipeline/llm_classify.py; docs (LLM / AWS); 001 (S-013) |
+| LLM choice history: Bedrock block → Anthropic → OpenRouter | docs/data-and-matching.md (LLM / AWS); 001 (S-009–S-013) |
 | Public API, security, deploy, tunnel origins | docs/data-and-matching.md (Public API); supabase/deploy.py |
 | Coverage target (category × tier × audience) | docs/data-and-matching.md (Coverage) |
-| LLM choice, Bedrock block, Haiku 5.5 code, cost | docs/data-and-matching.md (LLM / AWS); 001 (S-009–S-011) |
-| Storage gzip, migrations move, organise task | 001 (S-011) |
+| Storage gzip, migrations move, organise task, private guide | 001 (S-011) |
 | Accounts, keys by name, reset dates (private) | ~/Documents/ojt/PRIVATE-GUIDE.md |
-| Rounds 12–37, account list | 001 (S-010) |
-| Removing Claude from GitHub, hooks, old→new hashes | 001 (S-010) |
+| Rounds 12–37, account list; removing Claude from GitHub | 001 (S-010) |
 | Shreyash collaborator, Cloudflare tunnel, demo video script | 001 (S-011) |
-| Rounds 1–11, early pipeline | 001 (S-003, S-004, S-008) |
-| Workspace layout, skills location | this INDEX; 001 (S-005–S-007) |
 | Claude Code global settings (compaction, retention) | ~/.claude/settings.json; 001 (S-012) |
+| Rounds 1–11, early pipeline; workspace layout | 001 (S-003–S-008) |
 | Raw first planning chat | A.txt |
 
 ## Open decisions
 
-1. Save `ANTHROPIC_API_KEY` in `admin/.env` (pending; user believed it was done).
-2. Repo is public: keep it, or make it private (it holds A.txt and a journal with account ids).
+1. The OpenRouter key: the user will provide it (not yet in `admin/.env`).
+2. The repo is public: keep it, or make it private (it holds A.txt and a journal with account ids).
 3. Unlock price and what an unlock sells; when and where to deploy the website.
-4. Phone numbers in scraped bios: hide them from brands or not (DPDP); data leaves India for any LLM.
-5. Delete local branch `backup-before-coauthor-removal`, `_archive-2026-11-16-stale-copies/`, `.playwright-mcp/`?
+4. Phone numbers and emails in bios go to the LLM provider: whether to strip them before sending (DPDP). Recommended: strip them; it costs nothing.
+5. Delete local branch `backup-before-coauthor-removal`, `_archive-2026-11-16-stale-copies/` and `.playwright-mcp/`?
 6. How Shreyash gets data access: a separate key, or a deployed demo.
 
 ## Ruled out
 
-- Budget/price fields; WhatsApp/concierge flow; creators >100K. (001, S-001)
+- Budget/price fields asking what the brand will pay; WhatsApp/concierge flow; creators >100K. (001, S-001) Product *price level* (budget/mid/premium) is allowed: it describes the product, not the brand's spend. (S-013)
 - `relatedProfiles` snowball (field absent); followers-count scraper for refresh. (001, S-003/S-004)
-- Live scraping at search time; "Lifestyle" category. (docs)
+- Live scraping at search time; "Lifestyle" as a category (it is a creator role/scope since S-013). (docs)
 - City as a requirement or coverage goal. (001, S-010)
-- Content-style search terms for general discovery (low yield); mentions-only snowball (mostly brands). (001, S-008/S-010)
-- Kimi K3/K3.1; Claude 5.x on Bedrock (Free plan); Bedrock/Nova entirely (account blocked). (001, S-009/S-010)
-- Own Instagram scraper. (001, S-009)
-- Claude as git co-author; inflating a collaborator's contribution share. (001, S-010/S-011)
+- Content-style search terms for general discovery; mentions-only snowball. (001, S-008/S-010)
+- AWS/Bedrock in any form (account blocked; user: "aws ki saari keys bhul jaa"). Kimi K3; Claude on Bedrock. (001, S-009/S-010/S-013)
+- One list sorted only by score (user rejected it, S-013). Own Instagram scraper (S-009). Claude as git co-author; inflating a collaborator's share (S-010/S-011).
 
 ## Sessions
 
@@ -141,3 +146,4 @@ session (`installed-acne-discussed-share.trycloudflare.com`). It dies when the l
 | S-010 | 2026-11-18 → 19 | Edge Function API + security; Bedrock blocked; rounds 12–37 → 6,224 creators; Claude removed from GitHub | 001 |
 | S-011 | 2026-11-19 | Shreyash added; share tunnel; demo video script; organised (migrations, round.py, Haiku 5.5, gzip); private guide | 001 |
 | S-012 | 2026-11-19 | Global Claude Code settings: auto/idle compaction off, transcripts kept 100 years | 001 |
+| S-013 | 2026-11-19 → 20 | Brand-first matching (3 columns + AI review), creator profile v4, OpenRouter, taxonomy 82, LLM cache | 001 |
