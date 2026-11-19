@@ -589,3 +589,23 @@ User decided:
 
 Open:
 - Store-visit data fills only when the LLM profiles run (needs `OPENROUTER_API_KEY`); until then the "Shop-visit reels" signal shows "not measured yet".
+
+---
+
+## S-015 · 2026-11-20 · Budget $8.5 for demo day; price level and relevance made strict
+
+Asked:
+- "tujhe 4$ dollar deta hu"; later "8.5 dollar mai hojayega na saari cheeze kuch bhii gadbad mat karna ... baad mai ye mat kehna ki ye karna bhul gya ... itne hii credits hai aur mujhe demo day ke liye bachana aur meri teachers bhii check karege"
+- Explained: caching (10× cheaper fixed instructions; Mem0 not needed), why the estimate rose from ~$0.96 (Anthropic batch, v3) to ~$1.53/$3.30 (deeper v4 profile, 82 product hints, OpenRouter real-time without the 50% batch), Anthropic Message Batches, per-search cost (~$0.002; repeats free from cache).
+- "agar koi brand keh rahi ki mai 100o ke perfumes bechti hu aur koi brand keh rahi ki mai 10000 ke bechti hu toh dono ko same search result mile aur naaki wider audince waale bina koi bhii relation ke creators dikhe jaise koi doctor jo health ki baat karta ho"
+
+Done:
+- Memory `llm-budget-demo-day.md` (total LLM budget $8.5; teachers test live; free prep before paid calls; verify on pilot; one capped full run; keep $3–4 for searches).
+- Edge Function: price is its own score part (`priceFit`; sales 12 / reach 10 / local 8; budget vs premium 0.05); brand prompt judges price vs the product's usual Indian price with examples and returns `price_note`; keyword fallback parses ₹/Rs/k amounts; brand categories must be naturally related; review prompt: price mismatch and unrelated high-reach creators are "weak"; trending never shows weak; brand cache key v4. Creator prompt uses the same price scale. Demo: "Price match" row, price note in the chip. Deployed; live: "₹1000" → budget, "Rs 10,000" → premium, "12k rupees" → premium.
+
+User decided:
+- Total LLM budget $8.5 (key limit ~$4 for the profile work); must last through demo day.
+- Different price levels must get different creators; trending must never show creators unrelated to the product.
+
+Open:
+- Free prep before any paid call (promised to the user): fake-flag fix (no reel data → review), strip phone/email from bios before sending, DB hygiene check, final prompt review, PRIVATE-GUIDE update. Then `credits` → `test` (+ `:batch` variant check) → pilot 100 + ~10 demo searches (list weak cases for the user) → one capped full run.

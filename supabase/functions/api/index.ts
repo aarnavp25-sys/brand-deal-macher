@@ -27,10 +27,10 @@ const CITIES: string[] = TAX.cities;
 const TIERS = ["nano", "micro", "mid"];
 // "style" = brand fit: price level, values, creator role and credibility, audience age (see styleFit)
 const WEIGHTS: Record<string, Record<string, number>> = {
-  sales: { product: 25, style: 20, audience: 15, engagement: 15, reach: 10, quality: 7, growth: 5, consistency: 3, location: 5 },
-  reach: { product: 15, style: 15, audience: 15, engagement: 10, reach: 30, quality: 7, growth: 5, consistency: 3, location: 5 },
+  sales: { product: 25, price: 12, style: 12, audience: 15, engagement: 13, reach: 8, quality: 7, growth: 5, consistency: 3, location: 5 },
+  reach: { product: 15, price: 10, style: 10, audience: 15, engagement: 10, reach: 30, quality: 6, growth: 5, consistency: 3, location: 5 },
   // a brand with its own shop: creators who film inside shops in the brand's city matter most (user, 2026-11-20)
-  local: { product: 20, store: 20, location: 20, style: 10, audience: 10, engagement: 10, reach: 5, quality: 3, growth: 1, consistency: 1 },
+  local: { product: 20, store: 20, location: 20, price: 8, style: 6, audience: 10, engagement: 10, reach: 5, quality: 3, growth: 1, consistency: 1 },
 };
 const CHANNELS = ["online", "local store", "both"];
 // Same lists as pipeline/llm_classify.py (prompt v4)
@@ -183,7 +183,8 @@ async function data() {
 // ---------- brand profile (brief -> structured request) ----------
 type Req = { products: string[]; categories: string[]; city: string | null; tier: string | null; goal: string;
              audience: string | null; age: string | null; price: string | null; values: string[]; roles: string[];
-             summary: string | null; niche: string | null; needs: string | null; channel: string | null; method: string };
+             summary: string | null; niche: string | null; needs: string | null; channel: string | null;
+             price_note: string | null; method: string };
 
 function keywordParse(brief: string) {
   const t = brief.toLowerCase().replaceAll("jewellery", "jewelry");
@@ -206,7 +207,10 @@ function keywordParse(brief: string) {
   }
   cats = [...new Set([...prodCats, ...cats])];
   const city = CITIES.find((c) => has(c, t));
-  const price = ["affordable", "budget", "cheap", "low cost", "pocket friendly", "value"].some((w) => has(w, t)) ? "budget"
+  const m = t.match(/(?:₹|rs\.?|inr)\s?(\d[\d,]*)(\s?k)?|(\d[\d,]*)(\s?k)?\s?(?:rs|rupees|₹)/);
+  const amount = m ? Number((m[1] ?? m[3]).replaceAll(",", "")) * ((m[2] ?? m[4]) ? 1000 : 1) : null;
+  const price = amount != null ? (amount < 1500 ? "budget" : amount <= 5000 ? "mid" : "premium")
+    : ["affordable", "budget", "cheap", "low cost", "pocket friendly", "value"].some((w) => has(w, t)) ? "budget"
     : ["luxury", "premium", "high end", "high-end", "exclusive"].some((w) => has(w, t)) ? "premium" : null;
   const values: string[] = [];
   const V: [string, string[]][] = [["healthy", ["healthy", "organic", "natural", "protein", "sugar free", "clean"]],
@@ -236,9 +240,14 @@ Rules:
 - summary: <= 30 words, plain English: what the brand sells, how, and to whom.
 - niche: <= 8 words, the specific product space (e.g. "affordable long-lasting men's perfumes").
 - products: up to 4 product types the brand SELLS, most important first. [] if none fits.
-- categories: up to 3 creator categories whose audience would buy it, best first.
+- categories: up to 3 creator categories whose creators NATURALLY talk about this product, best first. Never add a
+  category only because it is popular or has big reach (a perfume brand is Beauty/Fashion, not Fitness or Education).
 - audience: "men", "women" or "unisex" (= the product is for everyone). audience_age: main buyer age group.
-- price_segment: "budget", "mid", "premium" or "unknown" if the text gives no hint.
+- price_segment: "budget", "mid", "premium" or "unknown" if the text gives no hint. Judge the price against what
+  that product usually costs in India: perfume ~₹1,000 = budget, ~₹2,500 = mid, ₹5,000+ = premium; t-shirt ₹499 =
+  budget, ₹3,000+ = premium; skincare serum ₹399 = budget, ₹2,000+ = premium. "Luxury", "handcrafted fine",
+  "exclusive" lean premium; "affordable", "pocket friendly", "under ₹999" lean budget.
+- price_note: <= 8 words with the brand's own price if given (e.g. "perfumes around ₹10,000"), else "".
 - values: up to 4 values the brand stands for (a sugar-free snack brand -> "healthy"; a mithai shop -> "traditional", "indulgent").
 - ideal_roles: up to 3 creator roles that would sell this best, best first. Think about trust: supplements or skincare
   need experts/reviewers; snacks or fashion can work with lifestyle and entertainers.
@@ -253,7 +262,7 @@ const NULLABLE = (s: Row) => ({ anyOf: [s, { type: "null" }] });
 const BRIEF_SCHEMA = {
   type: "object", additionalProperties: false,
   required: ["summary", "niche", "products", "categories", "audience", "audience_age", "price_segment", "values",
-             "ideal_roles", "needs", "city", "sales_channel"],
+             "ideal_roles", "needs", "city", "sales_channel", "price_note"],
   properties: {
     summary: { type: "string" },
     niche: { type: "string" },
@@ -267,6 +276,7 @@ const BRIEF_SCHEMA = {
     needs: { type: "string" },
     city: NULLABLE({ type: "string" }),
     sales_channel: { type: "string", enum: CHANNELS },
+    price_note: { type: "string" },
   },
 };
 // LLM calls go through OpenRouter (OpenAI-style API) with Claude Haiku 5.5. Key: Supabase secret OPENROUTER_API_KEY.
@@ -315,7 +325,7 @@ const short = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.
 
 async function llmProfile(brief: string) {
   if (!brief.trim()) return null;
-  const key = "brand:" + await sha256("v3|" + brief.trim().toLowerCase().replace(/\s+/g, " "));
+  const key = "brand:" + await sha256("v4|" + brief.trim().toLowerCase().replace(/\s+/g, " "));
   let o = await cacheGet(key);
   if (!o) {
     o = await ask(BRIEF_SYSTEM, `Brand description:\n"""${brief}"""`, BRIEF_SCHEMA, 600, 12000);
@@ -337,6 +347,7 @@ async function llmProfile(brief: string) {
     roles: [...new Set((o.ideal_roles ?? []).filter((r: string) => ROLES.includes(r)))].slice(0, 3) as string[],
     summary: short(o.summary, 240), niche: short(o.niche, 80), needs: short(o.needs, 200),
     channel: CHANNELS.includes(o.sales_channel) ? o.sales_channel : null,
+    price_note: short(o.price_note, 60),
   };
 }
 
@@ -355,7 +366,8 @@ async function parseRequest(q: Row): Promise<Req> {
   return { products, categories: categories.slice(0, 3), city: q.city || base.city, tier: q.tier || null,
            goal: q.goal === "reach" ? "reach" : "sales", audience: audience || null, age: base.age,
            price: q.price || base.price, values: base.values, roles: base.roles, summary: base.summary,
-           niche: base.niche, needs: base.needs, channel: q.channel || base.channel, method: llm ? "llm" : "keywords" };
+           niche: base.niche, needs: base.needs, channel: q.channel || base.channel,
+           price_note: (base as Row).price_note ?? null, method: llm ? "llm" : "keywords" };
 }
 
 // ---------- scoring ----------
@@ -379,13 +391,7 @@ function audienceFit(c: Row, want: string | null): number | null {
 // Needs the LLM profile on both sides; each missing piece is simply left out.
 function styleFit(c: Row, req: Req): { v: number | null; notes: string[] } {
   const parts: number[] = [], notes: string[] = [];
-  if (req.price && c.price_segment) {
-    const p = c.price_segment;
-    const f = p === req.price ? 1 : p === "mixed" ? 0.7 : p === "mid" || req.price === "mid" ? 0.55 : 0.15;
-    parts.push(f);
-    if (f === 1) notes.push(`Shows ${p}-priced products, like yours.`);
-    else if (f <= 0.15) notes.push(`Mostly shows ${p} products; your brand is ${req.price}.`);
-  }
+  // price level is scored separately (priceFit): a ₹1,000 and a ₹10,000 perfume must not get the same creators
   const cv: string[] = c.content_values ?? [];
   if (req.values.length && cv.length) {
     const common = req.values.filter((v) => cv.includes(v));
@@ -403,6 +409,14 @@ function styleFit(c: Row, req: Req): { v: number | null; notes: string[] } {
   }
   if (req.age && c.audience_age) parts.push(c.audience_age === req.age ? 1 : c.audience_age === "mixed" ? 0.7 : 0.4);
   return { v: parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null, notes };
+}
+
+function priceFit(c: Row, req: Req): { v: number | null; note: string | null } {
+  if (!req.price || !c.price_segment) return { v: null, note: null };
+  const p = c.price_segment;
+  const v = p === req.price ? 1 : p === "mixed" ? 0.6 : p === "mid" || req.price === "mid" ? 0.45 : 0.05;
+  return { v, note: v === 1 ? `Shows ${p}-priced products, like yours.`
+    : v <= 0.05 ? `Mostly shows ${p} products; your brand is ${req.price} — a poor price match.` : null };
 }
 
 function pctRank(values: (number | null)[]) {
@@ -484,6 +498,8 @@ async function match(q: Row) {
     }
     if (fit <= 0) continue;
     const style = styleFit(c, req);
+    const price = priceFit(c, req);
+    if (price.note) style.notes.unshift(price.note);
     const reachPct = reachR(c.reel_reach);
     // local shop brands: creators who film inside shops, ideally in the brand's city
     const local = req.channel === "local store" || req.channel === "both";
@@ -492,6 +508,7 @@ async function match(q: Row) {
       : c.store_visits === "never" ? 0.1 : null;
     const parts: Row = {
       product: fit,
+      price: price.v,
       style: style.v,
       audience: audienceFit(c, req.audience),
       engagement: erByTier[c.follower_tier]?.(c.engagement_rate) ?? null,
@@ -529,7 +546,9 @@ async function match(q: Row) {
     let rows = cols[col].map((r) => ({ ...r, ...(reviewed?.get(r.id) ?? {}) }));
     rows.sort((a, b) => (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || b.score - a.score);
     const ok = rows.filter((r) => r.verdict !== "weak");
-    if (ok.length >= 4) rows = ok; // show weak fits only when a column would otherwise be nearly empty
+    // trending never shows weak fits (big reach without a real link to the product is useless to a small brand);
+    // other columns show weak fits only when they would otherwise be nearly empty
+    if (col === "trending" || ok.length >= 4) rows = ok;
     columns[col] = rows.slice(0, PER_COLUMN).map(publicRow);
   }
   return { understood: req, columns, reviewed_by_ai: !!reviewed, considered: creators.length, matched: pool.length,
@@ -564,6 +583,10 @@ niche (already show this product), category (talk about the category), trending 
 reach). Judge each creator for THIS brand only:
 - Would their audience trust them about this product? Consider how they talk (an expert or honest reviewer vs a fan
   page), their credibility, price level, the values of their content, and whose products they feature.
+- Price level matters: a ₹10,000 perfume needs creators whose audience buys premium; a budget-deals creator is weak
+  for it, and a luxury creator is weak for a ₹999 brand.
+- High reach alone is never enough: a creator with no real relation to this product (e.g. a doctor talking about
+  health for a perfume brand) is "weak", in every group.
 - A brand with its own shop needs creators who film inside shops in its city (store tours, "where to buy" reels);
   a creator in another city is weak for it unless the shop also sells online.
 - A home cook making everyday tasty recipes suits a masala brand; a creator who only promotes clean eating suits a
@@ -598,7 +621,7 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
   if (!all.length || req.method !== "llm") return null; // no AI brand profile -> nothing to judge against
   const ids = all.map((_, i) => `c${i + 1}`);
   const brand = [
-    req.summary && `Brand: ${req.summary}`, req.niche && `Niche: ${req.niche}`,
+    req.summary && `Brand: ${req.summary}`, req.niche && `Niche: ${req.niche}`, req.price_note && `Price: ${req.price_note}`,
     `Sells: ${req.products.join(", ") || "-"} | categories: ${req.categories.join(", ")}`,
     `Customers: ${req.audience ?? "everyone"}${req.age ? ", " + req.age : ""} | price: ${req.price ?? "unknown"}`,
     req.values.length && `Values: ${req.values.join(", ")}`, req.roles.length && `Best creator types: ${req.roles.join(", ")}`,

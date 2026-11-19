@@ -123,6 +123,13 @@ whose products, values), and results come in three columns, each creator reviewe
    strong/good/weak, a reason specific to the brand, and a reel idea. Order in a column = verdict, then score;
    weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
+5a. **Price level and relevance** (user, 2026-11-20: "1000 ke perfumes" and "10000 ke" must not get the same
+   creators; no wider-audience creators without a relation, e.g. a doctor for a perfume brand). Price is its own
+   signal (sales 12, reach 10, local 8): same level 1, mixed 0.6, one step 0.45, budget vs premium 0.05. The brand
+   prompt judges price against the product's usual Indian price (perfume ~₹1,000 budget, ₹5,000+ premium) and keeps
+   ₹ amounts in `price_note`; keyword fallback reads ₹/Rs/k amounts (<₹1,500 budget, ≤₹5,000 mid, else premium).
+   The creator prompt uses the same price scale. Brand categories must be ones whose creators naturally talk about
+   the product; the review marks unrelated high-reach creators "weak", and weak fits are never shown in trending.
 5b. **Local shops** (user, 2026-11-20: a local store should see creators who make reels inside shops). The brand
    profile has `sales_channel` (online / local store / both; brand can override with "Where you sell"). The creator
    profile has `store_visits` (often / sometimes / never: shop tours, market hauls, "where to buy", cafe/salon or

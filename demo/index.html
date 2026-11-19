@@ -74,7 +74,7 @@ const COLS = [['niche', 'Your niche', 'Already show products like yours — the 
               ['category', 'Your category', 'Talk about your category in general — a natural place for your product.'],
               ['trending', 'Trending & lifestyle', 'Broad creators with high reel reach — take your product to a wider audience.']];
 const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
-const NAMES = { store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
+const NAMES = { price: 'Price match', store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
 const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };
 
 const H = { apikey: BDM.anon, Authorization: 'Bearer ' + BDM.anon };
@@ -107,7 +107,7 @@ function render() {
   const d = last, u = d.understood;
   const chips = [...u.products.map(p => 'Sells: ' + p), ...u.categories.map(c => 'Category: ' + c),
     u.audience && 'Customers: ' + (u.audience === 'unisex' ? 'everyone' : u.audience) + (u.age ? ', ' + u.age : ''),
-    u.price && 'Price: ' + u.price, u.channel && 'Sells: ' + (u.channel === 'local store' ? 'at own shop' : u.channel === 'both' ? 'shop + online' : 'online'), ...(u.values || []).map(v => 'Values: ' + v),
+    u.price && 'Price: ' + u.price + (u.price_note ? ' (' + u.price_note + ')' : ''), u.channel && 'Sells: ' + (u.channel === 'local store' ? 'at own shop' : u.channel === 'both' ? 'shop + online' : 'online'), ...(u.values || []).map(v => 'Values: ' + v),
     ...(u.roles || []).map(r => 'Best creators: ' + (ROLE[r] || r)), u.city && 'City: ' + u.city, u.tier && 'Size: ' + u.tier,
     'Goal: ' + (u.goal === 'sales' ? 'sales & trust' : 'reach')].filter(Boolean);
   const how = u.method === 'llm' ? 'read by AI' : 'keyword match';

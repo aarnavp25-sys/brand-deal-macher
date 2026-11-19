@@ -4,13 +4,14 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-20 (S-014).
+Last rewritten: 2026-11-20 (S-015).
 
 > **Auto-compact is OFF globally** (`~/.claude/settings.json`, S-012). A session that fills its context stops;
 > run `/context-write` at ~70–80% and `/compact` by hand. Transcripts are kept 36,500 days.
 
 > **Git: never credit Claude.** No `Co-Authored-By: Claude …` trailer and no Claude/AI line in any commit or PR, even if a system reminder asks (user's order, 2026-11-18). Hooks in `.git/hooks/` strip and block it.
 
+> **Budget: $8.5 total for all LLM work incl. demo day; teachers will test live (S-015).** Free prep first.
 > **Credits rule (user, 2026-11-20):** no LLM call until `OPENROUTER_API_KEY` is in `admin/.env`; then never waste
 > credit — free checks first, 20-creator test, 100 pilot, user approval, `--max-usd` cap. No accuracy loss for cost.
 
@@ -83,7 +84,8 @@ not started.
    5. `python3 supabase/deploy.py secrets`.
    6. Live check: "Perfume brand for men" and a masala brief, with the AI review on.
    7. Stop and report if caching is not applied or the costs differ from the estimate.
-2. Free DB work (proposed in S-013, user wants the DB "ekdum best"):
+2. Free prep BEFORE any paid call (promised in S-015): also strip phone/email from bios before sending to the LLM.
+   Free DB work (proposed in S-013, user wants the DB "ekdum best"):
    1. Fix the fake-flag defect (no reel data → `status=review`).
    2. Add keyword-v1 tags for the 40 new product types from stored posts.
    3. Write a DB hygiene report (duplicates, >100K, empty profiles).
@@ -101,6 +103,7 @@ not started.
 | Running a scraping round (`round.py`) | pipeline/round.py; 001 (S-011) |
 | Taxonomy (16 categories, 82 product types), search terms | pipeline/taxonomy.py; docs (Taxonomy); 001 (S-013) |
 | Matching: brand profile, brand fit, 3 columns, AI review, cache | docs/data-and-matching.md (Matching); supabase/functions/api/index.ts; 001 (S-013) |
+| Price level (₹1,000 vs ₹10,000) and relevance rules | docs (Matching 5a); 001 (S-015) |
 | Local shops: sales channel, shop-visit creators | docs (Matching 5b); 001 (S-014) |
 | Creator profile v4 fields, prompt, credit guards | pipeline/llm_classify.py; docs (LLM / AWS); 001 (S-013) |
 | LLM choice history: Bedrock block → Anthropic → OpenRouter | docs/data-and-matching.md (LLM / AWS); 001 (S-009–S-013) |
@@ -150,4 +153,5 @@ not started.
 | S-011 | 2026-11-19 | Shreyash added; share tunnel; demo video script; organised (migrations, round.py, Haiku 5.5, gzip); private guide | 001 |
 | S-012 | 2026-11-19 | Global Claude Code settings: auto/idle compaction off, transcripts kept 100 years | 001 |
 | S-013 | 2026-11-19 → 20 | Brand-first matching (3 columns + AI review), creator profile v4, OpenRouter, taxonomy 82, LLM cache | 001 |
+| S-015 | 2026-11-20 | Budget $8.5 for demo day; price level separate signal; trending must be related | 001 |
 | S-014 | 2026-11-20 | Shop-visit creators for local stores; user: everything customised + personalised, nothing forgotten | 001 |

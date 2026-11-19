@@ -83,8 +83,10 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
   Example: a sports page that reacts to matches as a fan -> "enthusiast"; a state-level player who trains on camera -> "expert".
 - credibility = "professional" (stated credentials or clearly works in the field), "experienced" (years of serious
   practice visible in posts), "casual". credibility_note <= 15 words: the reason, from the posts or bio.
-- price_segment = price level of the things they show or recommend: "budget" (affordable, deals, under-1000 finds),
-  "mid", "premium" (luxury, high-end), "mixed".
+- price_segment = price level of the things they show or recommend, judged against what that product usually costs
+  in India: "budget" (deals, "under ₹999" finds, perfume ~₹1,000, t-shirt ~₹499), "mid", "premium" (luxury,
+  high-end; perfume ₹5,000+, designer wear), "mixed". Brands rely on this: a ₹10,000 perfume and a ₹1,000 perfume
+  need different creators.
 - products_for = whose products they mostly feature: "men", "women" or "unisex". This is NOT the creator's gender:
   a woman styling men's shirts -> "men"; a man reviewing makeup -> "women"; food or travel -> "unisex".
 - content_values = up to 4 values the content stands for, from the allowed list only.
