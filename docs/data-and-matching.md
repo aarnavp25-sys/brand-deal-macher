@@ -86,38 +86,47 @@ Music & Dance, Education & Finance, Parenting, Travel, Automobile, Pets.
 from Tech and Sports from Fitness (different audiences and brands). 42 product
 types with keywords. Fixed lists only — free-text labels break search.
 
-## Matching (supabase/functions/api/index.ts; design agreed in S-003, audience added 2026-11-18)
+## Matching (supabase/functions/api/index.ts; redesigned 2026-11-20 on the user's request)
 
-1. Brief → product types + categories + city + audience (men/women). The LLM fills fixed-list values;
-   if it fails, the keyword parser does. Gendered product names ("men's grooming") imply the audience.
-   Categories are ranked by keyword hits so "gaming accessories" → Gaming.
-2. Product fit per creator: proven product (posts show it) > category match >
-   possible. Proven evidence counts fully only if the creator's **primary**
-   category is relevant; single-post evidence is discounted.
-3. Labels: Specialist (≥50% of posts on the product, or ≥60% in the category),
-   Wider reach (proven but less), Potential (possible only).
-4. Score 0–100. Goal "sales": product 30, audience 15, engagement 20, reach 15, quality 15,
-   growth 10, consistency 5, location 5. Goal "reach": reach 30, product 20, audience 15.
-   Audience fit uses the LLM's `audience_gender` (fallback: creator gender): same = 1, unisex = 0.6,
-   opposite = 0.1 — women creators drop for a men's brief but are not removed. Added because
-   "Perfume brand for men" returned mostly women creators: the brief's audience was parsed but unused.
-   Engagement is percentile within the follower tier. Signals without data
-   (quality, growth) are dropped and weights re-normalised. Followers never score
-   directly — a strong 8K creator can beat an average 80K one.
-5. Keep score ≥50; show ~20 mixed: ~40% specialists, ~50% wider, ~10% potential.
-6. Explanation is built only from the breakdown numbers (LLM later).
-7. With LLM labels (`creator_llm`): its category replaces keyword-v1, `is_shop` creators are dropped,
-   proven products need post evidence, "possible" products come from `can_promote`.
+The user's goal (2026-11-20): small brands with small budgets need the *right* creators, not a list sorted by one
+score. So the AI first understands the brand, the creators are understood in depth (how they talk, price level,
+whose products, values), and results come in three columns, each creator reviewed for this brand.
 
-Specialist vs wider: specialists convert (intent, trust); wider creators give
-reach. A fashion creator's audience interest in a product is measured by
-engagement on that product's posts vs their average.
+1. **Brand profile.** Haiku 5.5 reads the brand's text → summary, niche, products, categories, customers
+   (men/women/unisex + age), price level (budget/mid/premium), values, the creator roles that would sell it best
+   (supplements → expert/reviewer; snacks → lifestyle/entertainer) and what the brand needs. Shown to the brand as
+   "How we understood your brand"; the brand can override customers, price, category, product. Keyword parser
+   when the LLM is unavailable.
+2. **Creator profile** (`creator_llm`, prompt v4): niche (specific), creator_role (expert / reviewer / educator /
+   enthusiast / entertainer / lifestyle / aspirational — a cricket fan page is "enthusiast", a state player who
+   trains on camera is "expert"), credibility + reason, price_segment, products_for (whose products they feature —
+   a woman styling men's shirts = "men"), content_values (healthy vs indulgent, value-for-money vs luxury...),
+   scope (niche / category / broad), brand_fit note, plus the v3 audience fields.
+3. **Formula score 0–100** (deterministic). Sales: product 25, brand fit ("style") 20, audience 15, engagement 15,
+   reach 10, quality 7, growth 5, consistency 3, location 5. Reach goal and the trending column: reach 30.
+   - Product fit: proven product (posts show it) > category match > possible (`can_promote`).
+   - Brand fit = mean of price fit (same 1, mixed 0.7, one step 0.55, budget vs premium 0.15), values
+     (overlap; clashing values 0.1), role (brand's first ideal role 1, other ideal 0.85, else 0.45), credibility
+     when the brand needs trust (professional 1 / experienced 0.8 / casual 0.45), audience age.
+   - Audience fit = best of the creator's audience gender and products_for (same 1 / 0.9, unisex 0.6, opposite 0.1).
+   - Engagement is percentile within the follower tier; missing signals are dropped and weights re-normalised.
+4. **Three columns**, each creator in one: *niche* (already posted this product), *trending* (scope broad or a
+   lifestyle/entertainer/aspirational role, reel reach in the top 40%; possible-only creators need the top 25%),
+   *category* (talks about the category). Score ≥50 to enter; top 12 per column go to review.
+5. **AI review** (one Haiku call, ~36 creators): the brand profile + each creator's profile line → verdict
+   strong/good/weak, a reason specific to the brand, and a reel idea. Order in a column = verdict, then score;
+   weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
+   never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
+6. Cost per search ≈ $0.002 (profile ~$0.0003 + review ~$0.0017). Rate limit 30 searches / 10 min per client.
+
+Before 2026-11-20 the result was one list mixed as ~40% specialists / ~50% wider / ~10% potential, and the LLM
+only parsed the brief. The user rejected "just a matching score in descending order".
 
 ## Public API (Supabase Edge Function `api`)
 
 The demo page calls `POST /functions/v1/api/match` and `GET /functions/v1/api/meta`; `demo/server.py` only
 serves the page and `/config.js` (URL + public anon key). Security: the service-role key and
-`BEDROCK_API_KEY` live only in Supabase secrets; tables have RLS on with no policies, so the anon key reads
+`ANTHROPIC_API_KEY` live only in Supabase secrets; tables have RLS on with no policies, so the anon key reads
 nothing directly; CORS allow-list (`ALLOWED_ORIGINS`); JWT check (anon key); body ≤4 KB, brief ≤600
 chars, enum checks; per-client rate limit 30 matches / 10 min via `api_hit()` (salted IP hash,
 `api_rate_limit`, execute revoked from anon); responses never include email or bio; errors are generic.

@@ -24,6 +24,11 @@ select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid va
 .understood{margin:26px 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chip{background:var(--chip);border-radius:99px;padding:3px 10px;font-size:13px}
 .tabs{display:flex;gap:6px;margin:16px 0}.tabs button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:99px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer}.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;padding-bottom:50px}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding-bottom:50px;align-items:start}@media (max-width:980px){.cols{grid-template-columns:1fr}}
+.col h2{font-size:17px;margin:0 0 2px;letter-spacing:-.01em}.col>p{margin:0 0 12px;font-size:13px;color:var(--muted)}.col .stack{display:flex;flex-direction:column;gap:12px}
+.brand{margin:26px 0 12px}.brand h3{margin:0 0 6px;font-size:15px}.brand .sum{font-size:16px;margin:0 0 10px}
+.v-strong{background:#ebfbee;color:#2b8a3e}.v-good{background:#e7f5ff;color:#1864ab}.v-weak{background:var(--chip);color:var(--muted)}@media (prefers-color-scheme:dark){.v-strong{background:#12301a;color:#8ce99a}.v-good{background:#14253a;color:#91a7ff}}
+.idea{font-size:13px;border-left:3px solid var(--accent);padding-left:8px}details summary{cursor:pointer;font-size:12px;color:var(--muted)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
 .top{display:flex;gap:12px;align-items:center}.top img{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--chip)}
 .top a{color:var(--ink);font-weight:650;text-decoration:none}.top .muted{font-size:13px}.muted{color:var(--muted)}
@@ -49,11 +54,13 @@ footer{color:var(--muted);font-size:13px;padding:30px 0;border-top:1px solid var
 <label>Category (optional)<select id="category"><option value="">Detect from text</option></select></label>
 <label>Product type (optional)<select id="product"><option value="">Detect from text</option></select></label>
 <label>City<select id="city"><option value="">Anywhere in India</option></select></label>
+<label>Customers<select id="audience"><option value="">Detect from text</option><option value="men">Men</option><option value="women">Women</option><option value="unisex">Everyone</option></select></label>
+<label>Price level<select id="price"><option value="">Detect from text</option><option value="budget">Budget</option><option value="mid">Mid</option><option value="premium">Premium</option></select></label>
 <label>Creator size<select id="tier"><option value="">Any (1K–100K)</option><option value="nano">Nano 1K–10K</option><option value="micro">Micro 10K–50K</option><option value="mid">Mid 50K–100K</option></select></label>
 <label>Goal<span class="seg" id="goal"><button data-g="sales" class="on">Sales &amp; trust</button><button data-g="reach">Reach &amp; awareness</button></span></label>
 <button class="go" id="go">Find creators</button></div></div></section>
 <section id="out"></section>
-<footer>Prototype for demonstration. Creator data comes from public Instagram profiles. Scores use reel reach, engagement, posting consistency, location and product fit; content quality and follower growth are added once measured. Labels marked “estimated” come from an AI reading public posts and can be wrong.</footer>
+<footer>Prototype for demonstration. Creator data comes from public Instagram profiles. Scores use product fit, brand fit (price level, values, how the creator talks), audience, reel reach, engagement, consistency and location; an AI then reviews each shortlisted creator for your brand. Labels marked “estimated” come from an AI reading public posts and can be wrong.</footer>
 </div>
 <script>
 const $ = s => document.querySelector(s);
@@ -61,9 +68,13 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '';
 const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
 const EXAMPLES = ["Homegrown men's jewelry brand from Pune — silver rings and chains", "Natural skincare brand, face serums and sunscreen for young women", "Home baker in Pune selling custom cakes and brownies", "Perfume and fragrance brand for men", "Gaming accessories brand — controllers and triggers for BGMI players", "Pet food and treats brand for dogs"];
-let goal = 'sales', last = null, tab = 'all';
-const LABELS = { specialist: 'Specialist', wider: 'Wider reach', potential: 'Potential' };
-const NAMES = { product: 'Product fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
+let goal = 'sales', last = null;
+const COLS = [['niche', 'Your niche', 'Already show products like yours — the most trusted voices for it.'],
+              ['category', 'Your category', 'Talk about your category in general — a natural place for your product.'],
+              ['trending', 'Trending & lifestyle', 'Broad creators with high reel reach — take your product to a wider audience.']];
+const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
+const NAMES = { product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
+const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };
 
 const H = { apikey: BDM.anon, Authorization: 'Bearer ' + BDM.anon };
 async function api(path, body) {
@@ -85,35 +96,46 @@ $('#go').onclick = run;
 $('#brief').onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); };
 
 async function run() {
-  const p = { brief: $('#brief').value.slice(0, 600), category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, goal };
+  const p = { brief: $('#brief').value.slice(0, 600), category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, audience: $('#audience').value, price: $('#price').value, goal };
   if (!$('#brief').value.trim() && !$('#category').value && !$('#product').value) { $('#out').innerHTML = '<div class="empty">Describe your brand or pick a category first.</div>'; return; }
-  $('#out').innerHTML = '<div class="empty">Matching…</div>';
+  $('#out').innerHTML = '<div class="empty">Understanding your brand and reviewing creators…</div>';
   let d; try { d = await api('/match', p); } catch (e) { $('#out').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  last = d; tab = 'all'; render();
+  last = d; render();
 }
 function render() {
   const d = last, u = d.understood;
-  const chips = [...u.products.map(p => 'Product: ' + p), ...u.categories.map(c => 'Category: ' + c), u.city && 'City: ' + u.city, u.audience && 'Audience: ' + u.audience, u.tier && 'Size: ' + u.tier, 'Goal: ' + (u.goal === 'sales' ? 'sales & trust' : 'reach')].filter(Boolean);
+  const chips = [...u.products.map(p => 'Sells: ' + p), ...u.categories.map(c => 'Category: ' + c),
+    u.audience && 'Customers: ' + (u.audience === 'unisex' ? 'everyone' : u.audience) + (u.age ? ', ' + u.age : ''),
+    u.price && 'Price: ' + u.price, ...(u.values || []).map(v => 'Values: ' + v),
+    ...(u.roles || []).map(r => 'Best creators: ' + (ROLE[r] || r)), u.city && 'City: ' + u.city, u.tier && 'Size: ' + u.tier,
+    'Goal: ' + (u.goal === 'sales' ? 'sales & trust' : 'reach')].filter(Boolean);
   const how = u.method === 'llm' ? 'read by AI' : 'keyword match';
-  const counts = l => d.results.filter(r => r.label === l).length;
-  const rows = d.results.filter(r => tab === 'all' || r.label === tab);
-  $('#out').innerHTML = `<div class="understood"><b>We understood:</b> ${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('') || '<span class="muted">nothing specific — try naming your product</span>'} <span class="est">${how}</span></div>
-  <p class="muted">${d.results.length} best matches out of ${d.matched} that scored 50+ (from ${d.considered} creators).</p>
-  <div class="tabs">${[['all', 'All', d.results.length], ['specialist', 'Specialists', counts('specialist')], ['wider', 'Wider reach', counts('wider')], ['potential', 'Potential', counts('potential')]].map(([k, l, n]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l} · ${n}</button>`).join('')}</div>
-  <div class="grid">${rows.map(card).join('') || '<div class="empty">No creators in this group yet.</div>'}</div>`;
-  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+  const total = COLS.reduce((a, [k]) => a + d.columns[k].length, 0);
+  $('#out').innerHTML = `<div class="box brand"><h3>How we understood your brand <span class="est">${how}</span></h3>
+    ${u.summary ? `<p class="sum">${esc(u.summary)}</p>` : ''}
+    ${u.needs ? `<p class="muted" style="margin:0 0 10px">What you need: ${esc(u.needs)}</p>` : ''}
+    <div class="understood" style="margin:0">${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('') || '<span class="muted">nothing specific — try naming your product</span>'}</div>
+    <p class="muted" style="margin:10px 0 0;font-size:13px">Not right? Change "Customers", "Price level", category or product above and search again.</p></div>
+  <p class="muted">${total} creators shown from ${d.matched} that fit (out of ${d.considered}).${d.reviewed_by_ai ? ' Each one was reviewed by AI for your brand.' : ' AI review is off, so creators are ordered by match score.'}</p>
+  <div class="cols">${COLS.map(([k, name, sub]) => `<section class="col"><h2>${name} · ${d.columns[k].length}</h2><p>${sub}</p>
+    <div class="stack">${d.columns[k].map(card).join('') || '<div class="empty">No creators in this group yet.</div>'}</div></section>`).join('')}</div>`;
 }
 function card(r) {
   const c = r.creator, pic = safeUrl(c.profile_pic_url);
+  const prof = [c.niche, c.creator_role && (ROLE[c.creator_role] || c.creator_role) + (c.credibility ? ` (${c.credibility})` : ''),
+    c.price_segment && c.price_segment + ' products', c.products_for && 'products for ' + c.products_for].filter(Boolean);
   return `<article class="card"><div class="top">${pic ? `<img src="${pic}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'">` : '<img alt="">'}
    <div><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a><div class="muted">${esc(c.full_name || '')}</div><div class="muted">${esc(c.niche_primary)}${c.city ? ' · ' + esc(c.city) : ''}</div></div>
    <div class="score"><b>${r.score}</b><small>match</small></div></div>
-   <div><span class="badge b-${r.label}">${LABELS[r.label]}</span>${c.collab_open ? ' <span class="badge b-potential">Open to collabs</span>' : ''}</div>
-   ${c.audience_gender || c.audience_desc ? `<div class="style"><b>Audience:</b> ${[c.audience_gender, c.audience_age, c.audience_desc].filter(Boolean).map(esc).join(' · ')}<span class="est">estimated by AI</span></div>` : ''}
-   ${c.content_style || c.language ? `<div class="style">${[c.content_style, c.language].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
+   <div>${r.verdict ? `<span class="badge v-${r.verdict}">${VERDICT[r.verdict]}</span>` : ''}${c.collab_open ? ' <span class="badge b-potential">Open to collabs</span>' : ''}</div>
+   ${r.reason ? `<div class="why"><b>For your brand:</b> ${esc(r.reason)}</div>` : ''}
+   ${r.idea ? `<div class="idea"><b>Idea:</b> ${esc(r.idea)}</div>` : ''}
+   ${prof.length ? `<div class="style">${prof.map(esc).join(' · ')}<span class="est">estimated by AI</span></div>` : ''}
+   ${c.credibility_note ? `<div class="style">${esc(c.credibility_note)}</div>` : ''}
+   ${c.audience_gender || c.audience_desc ? `<div class="style"><b>Audience:</b> ${[c.audience_gender, c.audience_age, c.audience_desc].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
    <div class="stats"><div><b>${fmt(c.followers)}</b><span class="muted">followers</span></div><div><b>${c.reel_reach ?? '—'}x</b><span class="muted">reel reach</span></div><div><b>${fmt(c.engagement_rate)}%</b><span class="muted">engagement</span></div><div><b>${fmt(c.posts_per_week)}</b><span class="muted">posts/wk</span></div></div>
-   <div class="why">${esc(r.explanation)}</div>
-   <div class="bd">${Object.entries(r.breakdown).map(([k, [v, w]]) => `<span class="muted">${NAMES[k]}</span>${v == null ? `<span class="muted" style="grid-column:span 2">not measured yet</span>` : `<div class="track"><div class="fill" style="width:${v / w * 100}%"></div></div><span>${v}/${w}</span>`}`).join('')}</div></article>`;
+   <details><summary>Why this score</summary><div class="why" style="margin:8px 0">${esc(r.explanation)}</div>
+   <div class="bd">${Object.entries(r.breakdown).map(([k, [v, w]]) => `<span class="muted">${NAMES[k] || k}</span>${v == null ? `<span class="muted" style="grid-column:span 2">not measured yet</span>` : `<div class="track"><div class="fill" style="width:${v / w * 100}%"></div></div><span>${v}/${w}</span>`}`).join('')}</div></details></article>`;
 }
 </script>
 </body>
