@@ -609,3 +609,4 @@ User decided:
 
 Open:
 - Free prep before any paid call (promised to the user): fake-flag fix (no reel data → review), strip phone/email from bios before sending, DB hygiene check, final prompt review, PRIVATE-GUIDE update. Then `credits` → `test` (+ `:batch` variant check) → pilot 100 + ~10 demo searches (list weak cases for the user) → one capped full run.
+- S-015 addendum (2026-11-20). User: "bhale chote seher ke kam creators ho retail store ke liye but ... jab naye creators du usse khud se identify karna hoga". `pipeline/round.py` step 6: after loading, new usable creators get the AI profile automatically (`llm_classify.py run --max-usd len(new)*0.001+0.02 --yes`; `--no-llm` skips; without `OPENROUTER_API_KEY` it prints the command to run later). Thin small-city shop-visit coverage is accepted for now and fills as new rounds run.

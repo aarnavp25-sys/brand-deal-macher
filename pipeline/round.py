@@ -13,6 +13,7 @@ Tokens come from APIFY_TOKENS in admin/.env (label:token,...). Replaces the per-
      Profile Scraper input stored in raw_scrapes), thin categories first  -> Profile Scraper
   4. optional search terms -> Search Scraper
   5. filter (process.py filter) -> reels for the new kept creators -> build -> load only new creators -> raw upload
+  6. AI profile (llm_classify.py run, capped ~$0.001 per new creator) for the new usable creators; --no-llm skips
 Work files go to pipeline/runs/<date>-<account>/ (gitignored).
 """
 import argparse, collections, json, os, re, subprocess, sys, time, urllib.parse, urllib.request
@@ -124,6 +125,7 @@ def main():
     ap.add_argument("--budget", type=float, help="spend at most this (default: balance - $0.30)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--yes", action="store_true", help="really spend Apify credit")
+    ap.add_argument("--no-llm", action="store_true", help="skip the automatic AI profile of the new creators")
     a = ap.parse_args()
     load_env()
     tok = token(a.account)
@@ -208,6 +210,16 @@ def main():
                 break
             time.sleep(3)
     print(f"{a.account} balance now ${balance(tok):.3f} (reel charges may still post)")
+    # New creators get the same deep AI profile as everyone else (user, 2026-11-20: "jab naye creators du usse khud
+    # se identify karna hoga" — shop-visit reels, price level, fan vs expert...). Only the new, search-visible ones
+    # are sent (llm_classify skips creators already profiled), with a small cap: ~$0.001 per creator worst case.
+    if ok and not a.no_llm:
+        if os.environ.get("OPENROUTER_API_KEY"):
+            cap = round(len(ok) * 0.001 + 0.02, 2)
+            print(f"AI profile for {len(ok)} new usable creators (cap ${cap})", flush=True)
+            subprocess.run([sys.executable, os.path.join(HERE, "llm_classify.py"), "run", "--max-usd", str(cap), "--yes"])
+        else:
+            print("OPENROUTER_API_KEY missing: run `python3 pipeline/llm_classify.py run --max-usd <cap> --yes` later")
 
 
 if __name__ == "__main__":
