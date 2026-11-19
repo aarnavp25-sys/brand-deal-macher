@@ -38,4 +38,4 @@ Never commit `.env` files; they are gitignored.
 | Name | Role |
 |---|---|
 | Aarnav Mathakiya ([@aarnavp25-sys](https://github.com/aarnavp25-sys)) | Project lead: product, data pipeline, backend |
-| Shreyash ([@shreyashp25](https://github.com/shreyashp25)) | UI/UX design |
+| Shreyash ([@shreyashp25](https://github.com/shreyashp25)) | UI/UX and frontend: looks after the design of the demo website and the admin dashboard |
