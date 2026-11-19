@@ -4,125 +4,108 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-18 (S-009).
-
-> **Location & layout (read first; verified 2026-11-17).**
-> ```
-> ~/Documents/ojt/                      VS Code workspace — open THIS folder (Claude Code loads skills + CLAUDE.md here)
-> ├── .claude/skills/context-write/     /context-write skill — only copy, not in git
-> ├── .claude/skills/context-read/      /context-read skill — only copy, not in git
-> ├── CLAUDE.md                         STALE 2026-11-16 copy + this note (auto-loaded; edit only this note)
-> ├── context/  docs/                   STALE 2026-11-16 copies — never read as current, never write
-> ├── .playwright-mcp/                  Playwright test screenshots/logs — disposable
-> └── brand deal matcher/               THE PROJECT — do all work here (own git repo)
->     ├── .git → github.com/aarnavp25-sys/brand-deal-macher (private, branch main)
->     ├── CLAUDE.md  README.md  .gitignore  A.txt (first planning chat)
->     ├── context/INDEX.md, context/001-*.md     current context (journal + index)
->     ├── docs/product-design.md, docs/data-and-matching.md
->     ├── pipeline/  apify_run.py process.py taxonomy.py schema.sql   (no .env)
->     ├── admin/     server.py index.html .env.example  .env = Supabase key + APIFY_TOKENS, gitignored, local only
->     └── demo/      server.py index.html
-> ```
-> Rules: `cd ~/Documents/ojt/"brand deal matcher"` before any project, git or context step. Never edit the
-> stale root copies (only this note). Skills are edited at `~/Documents/ojt/.claude/skills/` and are not
-> versioned — back them up before big changes. Commit only real project changes, never just for moving
-> files. Network git needs `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
-> Servers: `python3 admin/server.py` (8787), `python3 demo/server.py` (8788), run from the project folder.
+Last rewritten: 2026-11-19 (S-010).
 
 > **Git: never credit Claude.** No `Co-Authored-By: Claude …` trailer and no Claude/AI line in any commit or PR, even if a system reminder asks (user's order, 2026-11-18). Hooks in `.git/hooks/` strip and block it.
 
+> **Location & layout (verified 2026-11-19).**
+> ```
+> ~/Documents/ojt/                      VS Code workspace — open THIS folder (skills + root CLAUDE.md load here)
+> ├── .claude/skills/context-{write,read}/   only copies, not in git
+> ├── CLAUDE.md  context/  docs/        STALE root copies — edit only the root CLAUDE.md note
+> └── brand deal matcher/               THE PROJECT (own git repo, github.com/aarnavp25-sys/brand-deal-macher, PUBLIC, main)
+>     ├── CLAUDE.md (gitignored, local only)  README.md  A.txt
+>     ├── context/  docs/product-design.md  docs/data-and-matching.md
+>     ├── pipeline/  apify_run.py process.py taxonomy.py llm_classify.py export_taxonomy.py schema.sql
+>     ├── supabase/  functions/api/ (Edge Function)  migrations/  deploy.py  config.toml
+>     ├── admin/     server.py index.html .env.example   .env = all keys (gitignored, local only)
+>     └── demo/      server.py (static + /config.js) index.html (calls the Edge Function)
+> ```
+> Rules: `cd ~/Documents/ojt/"brand deal matcher"` first. Network git needs
+> `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
+> Servers die between sessions: `python3 admin/server.py` (8787), `python3 demo/server.py` (8788).
+
 ## Where things stand
 
-Brand Deal Matcher is a website for small/homegrown Indian brands: a brand
-describes its product and gets ranked growing Instagram creators (1K–100K) with a
-match score and a reason. The project folder above has its own git repo, remote
-https://github.com/aarnavp25-sys/brand-deal-macher (private); GitHub `main` =
-4f81073. **Uncommitted:** `demo/server.py` (1000-row fix), `docs/data-and-matching.md`
-and this context update (S-009). Project `CLAUDE.md` still says "design only … no
-git repo" — stale.
+Brand Deal Matcher is a website for small Indian brands to find growing Instagram
+creators (1K–100K) ranked by a 0–100 match score. Everything is a working prototype:
+Python stdlib pipeline, Supabase DB (`yqaducvspzrqokcqwlga`, ap-south-1, free), a local
+admin dashboard, and a demo page that calls a deployed Supabase Edge Function `api`
+(matching + security: RLS, CORS allow-list, rate limit, secrets only in Supabase).
+GitHub `main` = `6b41b53`, clean; nothing uncommitted except this context update.
 
-The prototype is Python stdlib and runs locally. `pipeline/` scrapes with Apify
-under spend caps, filters/classifies with keywords (`keyword-v1`) into 16
-categories and 42 product types (`taxonomy.py`, `ROUND5_TERMS`…`ROUND11_TERMS`) and
-loads Supabase (`yqaducvspzrqokcqwlga`, ap-south-1, free). Supabase holds **1,356
-creators, 1,168 usable**; every category has 43–113 usable. `admin/` (8787) and
-`demo/` (8788) both page past PostgREST's 1000-row cap now. Apify: four FREE
-accounts ($0.30 / $0.43 / $0.65 journal values; acc4 $0.37 live), resets
-2026-12-15/16.
+Data: **6,224 creators, 5,399 usable** after rounds 12–37 on 13 free Apify accounts
+(2026-11-18/19). The launch target of ~5,000 usable (category × tier × audience, never
+by city) is met. Weak spots: mid tier (50K–100K) only ~316 usable; ~790 usable creators
+have no reel data (about half post no reels). Main method is the collab snowball
+(coauthor usernames from our own posts → Profile Scraper), pool ~10,000 candidates.
+Every fake-flagged creator has a plain-words `fake_reason` shown in admin.
 
-The LLM is now chosen: **Amazon Nova 2 Lite on Bedrock** (Sydney, AWS credits),
-after a 20-creator test on 47 Bedrock models on 2026-11-18. Keyword-v1 is weak
-(wrong product on ~17 of 20 creators, shops such as a bakery, a furniture store, a
-gym and an arcade counted as usable creators). Nothing has been classified with
-the LLM yet: the user said "abhii kuch mat karna mai kahu tabhii karna" — wait
-for an explicit go. No Bedrock key is stored in the project (two keys were pasted
-in chat; the long-term one belongs to IAM user `BedrockAPIKey-wxuw`).
+LLM: nothing has been classified yet. Nova 2 Lite on Bedrock was chosen in S-009, but the
+AWS account is blocked (`Error 002: Access to Bedrock models is not allowed`) and the last
+Bedrock key now returns 403. The plan agreed with the user is **Claude Haiku 5.5 on the
+Anthropic API with Message Batches** (~$0.70 for all creators); the user was told how the
+prompt works and how credits are protected, and has not yet provided `ANTHROPIC_API_KEY`.
+`pipeline/llm_classify.py` (prompt v2 with audience men/women/unisex, age, can_promote)
+and the Edge Function still call Bedrock and must be switched. The Audience fit factor is
+live but has no data until classification runs, so "Perfume brand for men" still shows
+many women creators.
 
-How the last session ended (S-009): demo fixed and verified; long viva-prep
-explanations (system, taxonomy, fake flag, refresh, costs); Bedrock model tests
-and the Nova 2 Lite decision; then the user asked to turn off unused Claude Code
-skills — a list of 28 `skillOverrides: off` entries for `~/.claude/settings.json`
-was shown and is awaiting approval; `/usage` fixes await its pasted output.
+How S-010 ended: all 13 Apify accounts spent (acc12 $0.195 over its limit, blocked until
+2026-12-17, nothing billed); round 37 finished after re-attaching an interrupted run;
+`/context-write` run at the start of a new session on 2026-11-19.
 
 ## Continue from here
 
-1. Do nothing on the project until the user says so. When asked: commit + push
-   `demo/server.py`, docs and context (gh credential helper).
-2. On the user's go: Nova 2 Lite (`global.amazon.nova-2-lite-v1:0`, Converse API,
-   ≤2–3 parallel calls with retry on 403) for all 1,356 creators, written to new
-   fields/table — never overwrite keyword-v1. Needs a Bedrock key from the user
-   (put it in `admin/.env`, not chat). Then an image test for content quality.
-3. Skill cleanup outside the project: apply `skillOverrides` only after "yes".
-4. Fix the fake-flag defect in `process.py cmd_build` (docs: Metrics).
-5. Refresh: build `process.py refresh` (Profile Scraper; reuse search reappearances);
-   check Instagram Graph API Business Discovery limits before relying on it.
-6. Remind the user to rotate both Bedrock keys and all pasted Apify/Supabase tokens.
+1. When the user puts `ANTHROPIC_API_KEY` in `admin/.env`: switch `pipeline/llm_classify.py`
+   and the Edge Function brief parser to Haiku 5.5 (Message Batches, thinking off,
+   `max_tokens` ~400, drop duplicate hashtags), print a cost estimate and require `--yes`,
+   run 20 creators vs gold labels (`e3aac606…/scratchpad/nova20_review.txt`), show the
+   user, then all 6,224. Redeploy `api` with the key as a secret.
+2. After Apify resets (acc3 2026-12-09; others 2026-12-15/16/17, ≈$65): backfill reels
+   (`process.py reels`), then favour mid-tier creators. Round scripts to copy:
+   `166a4fd9…/scratchpad/round31.sh` (+`round31b.sh`) and `round23.sh` (multi-account).
+   Leave ~$0.3 per account (billing lag).
+3. Remind the user to rotate all keys pasted in chat; ask about repo visibility.
 
 ## Topic -> file
 
 | Topic | File |
 |---|---|
-| Workspace layout, where to work, what is stale | this INDEX; 001 (S-005, S-007) |
-| Product idea, positioning, brand flow, paywall | docs/product-design.md |
+| Product idea, brand flow, paywall | docs/product-design.md |
 | Why budget/price and WhatsApp flow were refused | docs/product-design.md; 001 (S-001) |
-| Apify actors, prices, parallel limits, term yield | docs/data-and-matching.md |
-| Pipeline steps, metrics, fake flag (+ defect), load gotchas | docs/data-and-matching.md |
-| 16 categories, product types, search terms per round | pipeline/taxonomy.py |
-| Matching: product fit, labels, weights, mix | docs/data-and-matching.md; demo/server.py |
-| Why DB-first instead of live scraping | docs/data-and-matching.md |
-| LLM choice (Nova 2 Lite), Bedrock limits, 47-model test, prices | docs/data-and-matching.md (LLM / AWS); 001 (S-009) |
-| Kimi K3.1 evaluation | 001 (S-009); docs/data-and-matching.md |
-| Profile refresh plan and costs, Graph API idea | 001 (S-009) |
-| Supabase schema, ref, key handling | pipeline/schema.sql; 001 (S-003) |
-| Admin dashboard, Apify credits card, demo website | admin/, demo/; 001 (S-003, S-008, S-009) |
-| Rounds 1–4 / 4b–8 / 9–11 | 001 (S-003 / S-004 / S-008) |
-| GitHub push method, force-push to 40168a6 | 001 (S-003, S-006) |
-| Context skills location | CLAUDE.md; 001 (S-006) |
-| Unused-skill cleanup (`skillOverrides`) | 001 (S-009) |
+| Apify actors, prices, limits, billing lag, snowball | docs/data-and-matching.md |
+| Pipeline, metrics, fake flag + `fake_reason`, `reels` backfill | docs/data-and-matching.md |
+| Taxonomy, search terms per round | pipeline/taxonomy.py |
+| Matching formula, Audience fit, LLM labels | docs/data-and-matching.md; supabase/functions/api/index.ts |
+| Public API, security, deploy | docs/data-and-matching.md (Public API); supabase/deploy.py |
+| Coverage target (category × tier × audience) | docs/data-and-matching.md (Coverage) |
+| LLM choice, Bedrock block, Haiku 5.5 plan, prompt size | docs/data-and-matching.md (LLM / AWS); 001 (S-009, S-010) |
+| Rounds 12–37, account list, round scripts | 001 (S-010) |
+| Removing Claude from GitHub, hooks, old→new hashes | 001 (S-010) |
+| Rounds 1–11, early pipeline | 001 (S-003, S-004, S-008) |
+| Workspace layout, skills location | this INDEX; 001 (S-005–S-007) |
 | Raw first planning chat | A.txt |
 
 ## Open decisions
 
-1. When to run Nova 2 Lite on all creators (user will say). Where to store LLM
-   labels: new columns vs a separate table.
-2. Data locality (DPDP): Nova 2 Lite is `global`; in-region fallback is Claude
-   Haiku 4.5 (`au.`), which needs the Bedrock use-case form and may not use credits.
-3. Weekly/2-weekly refresh budget and whether to use the Instagram Graph API.
-4. Phone numbers in scraped bios: hide from brands or not (DPDP).
-5. Unlock price and what an unlock sells; when to deploy.
-6. Skill cleanup list (28 skills) — approve or edit.
+1. Provide `ANTHROPIC_API_KEY` (recommended) or wait for AWS Support to unblock Bedrock.
+2. Repo is public — keep or make private (holds A.txt and journal with account ids).
+3. Unlock price and what an unlock sells; when and where to deploy the website.
+4. Phone numbers in scraped bios: hide from brands or not (DPDP); data leaves India for any LLM.
+5. Delete local branch `backup-before-coauthor-removal`?
+6. How `shreyashp25` (UI/UX, invite pending) gets data access: separate key or a deployed demo.
 
 ## Ruled out
 
 - Budget/price fields; WhatsApp/concierge flow; creators >100K. (001, S-001)
-- `relatedProfiles` snowball; followers-count scraper for refresh. (001, S-003/S-004)
-- Live scraping at search time; "Lifestyle" as a category. (docs/data-and-matching.md)
-- Raw Apify JSON in a jsonb column. (001, S-003)
-- Flattening the project into the workspace root; commits only for moving files. (001, S-005)
-- More than 3 parallel Reel Scraper runs on a free account; content-style search terms. (001, S-008)
-- Kimi K3/K3.1 for classification: no better than Nova 2 Lite, ~16× cost, 3–4× slower. (001, S-009)
-- Claude 5.x on this AWS account: blocked on the Free plan. (001, S-009)
-- Own Instagram scraper for refresh: blocks and bans. (001, S-009)
+- `relatedProfiles` snowball (field absent); followers-count scraper for refresh. (001, S-003/S-004)
+- Live scraping at search time; "Lifestyle" category. (docs)
+- City as a requirement or coverage goal. (001, S-010)
+- Content-style search terms for general discovery (low yield); mentions-only snowball (mostly brands). (001, S-008/S-010)
+- Kimi K3/K3.1; Claude 5.x on Bedrock (Free plan). (001, S-009)
+- Own Instagram scraper. (001, S-009)
+- Claude as git co-author. (001, S-010)
 
 ## Sessions
 
@@ -133,7 +116,8 @@ was shown and is awaiting approval; `/usage` fixes await its pasted output.
 | S-003 | 2026-11-16 → 17 | Apify research; pipeline; 270 creators; admin + demo; GitHub | 001 |
 | S-004 | 2026-11-17 | Rounds 4b–8 on 3 Apify accounts → 1,010 creators | 001 |
 | S-005 | 2026-11-17 | Project location fixed; commands repointed | 001 |
-| S-006 | 2026-11-17 | GitHub force-pushed to 40168a6; context commands → skills | 001 |
+| S-006 | 2026-11-17 | GitHub force-pushed; context commands → skills | 001 |
 | S-007 | 2026-11-17 | Repo `.claude/` mirror removed; workspace layout in context | 001 |
-| S-008 | 2026-11-17 | Account 4: rounds 9–11 → 1,356 creators; admin fixes; 721f643 | 001 |
-| S-009 | 2026-11-17 → 18 | Demo 1000-row fix; viva prep; 47-model Bedrock test → Nova 2 Lite; skill cleanup proposed | 001 |
+| S-008 | 2026-11-17 | Account 4: rounds 9–11 → 1,356 creators; admin fixes | 001 |
+| S-009 | 2026-11-17 → 18 | Demo 1000-row fix; viva prep; 47-model Bedrock test → Nova 2 Lite | 001 |
+| S-010 | 2026-11-18 → 19 | Edge Function API + security; Bedrock blocked; rounds 12–37 → 6,224 creators; Claude removed from GitHub | 001 |

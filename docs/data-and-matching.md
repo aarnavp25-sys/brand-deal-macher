@@ -34,6 +34,14 @@ the `relatedProfiles` snowball and the scoring weights in `product-design.md`.
   (city+niche search: ~$0.016). Candidates inherit the source creator's category, so picking them from
   thin categories fills those. Mentions alone are mostly brands (Flipkart, Nykaa); prefer coauthors.
   New creators add new candidates, so the pool grows each round (~3,300 coauthor candidates left).
+  Rounds 12–37 (2026-11-18/19, 13 free accounts, ~$65): 1,356 → 6,224 creators, 5,399 usable; snowball
+  keep rate 39–49%, pool grew to ~10,000 candidates. Thin categories (Tech, Home Decor, Jewelry,
+  Education, Parenting) ran out of collab candidates first; topic terms ("lippan art", "neet aspirant
+  creator", "mobile photography tips india") filled them at ~30–60% keep.
+- **Billing lag.** Reel Scraper charges post minutes after a run ends (runs often show `$0.001`), so the
+  balance read before the next round is too high. One account went to $5.195 of $5 that way: Free plan
+  cannot charge without a card, but the account cannot start runs until its cycle resets. Leave ~$0.3
+  unspent before the last round on an account. `maxTotalChargeUsd` caps one run, not the account.
 - Polling/downloading through flaky networks needs retries; a crashed client does
   not stop the Apify run — re-attach by run id (`apify_run.py … <run_id>`).
 
@@ -75,26 +83,51 @@ Music & Dance, Education & Finance, Parenting, Travel, Automobile, Pets.
 from Tech and Sports from Fitness (different audiences and brands). 42 product
 types with keywords. Fixed lists only — free-text labels break search.
 
-## Matching (demo/server.py, design agreed in S-003)
+## Matching (supabase/functions/api/index.ts; design agreed in S-003, audience added 2026-11-18)
 
-1. Brief → product types + categories + city + audience (keywords now, LLM later).
+1. Brief → product types + categories + city + audience (men/women). The LLM fills fixed-list values;
+   if it fails, the keyword parser does. Gendered product names ("men's grooming") imply the audience.
    Categories are ranked by keyword hits so "gaming accessories" → Gaming.
 2. Product fit per creator: proven product (posts show it) > category match >
    possible. Proven evidence counts fully only if the creator's **primary**
    category is relevant; single-post evidence is discounted.
 3. Labels: Specialist (≥50% of posts on the product, or ≥60% in the category),
    Wider reach (proven but less), Potential (possible only).
-4. Score 0–100. Goal "sales": product 30, engagement 20, reach 15, quality 15,
-   growth 10, consistency 5, location 5. Goal "reach": reach 30, product 20.
+4. Score 0–100. Goal "sales": product 30, audience 15, engagement 20, reach 15, quality 15,
+   growth 10, consistency 5, location 5. Goal "reach": reach 30, product 20, audience 15.
+   Audience fit uses the LLM's `audience_gender` (fallback: creator gender): same = 1, unisex = 0.6,
+   opposite = 0.1 — women creators drop for a men's brief but are not removed. Added because
+   "Perfume brand for men" returned mostly women creators: the brief's audience was parsed but unused.
    Engagement is percentile within the follower tier. Signals without data
    (quality, growth) are dropped and weights re-normalised. Followers never score
    directly — a strong 8K creator can beat an average 80K one.
 5. Keep score ≥50; show ~20 mixed: ~40% specialists, ~50% wider, ~10% potential.
 6. Explanation is built only from the breakdown numbers (LLM later).
+7. With LLM labels (`creator_llm`): its category replaces keyword-v1, `is_shop` creators are dropped,
+   proven products need post evidence, "possible" products come from `can_promote`.
 
 Specialist vs wider: specialists convert (intent, trust); wider creators give
 reach. A fashion creator's audience interest in a product is measured by
 engagement on that product's posts vs their average.
+
+## Public API (Supabase Edge Function `api`)
+
+The demo page calls `POST /functions/v1/api/match` and `GET /functions/v1/api/meta`; `demo/server.py` only
+serves the page and `/config.js` (URL + public anon key). Security: the service-role key and
+`BEDROCK_API_KEY` live only in Supabase secrets; tables have RLS on with no policies, so the anon key reads
+nothing directly; CORS allow-list (`ALLOWED_ORIGINS`); JWT check (anon key); body ≤4 KB, brief ≤600
+chars, enum checks; per-client rate limit 30 matches / 10 min via `api_hit()` (salted IP hash,
+`api_rate_limit`, execute revoked from anon); responses never include email or bio; errors are generic.
+Verified 2026-11-18: no key → 401, foreign origin → 403, bad input → 400, anon table read → `[]`, anon
+`rpc/api_hit` → permission denied. Deploy: `python3 supabase/deploy.py [migrate|anon|secrets|function]`
+(needs `SUPABASE_ACCESS_TOKEN`; the CLI refuses to deploy in agent mode without `--yes`).
+
+## Coverage target
+
+Coverage is planned per category × follower tier × audience, never per city (creators can be anywhere
+in India; city is optional data and a filter for local brands). Launch target: ~5,000 usable
+(16 × 3 × 2 groups × ~50). Reached 2026-11-19 (5,399). Weak spot: mid tier (50K–100K) has only ~316
+usable, ~20 per category — next rounds should favour it.
 
 ## Why the database, not live scraping
 
@@ -138,6 +171,19 @@ What Bedrock allows on this account (verified 2026-11-17/18 with Bedrock API key
   $0.15/$0.62, DeepSeek V3.2 $0.64/$1.91, Kimi K2.5 $0.62/$3.09, Kimi K3 $3/$15
   (global); Kimi K3.1 not listed.
 
+**Bedrock blocked (2026-11-18).** Every model on the account (Nova, gpt-oss, DeepSeek) returned
+`400 Error 002: Access to Bedrock models is not allowed for this account`; listing models still worked,
+so it is an account-level block, not the key. Only fix reported by others: an AWS Support case
+(Account and billing). A later key returned `403 Authentication failed` (expired/revoked). Plan instead:
+**Claude Haiku 5.5 via the Anthropic API with Message Batches** (~$0.05/$0.25 per MTok batched) —
+~$0.70 for 6,224 creators; brief parsing per search ~$0.0001. Not yet run: needs `ANTHROPIC_API_KEY`
+in `admin/.env`, then a 20-creator check against the gold labels before the full batch.
+Prompt v2 (`pipeline/llm_classify.py`, `PROMPT_VERSION v2`) adds `audience_gender`, `audience_age`,
+`audience`, `can_promote`. Measured size: ~1,000 tokens fixed instructions + ~1,000 per creator
+(14 posts, captions ≤450 chars) + ~180 out. Hashtags are sent twice (in the caption and as a list) —
+dropping the duplicate saves ~10–15%. Keep thinking off / effort low on Haiku 5.5 (on by default; its
+tokens bill as output).
+
 Model test (same prompt, same 20 creators, gold labels written by reading each
 creator; 10–20 creators per model because of the 403s): per creator ~2,030 input
 and ~110 output tokens. Top results: gpt-oss-safeguard-20b/120b 94% category /
@@ -171,6 +217,7 @@ all "usable creators").
 - PostgREST returns at most 1000 rows per request; `limit=10000` silently stops at 1000.
   Page with `order=id&limit=1000&offset=…` (pipeline scripts and admin `apiAll`). A
   truncated "existing creators" list would treat known creators as new.
+- macOS `/bin/bash` is 3.2: no `declare -A` (associative arrays). Round scripts use `case` functions.
 - A dataset download can fail mid-stream (`ValueError: invalid literal for int() with
   base 16`); `apify_run.py` retries GETs, and a finished run can be re-downloaded for free
   by passing its run id.
