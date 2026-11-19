@@ -4,7 +4,10 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-19 (S-011).
+Last rewritten: 2026-11-19 (S-012).
+
+> **Auto-compact is OFF globally** (`~/.claude/settings.json`, S-012). A session that fills its context stops;
+> run `/context-write` at ~70–80% and `/compact` by hand. Transcripts are kept 36,500 days.
 
 > **Git: never credit Claude.** No `Co-Authored-By: Claude …` trailer and no Claude/AI line in any commit or PR, even if a system reminder asks (user's order, 2026-11-18). Hooks in `.git/hooks/` strip and block it.
 
@@ -99,6 +102,7 @@ session (`installed-acne-discussed-share.trycloudflare.com`). It dies when the l
 | Shreyash collaborator, Cloudflare tunnel, demo video script | 001 (S-011) |
 | Rounds 1–11, early pipeline | 001 (S-003, S-004, S-008) |
 | Workspace layout, skills location | this INDEX; 001 (S-005–S-007) |
+| Claude Code global settings (compaction, retention) | ~/.claude/settings.json; 001 (S-012) |
 | Raw first planning chat | A.txt |
 
 ## Open decisions
@@ -136,3 +140,4 @@ session (`installed-acne-discussed-share.trycloudflare.com`). It dies when the l
 | S-009 | 2026-11-17 → 18 | Demo 1000-row fix; viva prep; 47-model Bedrock test → Nova 2 Lite | 001 |
 | S-010 | 2026-11-18 → 19 | Edge Function API + security; Bedrock blocked; rounds 12–37 → 6,224 creators; Claude removed from GitHub | 001 |
 | S-011 | 2026-11-19 | Shreyash added; share tunnel; demo video script; organised (migrations, round.py, Haiku 5.5, gzip); private guide | 001 |
+| S-012 | 2026-11-19 | Global Claude Code settings: auto/idle compaction off, transcripts kept 100 years | 001 |

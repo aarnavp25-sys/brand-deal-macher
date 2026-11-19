@@ -497,3 +497,27 @@ User decided:
 Open:
 - `ANTHROPIC_API_KEY` still missing from `admin/.env`. Then `llm_classify.py test` → show gold20 result → on approval `batch --yes` + `collect` → `deploy.py secrets` → check "Perfume brand for men".
 - Decide: repo public/private; delete `backup-before-coauthor-removal`, `_archive-2026-11-16-stale-copies/`, `.playwright-mcp/`; rotate pasted keys.
+
+---
+
+## S-012 · 2026-11-19 · Global Claude Code settings: no auto-compact, 100-year transcript retention
+
+Same conversation as S-011, after its `/context-write`.
+
+Asked:
+- "tujhe sab cheeze yaad hai kya kya kaha tha tujhe"; "bata maine tujhe last task kaha diya tha"; "aur sab se phela task" — answered from the summary, INDEX and A.txt (first task: S-001 flow + Apify question).
+- "100% context se pehle hone wali auto idle compacting ko flse kar do ... globaly kar do ek dum ok / aur sath sath auro chat deletion ko 30 din se badha k 100 years kar do globally ache se"
+
+Done:
+- `~/.claude/settings.json` (user/global; backup `~/.claude/settings.json.bak-2026-11-19`): added `autoCompactEnabled: false`, `idleCompaction: false`, `precomputeCompactionEnabled: false`, `cleanupPeriodDays: 36500`. Existing keys (permissions, auto-accept PreToolUse hook, impeccable plugin, modelSettings) kept. No project-level `.claude/settings*.json` overrides these. `~/.claude.json` had none of these keys.
+- `ANTHROPIC_API_KEY` re-checked twice: still absent from `admin/.env`.
+
+Established:
+- With auto-compact off, a session that reaches 100% context stops with a "prompt too long" style error; the user must run `/compact` (or `/clear`) by hand. `/context-write` should therefore run at ~70–80%.
+- `cleanupPeriodDays` only governs local transcripts in `~/.claude/projects/`.
+
+User decided:
+- Auto-compaction and idle compaction off globally; transcripts kept ~100 years.
+
+Open:
+- Same as S-011: the Anthropic key, then `llm_classify.py test`.
