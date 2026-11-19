@@ -47,10 +47,13 @@ the `relatedProfiles` snowball and the scoring weights in `product-design.md`.
 
 ## Pipeline (pipeline/)
 
+Round driver: `pipeline/round.py` (one account per run; plans within the balance minus $0.30).
+
 Search (user) → filter (`passes`: 1K–100K, public, ≥3 posts, posted ≤60 days,
 not a business category, not follow-for-follow) → Reel Scraper (2 reels, last
 90 days, no pinned) → `process.py build` → Supabase upsert → raw JSON to Storage
-bucket `raw-scrapes` (multi-MB jsonb rows hit Postgres statement_timeout 57014).
+bucket `raw-scrapes` as `.json.gz` (multi-MB jsonb rows hit Postgres statement_timeout 57014;
+uncompressed files reached 1.1 GB, over the free 1 GB Storage quota — gzip cut them to 223 MB on 2026-11-19).
 
 Metrics: engagement = (median likes + median comments) / followers (mean was
 skewed to 591% by one viral post); reel reach = median reel views / followers;

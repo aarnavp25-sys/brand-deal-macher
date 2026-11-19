@@ -1,5 +1,5 @@
 -- Brand Deal Matcher: creator data schema (Supabase / Postgres 17)
--- RLS is enabled with no policies: only the service role (pipeline) can read/write.
+-- First schema (2026-11-16, was pipeline/schema.sql). RLS on, no policies: only the service role can read/write.
 -- The website will get explicit read policies later.
 
 create table if not exists raw_scrapes (

@@ -10,7 +10,7 @@ Classification here is keyword-based ("keyword-v1"): category from post/bio
 keyword share plus the search term that found the creator. The LLM step will
 replace it later (classification_method = 'llm').
 """
-import json, os, re, sys, statistics as st, urllib.parse, urllib.request
+import gzip, json, os, re, sys, statistics as st, urllib.parse, urllib.request
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -306,8 +306,9 @@ def cmd_raw(raw_paths):
         d = json.load(open(p))
         if not isinstance(d, dict):
             d = {"actor": "instagram-search-scraper (test)", "run_id": None, "input": None, "items": d}
-        name = f"{NOW.date()}/{d['actor'].split()[0]}-{d.get('run_id') or os.path.basename(p)}.json"
-        storage("POST", f"object/raw-scrapes/{name}", open(p, "rb").read())
+        # gzip: raw JSON compresses ~10x; uncompressed files pushed the free 1 GB Storage quota over (2026-11-19)
+        name = f"{NOW.date()}/{d['actor'].split()[0]}-{d.get('run_id') or os.path.basename(p)}.json.gz"
+        storage("POST", f"object/raw-scrapes/{name}", gzip.compress(open(p, "rb").read(), 9), "application/gzip")
         upsert("raw_scrapes", [{"actor": d["actor"], "run_id": d.get("run_id"), "input": d.get("input"),
                                 "storage_path": f"raw-scrapes/{name}", "item_count": len(d["items"]),
                                 "cost_usd": d.get("cost_usd")}])

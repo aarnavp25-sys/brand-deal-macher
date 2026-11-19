@@ -7,3 +7,6 @@ __pycache__/
 CLAUDE.md
 # Supabase CLI local state (holds the linked account's email)
 supabase/.temp/
+# LLM batch state (batch id only)
+pipeline/.state/
+pipeline/runs/

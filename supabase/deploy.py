@@ -2,7 +2,8 @@
 
 usage: python3 supabase/deploy.py [migrate] [anon] [secrets] [function]   (no args = all four, in order)
 
-Needs SUPABASE_ACCESS_TOKEN (personal access token) and, for `secrets`, BEDROCK_API_KEY in admin/.env.
+Needs SUPABASE_ACCESS_TOKEN (personal access token) in admin/.env; `secrets` also sends ANTHROPIC_API_KEY if set.
+ALLOWED_ORIGINS (env) overrides the default local origins, e.g. to add a temporary tunnel URL.
 Secrets are sent only to api.supabase.com and never printed. `anon` writes the public anon key to admin/.env.
 """
 import json, os, secrets as pysecrets, subprocess, sys, urllib.error, urllib.request
@@ -61,15 +62,17 @@ def anon():
 
 
 def secrets():
-    if not os.environ.get("BEDROCK_API_KEY"):
-        raise SystemExit("Missing BEDROCK_API_KEY in admin/.env")
-    existing = {s["name"] for s in mgmt("GET", "/secrets")}
-    body = [{"name": "BEDROCK_API_KEY", "value": os.environ["BEDROCK_API_KEY"]},
-            {"name": "ALLOWED_ORIGINS", "value": os.environ.get("ALLOWED_ORIGINS", ORIGINS)}]
+    existing = {x["name"] for x in mgmt("GET", "/secrets")}
+    body = [{"name": "ALLOWED_ORIGINS", "value": os.environ.get("ALLOWED_ORIGINS", ORIGINS)}]
+    if os.environ.get("ANTHROPIC_API_KEY"):  # brief parsing in the Edge Function (Claude Haiku 5.5)
+        body.append({"name": "ANTHROPIC_API_KEY", "value": os.environ["ANTHROPIC_API_KEY"]})
     if "RATE_SALT" not in existing:  # keep the salt stable so rate-limit buckets survive redeploys
         body.append({"name": "RATE_SALT", "value": pysecrets.token_hex(16)})
     mgmt("POST", "/secrets", body)
-    print("secrets set:", ", ".join(b["name"] for b in body))
+    stale = [n for n in ("BEDROCK_API_KEY",) if n in existing]  # Bedrock dropped 2026-11-19 (account blocked)
+    if stale:
+        mgmt("DELETE", "/secrets", stale)
+    print("secrets set:", ", ".join(b["name"] for b in body), "| removed:", ", ".join(stale) or "none")
 
 
 def function():

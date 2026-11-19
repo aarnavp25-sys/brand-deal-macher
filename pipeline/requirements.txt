@@ -1,0 +1,2 @@
+# Only pipeline/llm_classify.py needs this; everything else is Python stdlib.
+anthropic==2.5.0

@@ -11,9 +11,9 @@ browsed through a local admin dashboard and a local demo website.
 
 | Path | What it is |
 |---|---|
-| `pipeline/` | Apify scraping (with spend caps), filtering, metrics, keyword classification, Supabase load. Schema in `schema.sql`, taxonomy in `taxonomy.py` |
+| `pipeline/` | Apify scraping (`round.py`, spend caps), filtering, metrics, keyword classification, Supabase load (`process.py`), taxonomy (`taxonomy.py`), LLM labels (`llm_classify.py`, test set `gold20.py`) |
 | `admin/` | Local admin dashboard: browse, filter, edit creators, categories, products, scrape runs |
-| `supabase/` | Edge Function `api` (matching + security), database migrations, `deploy.py` |
+| `supabase/` | Database schema (`migrations/`, in order), Edge Function `api` (matching + security), `deploy.py` |
 | `demo/` | Demo website: a brand describes its product and gets matched creators (calls the Edge Function) |
 | `docs/` | Product design, data collection and matching: how it works and why |
 | `context/` | Session journal |
@@ -28,8 +28,10 @@ python3 admin/server.py            # admin dashboard  -> http://127.0.0.1:8787
 python3 demo/server.py             # demo website     -> http://127.0.0.1:8788
 ```
 
-Pipeline commands are documented at the top of `pipeline/apify_run.py` and
-`pipeline/process.py` (need `APIFY_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`).
+A scraping round: `python3 pipeline/round.py --account acc1 --dry-run` (plan, no spend), then `--yes`.
+LLM labels: `python3 -m pip install -r pipeline/requirements.txt`, then
+`python3 pipeline/llm_classify.py estimate | test | batch --yes | collect`.
+Each script documents its commands at the top of the file.
 
 Never commit `.env` files; they are gitignored.
 

@@ -16,8 +16,8 @@ Last rewritten: 2026-11-19 (S-010).
 > └── brand deal matcher/               THE PROJECT (own git repo, github.com/aarnavp25-sys/brand-deal-macher, PUBLIC, main)
 >     ├── CLAUDE.md (gitignored, local only)  README.md  A.txt
 >     ├── context/  docs/product-design.md  docs/data-and-matching.md
->     ├── pipeline/  apify_run.py process.py taxonomy.py llm_classify.py export_taxonomy.py schema.sql
->     ├── supabase/  functions/api/ (Edge Function)  migrations/  deploy.py  config.toml
+>     ├── pipeline/  apify_run.py process.py taxonomy.py round.py llm_classify.py gold20.py export_taxonomy.py
+>     ├── supabase/  migrations/ (whole schema)  functions/api/ (Edge Function)  deploy.py
 >     ├── admin/     server.py index.html .env.example   .env = all keys (gitignored, local only)
 >     └── demo/      server.py (static + /config.js) index.html (calls the Edge Function)
 > ```
