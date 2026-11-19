@@ -83,8 +83,14 @@ is noisy ("chain" on biker posts, "ring" ceremony) — needs the LLM step
 Accessories, Home Decor, Fitness, Sports, Tech, Gaming, Entertainment & Comedy,
 Music & Dance, Education & Finance, Parenting, Travel, Automobile, Pets.
 "Lifestyle" is never a main category (it matches everything). Gaming is separate
-from Tech and Sports from Fitness (different audiences and brands). 42 product
-types with keywords. Fixed lists only — free-text labels break search.
+from Tech and Sports from Fitness (different audiences and brands). 82 product
+types with keywords (42 until 2026-11-20; added masala, pickles, mithai, chocolates, ready-to-cook, organic
+staples, cookware, body/nail care, ayurvedic beauty, salons, men's ethnic, innerwear, toys, kids clothing, furniture,
+bedding, cleaning, stationery, fitness equipment, cycles, academies, appliances, cameras, esports, events, OTT,
+books, insurance, tours, camping, bikes/cars, car care, pet services...). Without a type, the AI had to pick a
+wrong neighbour for such brands. Both prompts show each type with its category and 4 example words so close
+types are not confused. `product_types` in the DB is synced by migration 20261120000002. Keyword-v1 tags exist
+only for the first 42; the LLM profiles cover all 82. Fixed lists only — free-text labels break search.
 
 ## Matching (supabase/functions/api/index.ts; redesigned 2026-11-20 on the user's request)
 
@@ -118,6 +124,9 @@ whose products, values), and results come in three columns, each creator reviewe
    weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
 6. Cost per search ≈ $0.002 (profile ~$0.0003 + review ~$0.0017). Rate limit 30 searches / 10 min per client.
+   Both answers are cached in `llm_cache` for 7 days: the brand profile by the normalised brief, the review by the
+   exact prompt (brand profile + shortlist with its numbers). Changing filters or repeating a search reuses them;
+   any change in the shortlist or creator data makes a new key, so a cached answer is never stale.
 
 Before 2026-11-20 the result was one list mixed as ~40% specialists / ~50% wider / ~10% potential, and the LLM
 only parsed the brief. The user rejected "just a matching score in descending order".

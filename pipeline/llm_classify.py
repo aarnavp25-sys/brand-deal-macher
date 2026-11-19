@@ -32,6 +32,8 @@ MAX_POSTS = 14
 WORKERS = 6
 CATS = list(CATEGORIES)
 PRODS = {k: v[0] for k, v in PRODUCT_TYPES.items()}
+# shown to the model: category + example words, so close types (healthy food vs packaged snacks) are not confused
+PROD_HINTS = {k: f"{v[0]} (e.g. {', '.join(v[1][:4])})" for k, v in PRODUCT_TYPES.items()}
 GENDERS = ["male", "female", "mixed/brand", "unknown"]
 AUD_GENDERS = ["men", "women", "unisex"]
 AUD_AGES = ["teens", "18-24", "25-34", "35+", "mixed"]
@@ -49,8 +51,9 @@ SYSTEM = f"""You classify Indian Instagram creators for a brand-matching product
 Allowed categories (pick exactly one primary, optional one secondary):
 {json.dumps(CATS)}
 
-Allowed product types (each belongs to a category; pick only products the posts actually SHOW or REVIEW, with evidence):
-{json.dumps(PRODS)}
+Allowed product types (name -> category and example words; pick only products the posts actually SHOW or REVIEW,
+with evidence; pick the most specific type, e.g. a masala brand reel is "spices & masala", not "packaged snacks"):
+{json.dumps(PROD_HINTS, ensure_ascii=False)}
 
 Rules:
 - A product counts only if a post clearly features or promotes that product type. A word alone is not enough

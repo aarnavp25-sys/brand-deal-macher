@@ -220,7 +220,7 @@ const BRIEF_SYSTEM = `You are the brand strategist of an Indian creator-matching
 small marketing budgets. Read the brand's description and work out what the brand really sells, to whom, at what
 price level, and which kinds of Instagram creators would actually make its customers buy. Use ONLY the allowed values.
 Categories: ${JSON.stringify(Object.keys(CATS))}
-Product types (name -> category): ${JSON.stringify(Object.fromEntries(Object.entries(PRODS).map(([k, v]) => [k, v[0]])))}
+Product types (name -> category and example words; pick the most specific): ${JSON.stringify(Object.fromEntries(Object.entries(PRODS).map(([k, v]) => [k, `${v[0]} (e.g. ${v[1].slice(0, 4).join(", ")})`])))}
 Creator roles: ${JSON.stringify(ROLES)} (expert = practitioner with credentials; reviewer = honest product reviews;
 educator = tips/how-to; enthusiast = fan/hobbyist; entertainer = comedy/trends; lifestyle = day-in-life/variety;
 aspirational = looks/luxury vibe).
@@ -286,12 +286,32 @@ async function ask(system: string, user: string, schema: Row, maxTokens: number,
     return null;
   }
 }
+// Search-time LLM cache (table llm_cache): same brief / same brand+shortlist -> no second payment for 7 days.
+const CACHE_DAYS = 7;
+async function cacheGet(key: string): Promise<any | null> {
+  try {
+    const r = await rest(`llm_cache?select=value,created_at&key=eq.${encodeURIComponent(key)}`);
+    if (r[0] && Date.now() - Date.parse(r[0].created_at) < CACHE_DAYS * 864e5) return r[0].value;
+  } catch { /* cache outage must not break search */ }
+  return null;
+}
+async function cachePut(key: string, value: unknown) {
+  try {
+    await rest("llm_cache?on_conflict=key", { method: "POST", body: JSON.stringify([{ key, value, created_at: new Date().toISOString() }]),
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" } });
+  } catch { /* ignore */ }
+}
 const short = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null);
 
 async function llmProfile(brief: string) {
   if (!brief.trim()) return null;
-  const o = await ask(BRIEF_SYSTEM, `Brand description:\n"""${brief}"""`, BRIEF_SCHEMA, 600, 12000);
-  if (!o) return null;
+  const key = "brand:" + await sha256("v2|" + brief.trim().toLowerCase().replace(/\s+/g, " "));
+  let o = await cacheGet(key);
+  if (!o) {
+    o = await ask(BRIEF_SYSTEM, `Brand description:\n"""${brief}"""`, BRIEF_SCHEMA, 600, 12000);
+    if (!o) return null;
+    await cachePut(key, o);
+  }
   const products = (o.products ?? []).filter((p: string) => PRODS[p]).slice(0, 4);
   let categories = (o.categories ?? []).filter((c: string) => CATS[c]);
   categories = [...new Set([...categories, ...products.map((p: string) => PRODS[p][0])])].slice(0, 3);
@@ -568,14 +588,21 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
                     reason: { type: "string" }, idea: { type: "string" } } } } },
   };
   const user = `${brand}\n\nCreators:\n${all.map((r, i) => creatorLine(ids[i], r)).join("\n")}`;
-  const o = await ask(REVIEW_SYSTEM, user, schema, 80 * all.length + 200, 25000);
-  if (!o || !Array.isArray(o.reviews)) return null;
-  const out = new Map<string, Row>();
-  for (const v of o.reviews) {
-    const i = ids.indexOf(v?.id);
-    if (i < 0 || !["strong", "good", "weak"].includes(v.verdict)) continue;
-    out.set(all[i].id, { verdict: v.verdict, reason: short(v.reason, 220), idea: v.verdict === "weak" ? null : short(v.idea, 140) });
+  const key = "review:" + await sha256("v2|" + user);  // same brand profile + same shortlist -> same answer
+  let saved: Row[] | null = await cacheGet(key);
+  if (!saved) {
+    const o = await ask(REVIEW_SYSTEM, user, schema, 80 * all.length + 200, 25000);
+    if (!o || !Array.isArray(o.reviews)) return null;
+    saved = [];
+    for (const v of o.reviews) {
+      const i = ids.indexOf(v?.id);
+      if (i < 0 || !["strong", "good", "weak"].includes(v.verdict)) continue;
+      saved.push({ id: all[i].id, verdict: v.verdict, reason: short(v.reason, 220),
+                   idea: v.verdict === "weak" ? null : short(v.idea, 140) });
+    }
+    if (saved.length) await cachePut(key, saved);
   }
+  const out = new Map<string, Row>(saved.map((v) => [v.id, { verdict: v.verdict, reason: v.reason, idea: v.idea }]));
   return out.size ? out : null;
 }
 
