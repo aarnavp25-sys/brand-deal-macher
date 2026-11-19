@@ -565,3 +565,27 @@ User decided:
 Open:
 - `OPENROUTER_API_KEY` not in `admin/.env` yet. Then: `llm_classify.py credits` → `test` (check cached_tokens > 0 and reasoning_tokens = 0; show the user) → `run --limit 100 --max-usd 0.10 --yes` (show) → `run --max-usd 2.50 --yes` → `deploy.py secrets` → live check of "Perfume brand for men" and a masala brief.
 - Free DB work proposed, not started: fake-flag defect (no reel data → `status=review`, not fake), keyword tags for the 40 new product types from existing posts, DB hygiene report (duplicates, >100K, empty profiles).
+
+---
+
+## S-014 · 2026-11-20 · Shop-visit creators for local stores; "everything customised and personalised"
+
+Same conversation, after the S-013 `/context-write`.
+
+Asked:
+- "aaj 12 ke baad jitni bhii baat hue usse bohot serious hoke yaad rakhna exactly pata lag gya hoga ki kya chaiye kya nhii mujhe aur kiss level pe chaiye"
+- "konse creators aise retails store pe jaake reels banate hai toh koi local store aaye usse woh waale creators dikhe samjha niche mai"
+- "meri saari cheeze ek sath yaad rakh kuch bhii galti se bhi bhulna mat saari cheeze ekdum acche se coustomised aur personialized ho"
+
+Done:
+- Memory files `user-quality-bar.md`, `brand-first-matching.md`, `llm-openrouter-credit-rules.md` + MEMORY.md lines.
+- Measured: 24,679 of 68,231 posts carry a location tag; a caption regex for retail words matched 3,529 posts / 1,495 creators but samples were mostly noise (mall ads, festivals, quotes) → rejected as a signal; the LLM decides.
+- Prompt v4 extended (not yet run, so no cost): `store_visits` (often/sometimes/never) + `store_visit_note`; migration `20261120000004_store_visits.sql` applied.
+- Edge Function: brand `sales_channel` (online / local store / both; LLM + keyword fallback + "Where you sell" override, validated); for shop brands, shop-filming creators in the brand's city go to the niche column with "local" weights (product 20, store 20, location 20, ...); review prompt told that a shop needs in-city shop-visit creators; brand-cache key bumped to v3; breakdown hides signals without a weight. Demo: "Where you sell" select, "Sells:" chip, "Films inside shops" line. Deployed; live: "Mithai shop in Jaipur, people come to our store" → local store, Jaipur, sweets & mithai; bad channel → 400.
+
+User decided:
+- Local shops must get creators who film inside shops (in their city), in the niche column.
+- Everything must be customised and personalised to each brand; nothing may be forgotten.
+
+Open:
+- Store-visit data fills only when the LLM profiles run (needs `OPENROUTER_API_KEY`); until then the "Shop-visit reels" signal shows "not measured yet".

@@ -4,7 +4,7 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-20 (S-013).
+Last rewritten: 2026-11-20 (S-014).
 
 > **Auto-compact is OFF globally** (`~/.claude/settings.json`, S-012). A session that fills its context stops;
 > run `/context-write` at ~70–80% and `/compact` by hand. Transcripts are kept 36,500 days.
@@ -50,7 +50,9 @@ S-013 redesigned matching on the user's request ("naaki ek matching score ... de
    lifestyle / aspirational); credibility; price level; `products_for` (separate from the creator's gender);
    content values; scope; brand fit; audience.
 3. **Formula with a brand-fit signal.** Results come in three columns: niche / category / trending.
-4. **Per-brand review.** One Haiku call reviews the shortlist: strong/good/weak, a reason and a reel idea. The
+4. **Local shops (S-014).** Brand `sales_channel` + creator `store_visits`: a shop brand gets in-city creators who film
+   inside shops in the niche column ("local" weights).
+5. **Per-brand review.** One Haiku call reviews the shortlist: strong/good/weak, a reason and a reel idea. The
    verdict orders each column; the formula still sets the score and the shortlist.
 
 Supporting work:
@@ -99,6 +101,7 @@ not started.
 | Running a scraping round (`round.py`) | pipeline/round.py; 001 (S-011) |
 | Taxonomy (16 categories, 82 product types), search terms | pipeline/taxonomy.py; docs (Taxonomy); 001 (S-013) |
 | Matching: brand profile, brand fit, 3 columns, AI review, cache | docs/data-and-matching.md (Matching); supabase/functions/api/index.ts; 001 (S-013) |
+| Local shops: sales channel, shop-visit creators | docs (Matching 5b); 001 (S-014) |
 | Creator profile v4 fields, prompt, credit guards | pipeline/llm_classify.py; docs (LLM / AWS); 001 (S-013) |
 | LLM choice history: Bedrock block → Anthropic → OpenRouter | docs/data-and-matching.md (LLM / AWS); 001 (S-009–S-013) |
 | Public API, security, deploy, tunnel origins | docs/data-and-matching.md (Public API); supabase/deploy.py |
@@ -147,3 +150,4 @@ not started.
 | S-011 | 2026-11-19 | Shreyash added; share tunnel; demo video script; organised (migrations, round.py, Haiku 5.5, gzip); private guide | 001 |
 | S-012 | 2026-11-19 | Global Claude Code settings: auto/idle compaction off, transcripts kept 100 years | 001 |
 | S-013 | 2026-11-19 → 20 | Brand-first matching (3 columns + AI review), creator profile v4, OpenRouter, taxonomy 82, LLM cache | 001 |
+| S-014 | 2026-11-20 | Shop-visit creators for local stores; user: everything customised + personalised, nothing forgotten | 001 |

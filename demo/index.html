@@ -56,6 +56,7 @@ footer{color:var(--muted);font-size:13px;padding:30px 0;border-top:1px solid var
 <label>City<select id="city"><option value="">Anywhere in India</option></select></label>
 <label>Customers<select id="audience"><option value="">Detect from text</option><option value="men">Men</option><option value="women">Women</option><option value="unisex">Everyone</option></select></label>
 <label>Price level<select id="price"><option value="">Detect from text</option><option value="budget">Budget</option><option value="mid">Mid</option><option value="premium">Premium</option></select></label>
+<label>Where you sell<select id="channel"><option value="">Detect from text</option><option value="online">Online</option><option value="local store">Own shop / store</option><option value="both">Both</option></select></label>
 <label>Creator size<select id="tier"><option value="">Any (1K–100K)</option><option value="nano">Nano 1K–10K</option><option value="micro">Micro 10K–50K</option><option value="mid">Mid 50K–100K</option></select></label>
 <label>Goal<span class="seg" id="goal"><button data-g="sales" class="on">Sales &amp; trust</button><button data-g="reach">Reach &amp; awareness</button></span></label>
 <button class="go" id="go">Find creators</button></div></div></section>
@@ -73,7 +74,7 @@ const COLS = [['niche', 'Your niche', 'Already show products like yours — the 
               ['category', 'Your category', 'Talk about your category in general — a natural place for your product.'],
               ['trending', 'Trending & lifestyle', 'Broad creators with high reel reach — take your product to a wider audience.']];
 const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
-const NAMES = { product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
+const NAMES = { store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
 const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };
 
 const H = { apikey: BDM.anon, Authorization: 'Bearer ' + BDM.anon };
@@ -96,7 +97,7 @@ $('#go').onclick = run;
 $('#brief').onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); };
 
 async function run() {
-  const p = { brief: $('#brief').value.slice(0, 600), category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, audience: $('#audience').value, price: $('#price').value, goal };
+  const p = { brief: $('#brief').value.slice(0, 600), category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, audience: $('#audience').value, price: $('#price').value, channel: $('#channel').value, goal };
   if (!$('#brief').value.trim() && !$('#category').value && !$('#product').value) { $('#out').innerHTML = '<div class="empty">Describe your brand or pick a category first.</div>'; return; }
   $('#out').innerHTML = '<div class="empty">Understanding your brand and reviewing creators…</div>';
   let d; try { d = await api('/match', p); } catch (e) { $('#out').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
@@ -106,7 +107,7 @@ function render() {
   const d = last, u = d.understood;
   const chips = [...u.products.map(p => 'Sells: ' + p), ...u.categories.map(c => 'Category: ' + c),
     u.audience && 'Customers: ' + (u.audience === 'unisex' ? 'everyone' : u.audience) + (u.age ? ', ' + u.age : ''),
-    u.price && 'Price: ' + u.price, ...(u.values || []).map(v => 'Values: ' + v),
+    u.price && 'Price: ' + u.price, u.channel && 'Sells: ' + (u.channel === 'local store' ? 'at own shop' : u.channel === 'both' ? 'shop + online' : 'online'), ...(u.values || []).map(v => 'Values: ' + v),
     ...(u.roles || []).map(r => 'Best creators: ' + (ROLE[r] || r)), u.city && 'City: ' + u.city, u.tier && 'Size: ' + u.tier,
     'Goal: ' + (u.goal === 'sales' ? 'sales & trust' : 'reach')].filter(Boolean);
   const how = u.method === 'llm' ? 'read by AI' : 'keyword match';
@@ -132,6 +133,7 @@ function card(r) {
    ${r.idea ? `<div class="idea"><b>Idea:</b> ${esc(r.idea)}</div>` : ''}
    ${prof.length ? `<div class="style">${prof.map(esc).join(' · ')}<span class="est">estimated by AI</span></div>` : ''}
    ${c.credibility_note ? `<div class="style">${esc(c.credibility_note)}</div>` : ''}
+   ${c.store_visits && c.store_visits !== 'never' ? `<div class="style"><b>Films inside shops (${esc(c.store_visits)}):</b> ${esc(c.store_visit_note || '')}</div>` : ''}
    ${c.audience_gender || c.audience_desc ? `<div class="style"><b>Audience:</b> ${[c.audience_gender, c.audience_age, c.audience_desc].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
    <div class="stats"><div><b>${fmt(c.followers)}</b><span class="muted">followers</span></div><div><b>${c.reel_reach ?? '—'}x</b><span class="muted">reel reach</span></div><div><b>${fmt(c.engagement_rate)}%</b><span class="muted">engagement</span></div><div><b>${fmt(c.posts_per_week)}</b><span class="muted">posts/wk</span></div></div>
    <details><summary>Why this score</summary><div class="why" style="margin:8px 0">${esc(r.explanation)}</div>

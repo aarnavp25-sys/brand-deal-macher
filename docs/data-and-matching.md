@@ -123,6 +123,14 @@ whose products, values), and results come in three columns, each creator reviewe
    strong/good/weak, a reason specific to the brand, and a reel idea. Order in a column = verdict, then score;
    weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
+5b. **Local shops** (user, 2026-11-20: a local store should see creators who make reels inside shops). The brand
+   profile has `sales_channel` (online / local store / both; brand can override with "Where you sell"). The creator
+   profile has `store_visits` (often / sometimes / never: shop tours, market hauls, "where to buy", cafe/salon or
+   factory visits; specific shop location tags are strong evidence) + `store_visit_note`. For a shop brand, creators
+   who film in shops (often/sometimes) in the brand's city go into the niche column and the "local" weights apply:
+   product 20, shop-visit reels 20, location 20, brand fit 10, audience 10, engagement 10, reach 5, quality 3,
+   growth 1, consistency 1. Keyword matching on captions alone was too noisy (mall ads, quotes, festivals), so this
+   signal comes only from the LLM reading captions + location tags.
 6. Cost per search ≈ $0.002 (profile ~$0.0003 + review ~$0.0017). Rate limit 30 searches / 10 min per client.
    Both answers are cached in `llm_cache` for 7 days: the brand profile by the normalised brief, the review by the
    exact prompt (brand profile + shortlist with its numbers). Changing filters or repeating a search reuses them;
