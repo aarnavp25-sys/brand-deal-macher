@@ -85,8 +85,9 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
   practice visible in posts), "casual". credibility_note <= 15 words: the reason, from the posts or bio.
 - price_segment = price level of the things they show or recommend, judged against what that product usually costs
   in India: "budget" (deals, "under ₹999" finds, perfume ~₹1,000, t-shirt ~₹499), "mid", "premium" (luxury,
-  high-end; perfume ₹5,000+, designer wear), "mixed". Brands rely on this: a ₹10,000 perfume and a ₹1,000 perfume
-  need different creators.
+  high-end; perfume ₹5,000+, designer wear), "mixed" (both cheap and costly things, OR no products shown at all, e.g.
+  comedy or fan pages: never guess "budget" or "premium" without posts that show it). Brands rely on this: a ₹10,000
+  perfume and a ₹1,000 perfume need different creators.
 - products_for = whose products they mostly feature: "men", "women" or "unisex". This is NOT the creator's gender:
   a woman styling men's shirts -> "men"; a man reviewing makeup -> "women"; food or travel -> "unisex".
 - content_values = up to 4 values the content stands for, from the allowed list only.
@@ -255,7 +256,8 @@ def prompt(c, posts):
 
 
 def params(user):
-    return {"model": MODEL, "max_tokens": 900, "temperature": 0,
+    # no temperature: Haiku 5.5 rejects any non-default sampling value (400); the JSON schema keeps answers fixed
+    return {"model": MODEL, "max_tokens": 900,
             "reasoning": {"enabled": False},  # Haiku 5.5 thinks by default; thinking tokens bill as output
             "messages": [
                 # fixed instructions first and marked for caching: the same ~2,100 tokens for every creator

@@ -230,6 +230,7 @@ function keywordParse(brief: string) {
 const BRIEF_SYSTEM = `You are the brand strategist of an Indian creator-matching service for small homegrown brands with
 small marketing budgets. Read the brand's description and work out what the brand really sells, to whom, at what
 price level, and which kinds of Instagram creators would actually make its customers buy. Use ONLY the allowed values.
+The description may be in English, Hindi or Hinglish (e.g. "jaipur mai meri mithai ki dukaan hai"); answer in English.
 Categories: ${JSON.stringify(Object.keys(CATS))}
 Product types (name -> category and example words; pick the most specific): ${JSON.stringify(Object.fromEntries(Object.entries(PRODS).map(([k, v]) => [k, `${v[0]} (e.g. ${v[1].slice(0, 4).join(", ")})`])))}
 Creator roles: ${JSON.stringify(ROLES)} (expert = practitioner with credentials; reviewer = honest product reviews;
@@ -288,7 +289,8 @@ async function ask(system: string, user: string, schema: Row, maxTokens: number,
       method: "POST", signal: AbortSignal.timeout(timeout),
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "Brand Deal Matcher" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: maxTokens, temperature: 0,
+        // no temperature: Haiku 5.5 rejects any non-default sampling value (400); the JSON schema keeps answers fixed
+        model: MODEL, max_tokens: maxTokens,
         reasoning: { enabled: false }, // Haiku 5.5 thinks by default; thinking tokens bill as output
         messages: [{ role: "system", content: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] },
                    { role: "user", content: user }],
