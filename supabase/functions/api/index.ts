@@ -145,11 +145,13 @@ async function data() {
     if (l?.is_shop) continue; // the LLM read the posts: a store/brand page is not a creator
     // user, 2026-11-20: a film director or a CEO on Instagram does not make paid reels for a small brand
     // ("woh kyu hii promotion karega"): hide professionals/celebrities with no sign of taking promotions
-    if (l && (l.creator_type === "professional" || l.creator_type === "celebrity") && l.takes_promotions !== "yes" &&
+    // only when the AI saw no sign at all ("unlikely"); "maybe" stays, a creator with no collab yet can still say yes
+    if (l && (l.creator_type === "professional" || l.creator_type === "celebrity") && l.takes_promotions === "unlikely" &&
         !c.collab_open) continue;
-    // pilot 2026-11-20: colleges, NGOs, teams and event organisers are not creators; foreign accounts do not help an
-    // Indian brand
-    if (l && (l.creator_type === "organization" || l.in_india === "no")) continue;
+    // pilot 2026-11-20: colleges, NGOs, teams and event organisers are not creators (unless the page openly sells
+    // promotions); foreign accounts do not help an Indian brand
+    if (l && l.creator_type === "organization" && !(l.takes_promotions === "yes" && c.collab_open)) continue;
+    if (l?.in_india === "no") continue;
     if (l?.category) {
       // LLM labels. The LLM gives no category share; its primary category is the majority of the content,
       // so use at least 0.5 (keyword share kept when both methods agree).

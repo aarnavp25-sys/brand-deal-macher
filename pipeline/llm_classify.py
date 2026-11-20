@@ -30,7 +30,7 @@ from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
 OPENROUTER = "https://openrouter.ai/api/v1"
 PROVIDERS = ["anthropic", "azure", "google-vertex"]  # Haiku 5.5 endpoints with structured_outputs (checked 2026-11-20)
-PROMPT_VERSION = "v9-profile-2026-11-20"
+PROMPT_VERSION = "v10-profile-2026-11-20"
 PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
 WORKERS = 6
@@ -77,7 +77,9 @@ Rules:
   "Royal Enfield Meteor 350", "Lakme matte lipstick", "own Diwali hamper box"). If you cannot name a concrete
   thing being shown, sold or promoted, it is NOT a product: leave it out (it may belong in natural_fits).
 - gender = the creator's apparent gender from bio, name and captions: "male", "female", "mixed/brand" (couple, group, page) or "unknown".
-- is_shop = true if the account mainly sells its own products (a store or brand page), not a creator.
+- is_shop = true only for a page that sells physical products or runs a venue (a store, brand, restaurant, cafe,
+  showroom or dealer page). A person who offers a service and makes content about their own work (makeup artist,
+  photographer, trainer, tutor, home baker who films her bakes) is NOT a shop.
 - city = Indian city if stated or clearly implied, else null.
 - audience_gender = who mostly follows and buys from this creator, judged from the content and who it speaks to:
   "men", "women" or "unisex". Examples: a male gym or bike creator -> "men"; a female makeup or saree creator ->
@@ -138,7 +140,10 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
   at a hospital, lawyer, officer, full-time athlete), "celebrity" (a well-known actor, singer, sportsperson or public
   figure), or "organization" (the account of a company, school, college, institute, academy, NGO, foundation,
   activist group, sports or esports team, event organiser or agency, speaking as that body). Use what you know about
-  the person too (e.g. the director of a TVF series -> "professional").
+  the person too (e.g. the director of a TVF series -> "professional"). A person who makes regular content about
+  their own craft (makeup artist, fitness coach, dance teacher, esports player, DJ, photographer, chef) is a
+  "creator": brands collaborate with them. A meme, city, fan or community page that posts content and sells
+  promotions is a "creator", not an organization.
 - takes_promotions = "yes" only if they promote OTHER brands they do not own (paid partnerships, brand tags,
   "DM for collabs/promotions", UGC work, giveaways); promoting their own company, shop, event, course or product is
   NOT taking promotions. "maybe" = no clear sign either way; "unlikely" = a professional, celebrity or organization
