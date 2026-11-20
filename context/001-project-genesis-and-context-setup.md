@@ -625,3 +625,4 @@ Done:
 
 Open:
 - Remaining free prep: final prompt review, PRIVATE-GUIDE update (OpenRouter key, commands, costs, $8.5 budget). Then the key.
+- S-016 addendum (2026-11-20). User: "free prep kar ye kyu likhu jab context read karuga naye wale mai". Explained that `/context-read` reports and stops by design; any short go-ahead ("continue", "haa") is enough. Offered to change the skill so it starts free work by itself (paid OpenRouter calls would still need the user's yes); no answer yet.
