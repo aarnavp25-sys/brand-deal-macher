@@ -154,7 +154,17 @@ whose products, values), and results come in three columns, each creator reviewe
    cannot believably promote the product (user, 2026-11-20: a hostel student fits instant tea perfectly but has small
    reach; a travel vlogger who can sell it as "time saving, easy to make" with big reach must rank higher there;
    engagement, reach and content quality count in all three columns);
-   weak fits are never shown in any column (an empty group says so; before 2026-11-20 they filled columns with
+   The review also answers two plain questions per creator, and code applies the user's rules to them (2026-11-20,
+   after a men's jewellery search showed cricket players, watch reviewers and personal accounts: "kaha se ye
+   personalized hai"; prose rules alone did not work, Haiku called nearly everyone "good"): `field` (own field /
+   related / other field: is their usual content where buyers look for this product?) and `account` (creator /
+   personal / own shop). Personal accounts and own-shop pages are weak everywhere; "other field" is weak in the
+   category column (niche creators got there on product evidence; the wider column allows props). Niche and
+   category are ordered by verdict, then field, then product fit (0.1 steps), then score, so one viral reel cannot
+   lift a weaker fit above a closer one. Formula side: a specialist in another product of the brand's product
+   category (watch reviewer for a chain brand) never enters the category column; an account with no sign of brand
+   work, no product shown and content quality ≤4 is hidden as a personal account.
+   Weak fits are never shown in any column (an empty group says so; before 2026-11-20 they filled columns with
    fewer than 4 good fits, e.g. 8 restaurant reviewers for an instant chai premix); 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
 5a. **Price level and relevance** (user, 2026-11-20: "1000 ke perfumes" and "10000 ke" must not get the same

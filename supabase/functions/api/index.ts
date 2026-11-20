@@ -522,6 +522,13 @@ async function match(q: Row) {
   const pool: Row[] = [];
   for (const c of creators) {
     const prods = d.products.get(c.id) ?? new Map();
+    const proven = [...prods.entries()].filter(([, v]) => v.kind === "proven");
+    // user, 2026-11-20 (men's jewellery search): "woh creator hai hi nhii normal user hai". No sign of brand work
+    // (AI: promotions not "yes", no "DM for collab" bio line), no product ever shown, and content quality <= 4 is a
+    // personal account (friend collabs, greetings, meme reposts), not a creator a brand can hire: hidden everywhere.
+    const promoSignal = c.takes_promotions === "yes" || !!c.collab_open;
+    if (c.method === "llm" && !promoSignal && !proven.length && c.content_quality_est != null &&
+        Number(c.content_quality_est) <= 4) continue;
     // product fit: proven product evidence beats category match beats "possible"
     let fit = 0, evidence: [string, Row | null] | null = null, kind = "";
     for (const p of req.products) {
@@ -536,12 +543,18 @@ async function match(q: Row) {
       } else f = cp.kind === "natural" ? 0.42 : 0.3; // fits a scene they already film > audience guess
       if (f > fit) { fit = f; evidence = [p, cp]; kind = cp.kind; }
     }
+    // a specialist in ANOTHER product of the brand's product category (watch reviewer for a men's chain brand) is not
+    // a creator of this product (user, 2026-11-20): never in the category column, and a lower category fit
+    const prodCats = new Set(req.products.map((p) => PRODS[p]?.[0]));
+    const sibling = req.products.length ? Math.max(0, ...proven.filter(([t]) => !req.products.includes(t) &&
+      prodCats.has(PRODS[t]?.[0])).map(([, v]) => Number(v.specialization) || 0)) : 0;
     if (!req.products.length || fit < 0.5) {
       req.categories.forEach((cat, i) => {
         const share = Number(c.niche_share ?? 0);
         let f = c.niche_primary === cat ? (0.4 + 0.6 * Math.min(share / 0.6, 1)) * (i === 0 ? 1 : 0.8)
           : c.niche_secondary === cat ? 0.45 : 0;
         if (req.products.length) f *= 0.75; // brand named a product; a category-only match is weaker evidence
+        if (sibling >= 0.2) f *= 0.6;
         if (f > fit) { fit = f; evidence = [cat, null]; kind = "category"; }
       });
     }
@@ -587,7 +600,7 @@ async function match(q: Row) {
     // category column = creators whose MAIN content is the brand's category (user's definition), or who showed the
     // product. A secondary-category match alone is not enough (user, 2026-11-20: a box-cricket creator with
     // "Fashion & Clothing" as secondary ranked first for a men's jewellery brand on one viral reel's reach).
-    const inCategory = wantedCats.has(c.niche_primary) ||
+    const inCategory = (wantedCats.has(c.niche_primary) && !(kind === "category" && sibling >= 0.2)) ||
       (kind === "proven" && wantedCats.has(c.niche_secondary));
     const broad = c.scope === "broad" || BROAD_ROLES.includes(c.creator_role) || (c.method !== "llm" && (reachPct ?? 0) >= 0.85);
     const storeCreator = local && (store ?? 0) >= 0.7 && (sameCity || !req.city);
@@ -603,7 +616,7 @@ async function match(q: Row) {
     const s = scoreWith(WEIGHTS[column === "trending" ? "reach" : local ? "local" : req.goal], parts);
     if (s.score < 50) continue;
     pool.push({
-      id: c.id, column, score: s.score, breakdown: s.breakdown, c,
+      id: c.id, column, score: s.score, fit, breakdown: s.breakdown, c,
       explanation: explain(c, evidence, parts, req, storeCreator && c.store_visit_note
         ? [`Films inside shops (${c.store_visits}): ${c.store_visit_note}.`, ...style.notes] : style.notes),
       evidence: evidence ? { about: evidence[0], posts: evidence[1]?.evidence_posts ?? 0, kind, item: evidence[1]?.item ?? null,
@@ -623,8 +636,14 @@ async function match(q: Row) {
     // they can believably promote it (weak = out); among those the reach-weighted score decides (user, 2026-11-20:
     // a hostel student fits instant tea perfectly, but a travel vlogger who can sell it as "time saving, easy to make"
     // with far bigger reach must rank higher in the wider column).
+    // niche/category: verdict, then how close their content is to the product (fit, in 0.1 steps), then the score:
+    // reach and engagement must not lift a weaker fit above a closer one (user, 2026-11-20: a box-cricket creator
+    // with one viral reel ranked above a gym owner for gym wear)
+    const tier = (r: Row) => Math.round(Number(r.fit) * 10);
+    const FIELD: Record<string, number> = { "own field": 0, related: 1, "other field": 2 };
     rows.sort((a, b) => col === "trending" ? b.score - a.score
-      : (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || b.score - a.score);
+      : (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || (FIELD[a.field] ?? 1) - (FIELD[b.field] ?? 1) ||
+        tier(b) - tier(a) || b.score - a.score);
     // weak fits are never shown (demo searches 2026-11-20: "instant chai premix" filled the category column with 8
     // restaurant reviewers the review itself called weak). An empty group says so in the UI instead.
     rows = rows.filter((r) => r.verdict !== "weak");
@@ -684,8 +703,27 @@ Look at each creator the way you would before paying them, and imagine every pos
   health for a perfume brand) is "weak", in every group.
 - A brand with its own shop needs creators who film inside shops in its city (store tours, "where to buy" reels); a
   creator in another city is weak for it unless the shop also sells online.
+- Niche and category groups (user, 2026-11-20: "kaha se ye personalized hai"): "good" or "strong" only when the
+  creator's OWN field is where your buyers look for this product: their usual content is about this product, about
+  the look/outfit/routine it belongs to, or about the activity it is made for (men's fashion and styling creators for
+  men's chains; gym and training creators for gym wear). A creator from another field, where your product would only
+  be a prop, is "weak" in these two groups: a box-cricket player for jewellery, a watch reviewer for chains and rings
+  (a different product he specialises in), a skater for perfume. Such creators can only work in the trending group.
+- A personal account is not a creator you can hire: someone posting their own life, friends, hangouts, selfies or
+  greetings with no clear content format and no brand work is "weak" in every group, whatever the engagement. A shop
+  owner who only promotes their own store is "weak" too.
+- "strong" = you would pay them first; "good" = clearly works; anything you would hesitate to pay for is "weak".
 - A home cook making everyday tasty recipes suits a masala brand; a creator who only promotes clean eating suits a
   healthy snack brand, not a mithai shop. A cricket fan page is weak for a sports supplement but fine for match-day snacks.
+Answer two plain questions first, for every creator, from their niche, content and brand work (not from the group):
+field: "own field" = their usual content is about this product, or about the look/outfit/routine it belongs to, or
+  about the activity it is made for (men's fashion/styling creator for men's chains; gym and training creator for gym
+  wear; beauty reviewer or makeup artist for lipstick); "related" = a close neighbour (a sneaker or streetwear reviewer
+  for men's chains; a dance fitness instructor for gym wear); "other field" = the product would only be a prop in
+  their content (a cricket player or a watch reviewer for chains; a skater for perfume; a comedian for most products).
+account: "creator" = makes content for an audience in a clear format (reviews, tutorials, skits, vlogs, training,
+  recipes); "personal" = posts their own life, friends, hangouts, selfies, greetings or reposts with no clear format;
+  "own shop" = mainly promotes their own store or brand.
 verdict: "strong" (clearly the right person), "good" (works), "weak" (wrong fit).
 reason: <= 20 words, written to the brand, specific: name the decisive point (the shot, the trust, the audience or
 the price), never a generic line like "great engagement".
@@ -706,7 +744,8 @@ function creatorLine(id: string, r: Row) {
     c.city && `city: ${c.city}`,
     c.brand_fit && `fits: ${c.brand_fit}`,
     c.settings && `films: ${c.settings}`,
-    c.creator_type && c.creator_type !== "creator" && `${c.creator_type} (takes promotions: ${c.takes_promotions}${c.collab_note ? ", " + c.collab_note : ""})`,
+    c.creator_type && c.creator_type !== "creator" && `${c.creator_type}`,
+    c.takes_promotions && `brand work: ${c.takes_promotions}${c.collab_note ? " (" + c.collab_note + ")" : ""}`,
     c.content_quality_est != null && c.method === "llm" && `content quality ${c.content_quality_est}/10${c.quality_note ? ": " + c.quality_note : ""}`,
     e && (e.kind === "proven" ? `posted about ${e.about} (${e.posts} posts${e.item ? ", e.g. " + e.item : ""})` : e.kind === "category" ? `creates ${e.about} content`
       : e.kind === "natural" ? `never promoted ${e.about}, but it fits a scene they film: ${e.moment}` : `could promote ${e.about}`),
@@ -732,27 +771,41 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
   const schema = {
     type: "object", additionalProperties: false, required: ["reviews"],
     properties: { reviews: { type: "array", items: {
-      type: "object", additionalProperties: false, required: ["id", "verdict", "reason", "idea"],
-      properties: { id: { type: "string", enum: ids }, verdict: { type: "string", enum: ["strong", "good", "weak"] },
+      type: "object", additionalProperties: false, required: ["id", "field", "account", "verdict", "reason", "idea"],
+      properties: { id: { type: "string", enum: ids },
+                    field: { type: "string", enum: ["own field", "related", "other field"] },
+                    account: { type: "string", enum: ["creator", "personal", "own shop"] },
+                    verdict: { type: "string", enum: ["strong", "good", "weak"] },
                     reason: { type: "string" }, idea: { type: "string" } } } } },
   };
   const user = `${brand}\n\nCreators:\n${all.map((r, i) => creatorLine(ids[i], r)).join("\n")}`;
-  const key = "review:" + await sha256("v6|" + user);  // same brand profile + same shortlist -> same answer
+  const key = "review:" + await sha256("v10|" + user);  // same brand profile + same shortlist -> same answer
   let saved: Row[] | null = await cacheGet(key);
   if (!saved) {
     // ~85 tokens per review at most; a cut-off reply is paid for but unusable, so leave room
-    const o = await ask(REVIEW_SYSTEM, user, schema, 140 * all.length + 300, 45000);
+    const o = await ask(REVIEW_SYSTEM, user, schema, 160 * all.length + 300, 45000);
     if (!o || !Array.isArray(o.reviews)) return null;
     saved = [];
     for (const v of o.reviews) {
       const i = ids.indexOf(v?.id);
       if (i < 0 || !["strong", "good", "weak"].includes(v.verdict)) continue;
-      saved.push({ id: all[i].id, verdict: v.verdict, reason: short(v.reason, 220),
-                   idea: v.verdict === "weak" ? null : short(v.idea, 140) });
+      // the user's rules applied in code to the AI's plain answers (Haiku called nearly everyone "good" when the
+      // rules were only prose): a personal account or an own-shop page is never shown; in niche/category a creator
+      // from another field is out (they can still be in the wider-reach column)
+      saved.push({ id: all[i].id, verdict: v.verdict, field: v.field, account: v.account, column: all[i].column,
+                   reason: short(v.reason, 220), idea: short(v.idea, 140) });
     }
     if (saved.length) await cachePut(key, saved);
   }
-  const out = new Map<string, Row>(saved.map((v) => [v.id, { verdict: v.verdict, reason: v.reason, idea: v.idea }]));
+  // the user's rules applied in code to the AI's plain answers (Haiku called nearly everyone "good" when the rules
+  // were only prose, 2026-11-20): a personal account or an own-shop page is never shown; in the category column a
+  // creator from another field is out (niche creators got there on product evidence; wider reach allows props)
+  const out = new Map<string, Row>(saved.map((v) => {
+    const field = ["own field", "related", "other field"].includes(v.field) ? v.field : "related";
+    const account = ["creator", "personal", "own shop"].includes(v.account) ? v.account : "creator";
+    const verdict = account !== "creator" || (field === "other field" && v.column === "category") ? "weak" : v.verdict;
+    return [v.id, { verdict, field, reason: v.reason, idea: verdict === "weak" ? null : v.idea }];
+  }));
   return out.size ? out : null;
 }
 
