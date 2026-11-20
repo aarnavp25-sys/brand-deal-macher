@@ -80,6 +80,20 @@ Comedy club...) are left to the LLM, because individual rescuers, coaches and fa
 2026-11-20: 173 accounts moved; business accounts are never shown and never sent to the LLM. The LLM still catches the
 rest (`is_shop`, `creator_type = organization`, `in_india = no`).
 
+**Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
+karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
+creator / personal / own shop / unclear, from its saved AI profile + bio + 8 recent captions (no new scraping;
+~$0.00011 per account). Creator = a clear topic or format an outsider would follow (craft professionals such as
+makeup artists and trainers count; so do accounts that make paid promos for other shops); personal = own life,
+friends, greetings, reposts with no theme; own shop = mainly advertises its own store/product/service/event.
+`apply` moves personal and own shop to `status = 'review'` with `review_reason`; admin shows the AI note and a
+"Keep as creator" button. First run 2026-11-20: 2,424 checked ($0.27), 2,047 creator, 260 personal, 109 own shop,
+8 unclear; 2 own-shop labels contradicted their own note (they promote other brands) and were set to creator by
+hand; 367 moved to review (search-visible 3,598 → 3,231). Samples read by hand looked right; the gray zone is
+makers selling their own craft (potters, mural artists) and advocacy pages. `round.py` runs the check + apply for
+new creators after their AI profile. Every `status = 'review'` row now carries a `review_reason` (pipeline rules
+write one too: shop-like bio, low engagement without reel data, no posts).
+
 Classification `keyword-v1`: category = keyword share across posts + bio + search
 term; products = keyword hits per post. Category level is usable; product level
 is noisy ("chain" on biker posts, "ring" ceremony) — needs the LLM step

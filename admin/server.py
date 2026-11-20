@@ -12,7 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TABLES = {"creators", "posts", "creator_products", "creator_snapshots", "categories", "product_types", "raw_scrapes"}
+TABLES = {"creators", "posts", "creator_products", "creator_snapshots", "categories", "product_types", "raw_scrapes",
+          "creator_llm"}
 PREFER_OK = {"count=exact", "return=representation", "return=minimal", "resolution=merge-duplicates"}
 
 

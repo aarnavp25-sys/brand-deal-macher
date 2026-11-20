@@ -13,7 +13,8 @@ Tokens come from APIFY_TOKENS in admin/.env (label:token,...). Replaces the per-
      Profile Scraper input stored in raw_scrapes), thin categories first  -> Profile Scraper
   4. optional search terms -> Search Scraper
   5. filter (process.py filter) -> reels for the new kept creators -> build -> load only new creators -> raw upload
-  6. AI profile (llm_classify.py run, capped ~$0.001 per new creator) for the new usable creators; --no-llm skips
+  6. AI profile (llm_classify.py run, capped ~$0.001 per new creator) for the new usable creators, then the account
+     check for the new ones under 10K (account_check.py run + apply: personal / own shop -> review); --no-llm skips
 Work files go to pipeline/runs/<date>-<account>/ (gitignored).
 """
 import argparse, collections, json, os, re, subprocess, sys, time, urllib.parse, urllib.request
@@ -218,6 +219,10 @@ def main():
             cap = round(len(ok) * 0.001 + 0.02, 2)
             print(f"AI profile for {len(ok)} new usable creators (cap ${cap})", flush=True)
             subprocess.run([sys.executable, os.path.join(HERE, "llm_classify.py"), "run", "--max-usd", str(cap), "--yes"])
+            # then the account check for the new ones under 10K (user, 2026-11-20): personal / own-shop -> review
+            subprocess.run([sys.executable, os.path.join(HERE, "account_check.py"), "run", "--max-usd",
+                            str(round(len(ok) * 0.0002 + 0.01, 3)), "--yes"])
+            subprocess.run([sys.executable, os.path.join(HERE, "account_check.py"), "apply", "--yes"])
         else:
             print("OPENROUTER_API_KEY missing: run `python3 pipeline/llm_classify.py run --max-usd <cap> --yes` later")
 

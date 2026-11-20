@@ -252,6 +252,11 @@ def cmd_build(out, reels_path, paths):
             # business = shop/venue/organisation by its Instagram category: never shown, never sent to the LLM
             "status": "business" if business_account(it.get("businessCategoryName"), bio, u)
                       else "review" if brand_like or needs_reels else "active",
+            # shown in admin (2026-11-20): why an account is in review
+            "review_reason": None if business_account(it.get("businessCategoryName"), bio, u) else
+                             'Pipeline: bio reads like a shop/brand page (e.g. "order now", "shipping", "wholesale")'
+                             if brand_like else "Pipeline: low engagement and no reel views yet (fake rule needs reel "
+                             "data)" if needs_reels else None,
             "source_keyword": it.get("searchTerm"), "scraped_at": NOW.isoformat(),
             "updated_at": NOW.isoformat()})
         rows["snapshots"].append({"creator_id": pid, "taken_at": NOW.date().isoformat(),
@@ -379,6 +384,7 @@ def cmd_reels(reels_paths):
                 "fake_reason": why, "updated_at": NOW.isoformat()}
         if c.get("status") == "review" and "no reel data" in (c.get("fake_reason") or ""):
             body["status"] = "active"  # was held only for missing reels; the reel check above now decides
+            body["review_reason"] = None
         req = urllib.request.Request(f"{url}/rest/v1/creators?id=eq.{urllib.parse.quote(c['id'])}", method="PATCH",
                                      data=json.dumps(body).encode(), headers={**H, "Prefer": "return=minimal"})
         urllib.request.urlopen(req, timeout=60).read()

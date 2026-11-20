@@ -23,7 +23,7 @@ input,select,textarea{font:inherit;color:var(--ink);background:var(--panel);bord
 button.b{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
 button.p{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}button.d{color:var(--bad)}
 .tag{display:inline-block;padding:1px 7px;border-radius:99px;background:var(--chip);font-size:12px;margin:1px}.tag.ok{color:var(--ok)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}
-.muted{color:var(--muted)}.whyfake{color:var(--bad);font-size:12px;max-width:360px;line-height:1.35;margin-top:2px}.fakebox{border:1px solid var(--bad);border-radius:8px;padding:8px 10px;color:var(--bad);margin:8px 0}.bar{height:6px;background:var(--accent);border-radius:3px}
+.muted{color:var(--muted)}.whyrev{color:var(--warn);font-size:12px;max-width:360px;line-height:1.35;margin-top:2px}.aibox{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0}.aibox b{font-weight:600}.whyfake{color:var(--bad);font-size:12px;max-width:360px;line-height:1.35;margin-top:2px}.fakebox{border:1px solid var(--bad);border-radius:8px;padding:8px 10px;color:var(--bad);margin:8px 0}.bar{height:6px;background:var(--accent);border-radius:3px}
 .tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .pager{display:flex;gap:8px;align-items:center;margin-top:10px}.bulk{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
 #drawer{position:fixed;top:0;right:0;width:min(640px,100%);height:100%;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:18px;transform:translateX(100%);transition:transform .2s;z-index:10}
@@ -45,7 +45,8 @@ const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '#';
 const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
 const ago = t => { if (!t) return '—'; const h = (Date.now() - new Date(t)) / 36e5; return h < 1 ? 'just now' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago'; };
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); };
-const STATUSES = ['active', 'review', 'hidden'];
+const STATUSES = ['active', 'review', 'business', 'hidden'];
+const ACCTS = ['creator', 'personal', 'own shop', 'unclear', 'unchecked'];
 let CATS = [], PRODS = [];
 
 async function api(path, opt = {}) {
@@ -71,7 +72,15 @@ const opts = (list, sel, blank) => (blank !== undefined ? `<option value="">${es
 
 /* ---------- Overview ---------- */
 async function overview() {
-  const c = await apiAll('creators?select=id,niche_primary,follower_tier,city,status,fake_flag,scraped_at,followers,engagement_rate,reel_reach&order=id');
+  const [c, llm] = await Promise.all([apiAll('creators?select=id,niche_primary,follower_tier,city,status,fake_flag,scraped_at,followers,engagement_rate,reel_reach,collab_open,account_type&order=id'),
+    apiAll('creator_llm?select=creator_id,prompt_version,creator_type,takes_promotions,is_shop,in_india&order=creator_id')]);
+  // same rules as the search API (supabase/functions/api/index.ts): who a brand can actually see
+  const L = new Map(llm.map(l => [l.creator_id, l]));
+  const why = x => { if (x.status !== 'active') return x.status; if (x.fake_flag) return 'fake'; const l = L.get(x.id); if (!l) return 'no AI profile';
+    if (l.in_india === 'no') return 'outside India'; if (l.is_shop && l.creator_type !== 'creator') return 'shop / brand page';
+    if ((l.creator_type === 'professional' || l.creator_type === 'celebrity') && l.takes_promotions === 'unlikely' && !x.collab_open) return 'professional, no promotions';
+    if (l.creator_type === 'organization' && l.takes_promotions !== 'yes') return 'organisation'; return 'shown'; };
+  const reasons = {}; c.forEach(x => { const w = why(x); reasons[w] = (reasons[w] || 0) + 1; });
   const runs = (await api('raw_scrapes?select=cost_usd,item_count,created_at')).data;
   const within = d => c.filter(x => x.scraped_at && Date.now() - new Date(x.scraped_at) < d * 864e5).length;
   const usable = c.filter(x => x.status === 'active' && !x.fake_flag);
@@ -80,11 +89,13 @@ async function overview() {
   const max = Math.max(...Object.values(by).map(v => v.length), 1);
   const cities = {}; usable.forEach(x => cities[x.city || 'Unknown'] = (cities[x.city || 'Unknown'] || 0) + 1);
   const kpi = (l, v) => `<div class="kpi"><small>${esc(l)}</small><div>${esc(v)}</div></div>`;
-  $('#main').innerHTML = `<div class="kpis">${kpi('Total creators', fmt(c.length))}${kpi('Usable (active, not fake)', fmt(usable.length))}${kpi('In review', fmt(c.filter(x => x.status === 'review').length))}${kpi('Fake-flagged', fmt(c.filter(x => x.fake_flag).length))}${kpi('Added last 24h', fmt(within(1)))}${kpi('Added last 2 days', fmt(within(2)))}${kpi('Added last 7 days', fmt(within(7)))}${kpi('Apify spend (logged)', '$' + runs.reduce((s, r) => s + Number(r.cost_usd || 0), 0).toFixed(2))}</div>
+  $('#main').innerHTML = `<div class="kpis">${kpi('Total creators', fmt(c.length))}${kpi('Shown in search', fmt(reasons.shown || 0))}${kpi('Usable (active, not fake)', fmt(usable.length))}${kpi('AI profiled', fmt(llm.length))}${kpi('In review', fmt(c.filter(x => x.status === 'review').length))}${kpi('Business accounts', fmt(c.filter(x => x.status === 'business').length))}${kpi('Fake-flagged', fmt(c.filter(x => x.fake_flag).length))}${kpi('AI account-checked', fmt(c.filter(x => x.account_type).length))}${kpi('AI: personal', fmt(c.filter(x => x.account_type === 'personal').length))}${kpi('AI: own shop', fmt(c.filter(x => x.account_type === 'own shop').length))}${kpi('Added last 24h', fmt(within(1)))}${kpi('Added last 2 days', fmt(within(2)))}${kpi('Added last 7 days', fmt(within(7)))}${kpi('Apify spend (logged)', '$' + runs.reduce((s, r) => s + Number(r.cost_usd || 0), 0).toFixed(2))}</div>
   <div class="grid2"><div class="card"><h3>Usable creators by category</h3><table><thead><tr><th>Category</th><th class="n">Total</th><th class="n">Nano</th><th class="n">Micro</th><th class="n">Mid</th><th class="n">Median ER %</th><th class="n">Median reach</th><th style="width:30%"></th></tr></thead><tbody>
   ${Object.entries(by).map(([k, v]) => `<tr style="cursor:pointer" data-cat="${esc(k)}"><td>${esc(k)}</td><td class="n">${v.length}</td>${['nano', 'micro', 'mid'].map(t => `<td class="n">${v.filter(x => x.follower_tier === t).length}</td>`).join('')}<td class="n">${fmt(med(v.map(x => +x.engagement_rate)))}</td><td class="n">${med(v.map(x => +x.reel_reach)) ?? '—'}x</td><td><div class="bar" style="width:${v.length / max * 100}%"></div></td></tr>`).join('')}
   </tbody></table><p class="muted">Click a category to open it in Creators.</p></div>
   <div class="card"><h3>Usable creators by city</h3><table><tbody>${Object.entries(cities).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card" style="margin-top:16px"><h3>Why accounts are not shown in search</h3><table><tbody>${Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${fmt(v)}</td></tr>`).join('')}</tbody></table>
+  <p class="muted">"review" includes accounts the AI account check called personal or own shop (open one to see why, or filter Creators by AI account). Rules match the search API.</p></div>
   <div class="card" style="margin-top:16px" id="apify"><h3>Apify credits (live)</h3><p class="muted">Loading…</p></div>`;
   document.querySelectorAll('[data-cat]').forEach(tr => tr.onclick = () => { F.cat = tr.dataset.cat; show('creators'); });
   apifyCard();
@@ -100,13 +111,14 @@ async function apifyCard() {
 }
 
 /* ---------- Creators ---------- */
-const F = { q: '', cat: '', tier: '', city: '', status: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', sort: 'followers.desc', page: 0, size: 50 };
+const F = { q: '', cat: '', tier: '', city: '', status: '', acct: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', sort: 'followers.desc', page: 0, size: 50 };
 let selected = new Set(), lastRows = [];
 function creatorQuery(forExport) {
   const p = new URLSearchParams(); p.set('select', '*');
   if (F.q) { const q = F.q.replace(/[,()*]/g, ' ').trim(); p.set('or', `(username.ilike.*${q}*,full_name.ilike.*${q}*,bio.ilike.*${q}*)`); }
   if (F.cat) p.set('niche_primary', 'eq.' + F.cat); if (F.tier) p.set('follower_tier', 'eq.' + F.tier);
   if (F.city) p.set('city', F.city === 'Unknown' ? 'is.null' : 'eq.' + F.city); if (F.status) p.set('status', 'eq.' + F.status);
+  if (F.acct) p.set('account_type', F.acct === 'unchecked' ? 'is.null' : 'eq.' + F.acct);
   if (F.fake) p.set('fake_flag', 'is.' + F.fake); if (F.collab) p.set('collab_open', 'is.' + F.collab);
   if (F.fmin) p.append('followers', 'gte.' + F.fmin); if (F.fmax) p.append('followers', 'lte.' + F.fmax);
   if (F.added && F.added !== 'custom') p.append('scraped_at', 'gte.' + new Date(Date.now() - F.added * 864e5).toISOString());
@@ -120,7 +132,7 @@ async function creators() {
   const sel = (k, label, list, blank = 'All') => `<label>${label}<select data-f="${k}">${opts(list, F[k], blank)}</select></label>`;
   $('#main').innerHTML = `<div class="filters">
    <label>Search<input data-f="q" value="${esc(F.q)}" placeholder="username, name, bio"></label>
-   ${sel('cat', 'Category', CATS.map(c => c.name))}${sel('tier', 'Tier', ['nano', 'micro', 'mid'])}${sel('city', 'City', cities)}${sel('status', 'Status', STATUSES)}
+   ${sel('cat', 'Category', CATS.map(c => c.name))}${sel('tier', 'Tier', ['nano', 'micro', 'mid'])}${sel('city', 'City', cities)}${sel('status', 'Status', STATUSES)}${sel('acct', 'AI account', ACCTS)}
    <label>Fake<select data-f="fake">${opts(['true', 'false'], F.fake, 'Any')}</select></label><label>Open to collab<select data-f="collab">${opts(['true', 'false'], F.collab, 'Any')}</select></label>
    <label>Followers ≥<input type="number" data-f="fmin" value="${esc(F.fmin)}"></label><label>Followers ≤<input type="number" data-f="fmax" value="${esc(F.fmax)}"></label>
    <label>Added<select data-f="added"><option value="">Any time</option>${[['1', 'Last 24 hours'], ['2', 'Last 2 days'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['custom', 'Custom range']].map(([v, l]) => `<option value="${v}" ${F.added === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -128,7 +140,7 @@ async function creators() {
    <button class="b" id="reset">Reset</button><button class="b" id="csv">Export CSV</button></div>
    <div class="bulk" id="bulk"></div><div class="tablewrap" id="tbl">Loading…</div><div class="pager" id="pager"></div>`;
   document.querySelectorAll('[data-f]').forEach(el => el.onchange = el.oninput = () => { F[el.dataset.f] = el.value; F.page = 0; clearTimeout(window._ft); window._ft = setTimeout(() => el.dataset.f === 'added' ? creators() : creatorTable(), el.tagName === 'INPUT' ? 350 : 0); });
-  $('#reset').onclick = () => { Object.assign(F, { q: '', cat: '', tier: '', city: '', status: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', page: 0 }); creators(); };
+  $('#reset').onclick = () => { Object.assign(F, { q: '', cat: '', tier: '', city: '', status: '', acct: '', fake: '', collab: '', fmin: '', fmax: '', added: '', from: '', to: '', page: 0 }); creators(); };
   $('#csv').onclick = exportCsv;
   creatorTable();
 }
@@ -138,7 +150,7 @@ async function creatorTable() {
   lastRows = res.data; const [sk, sd] = F.sort.split('.');
   $('#tbl').innerHTML = `<table><thead><tr><th><input type="checkbox" id="all"></th>${COLS.map(([k, l, n]) => `<th class="s ${n ? 'n' : ''}" data-s="${k}">${l}${sk === k ? (sd === 'desc' ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead><tbody>
   ${lastRows.map(c => `<tr data-id="${esc(c.id)}"><td><input type="checkbox" class="pick" ${selected.has(c.id) ? 'checked' : ''}></td>
-   <td><img class="av" referrerpolicy="no-referrer" src="${safeUrl(c.profile_pic_url)}" onerror="this.style.visibility='hidden'"><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a>${c.fake_flag ? ` <span class="tag bad" title="${esc(c.fake_reason || 'No reason stored')}">fake?</span>` : ''}${c.collab_open ? ' <span class="tag ok">collab</span>' : ''}<div class="muted">${esc(c.full_name)}</div>${c.fake_flag ? `<div class="whyfake">Why fake: ${esc(c.fake_reason || 'no reason stored')}</div>` : ''}</td>
+   <td><img class="av" referrerpolicy="no-referrer" src="${safeUrl(c.profile_pic_url)}" onerror="this.style.visibility='hidden'"><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a>${c.fake_flag ? ` <span class="tag bad" title="${esc(c.fake_reason || 'No reason stored')}">fake?</span>` : ''}${c.collab_open ? ' <span class="tag ok">collab</span>' : ''}${c.account_type && c.account_type !== 'creator' ? ` <span class="tag warn" title="${esc(c.account_note || '')}">${esc(c.account_type)}?</span>` : ''}<div class="muted">${esc(c.full_name)}</div>${c.status === 'review' && c.review_reason ? `<div class="whyrev">Why review: ${esc(c.review_reason)}</div>` : ''}${c.fake_flag ? `<div class="whyfake">Why fake: ${esc(c.fake_reason || 'no reason stored')}</div>` : ''}</td>
    <td>${esc(c.niche_primary)}${c.niche_share != null ? `<div class="muted">${Math.round(c.niche_share * 100)}% of posts</div>` : ''}</td><td>${esc(c.follower_tier)}</td><td class="n">${fmt(c.followers)}</td><td class="n">${fmt(c.engagement_rate)}</td><td class="n">${c.reel_reach ?? '—'}x</td><td class="n">${fmt(c.posts_per_week)}</td><td>${esc(c.city || '—')}</td>
    <td><span class="tag ${c.status === 'active' ? 'ok' : 'warn'}">${esc(c.status)}</span></td><td title="${esc(c.scraped_at)}">${ago(c.scraped_at)}</td></tr>`).join('') || '<tr><td colspan="11" class="muted">No creators match these filters.</td></tr>'}</tbody></table>`;
   const pages = Math.max(1, Math.ceil(res.total / F.size));
@@ -170,13 +182,22 @@ async function exportCsv() {
 /* ---------- Creator drawer ---------- */
 async function openCreator(id) {
   const d = $('#drawer'); d.classList.add('open'); d.innerHTML = 'Loading…';
-  const [c, posts, prods, snaps] = await Promise.all([api(`creators?id=eq.${encodeURIComponent(id)}`), api(`posts?creator_id=eq.${encodeURIComponent(id)}&order=posted_at.desc`), api(`creator_products?creator_id=eq.${encodeURIComponent(id)}&order=kind.desc,specialization.desc`), api(`creator_snapshots?creator_id=eq.${encodeURIComponent(id)}&order=taken_at`)]).then(r => r.map(x => x.data));
+  const [c, posts, prods, snaps, ai] = await Promise.all([api(`creators?id=eq.${encodeURIComponent(id)}`), api(`posts?creator_id=eq.${encodeURIComponent(id)}&order=posted_at.desc`), api(`creator_products?creator_id=eq.${encodeURIComponent(id)}&order=kind.desc,specialization.desc`), api(`creator_snapshots?creator_id=eq.${encodeURIComponent(id)}&order=taken_at`), api(`creator_llm?creator_id=eq.${encodeURIComponent(id)}`)]).then(r => r.map(x => x.data));
+  const l = ai[0];
   const x = c[0]; if (!x) { d.innerHTML = 'Not found'; return; }
   const inp = (k, l, type = 'text', w) => `<label class="${w ? 'w' : ''}">${l}<input data-k="${k}" type="${type}" value="${esc(Array.isArray(x[k]) ? x[k].join(', ') : x[k])}"></label>`;
   const sel = (k, l, list) => `<label>${l}<select data-k="${k}">${opts(list, x[k] ?? '', '—')}</select></label>`;
   const bool = (k, l) => `<label>${l}<select data-k="${k}" data-bool="1">${opts(['true', 'false'], String(!!x[k]))}</select></label>`;
   d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">@${esc(x.username)} <span class="muted">${fmt(x.followers)} followers</span></h3><button class="b" id="close">✕</button></div>
   ${x.fake_flag ? `<div class="fakebox"><b>Why fake:</b> ${esc(x.fake_reason || 'no reason stored')}<div class="muted" style="margin-top:4px">Rule: fake only if all three hold: 10K+ followers, engagement below 0.5%, reels reach below 0.3x followers.</div></div>` : ''}
+  ${x.status === 'review' && x.review_reason ? `<div class="fakebox" style="color:var(--warn);border-color:var(--warn)"><b>Why review:</b> ${esc(x.review_reason)}</div>` : ''}
+  ${x.account_type ? `<div class="aibox"><b>AI account check:</b> <span class="tag ${x.account_type === 'creator' ? 'ok' : 'warn'}">${esc(x.account_type)}</span> ${esc(x.account_note || '')} <span class="muted">(${esc((x.account_checked_at || '').slice(0, 10))})</span>
+   ${x.account_type !== 'creator' || x.status === 'review' ? `<div style="margin-top:6px"><button class="b p" id="keep">Keep as creator (set active)</button></div>` : ''}</div>` : ''}
+  ${l ? `<div class="aibox"><b>AI profile</b> <span class="muted">${esc(l.prompt_version)}</span><div style="margin-top:4px">${esc(l.category)}${l.secondary ? ' / ' + esc(l.secondary) : ''} · ${esc(l.niche || '')}</div>
+   <div class="muted">Type: ${esc(l.creator_type || '—')} · brand work: ${esc(l.takes_promotions || '—')}${l.collab_note ? ' (' + esc(l.collab_note) + ')' : ''} · in India: ${esc(l.in_india || '—')}${l.is_shop ? ' · <b>shop</b>' : ''}</div>
+   <div class="muted">Quality ${esc(l.content_quality ?? '—')}/10${l.quality_note ? ': ' + esc(l.quality_note) : ''} · style: ${esc(l.content_style || '—')}</div>
+   <div class="muted">Audience (estimated): ${esc([l.audience_gender, l.audience_age, l.audience_desc].filter(Boolean).join(' · ') || '—')}</div>
+   <div>${(l.products || []).map(p => `<span class="tag" title="${esc(p.item || '')}">${esc(p.type)}${p.item ? ': ' + esc(String(p.item).slice(0, 40)) : ''}</span>`).join('') || '<span class="muted">No products shown</span>'}</div></div>` : '<p class="muted">No AI profile yet.</p>'}
   <p class="muted">${esc(x.bio)}</p><p class="muted">Source keyword: ${esc(x.source_keyword)} · method: ${esc(x.classification_method)} · scraped ${esc(x.scraped_at?.slice(0, 16))} · ER ${fmt(x.engagement_rate)}% · reach ${x.reel_reach ?? '—'}x · median reel views ${fmt(x.avg_reel_views)}</p>
   <div class="form">${sel('niche_primary', 'Category', CATS.map(c => c.name))}${sel('niche_secondary', 'Secondary category', CATS.map(c => c.name))}${sel('status', 'Status', STATUSES)}${sel('follower_tier', 'Tier', ['nano', 'micro', 'mid'])}
    ${inp('city', 'City')}${inp('email', 'Email')}${bool('fake_flag', 'Fake flag')}${bool('collab_open', 'Open to collab')}${sel('creator_gender_est', 'Gender (est.)', ['male', 'female', 'mixed/brand'])}${inp('content_quality_est', 'Content quality (1-10)', 'number')}
@@ -189,11 +210,14 @@ async function openCreator(id) {
   <h3>Posts &amp; reels (${posts.length})</h3><table><thead><tr><th>Date</th><th>Type</th><th class="n">Likes</th><th class="n">Comm.</th><th class="n">Views</th><th>Products / caption</th></tr></thead><tbody>
   ${posts.map(p => `<tr><td><a href="${safeUrl(p.url)}" target="_blank" rel="noopener">${esc(p.posted_at?.slice(0, 10))}</a></td><td>${esc(p.source)}/${esc(p.type)}${p.paid_partnership ? ' <span class="tag warn">paid</span>' : ''}</td><td class="n">${fmt(p.likes)}</td><td class="n">${fmt(p.comments)}</td><td class="n">${fmt(p.views)}</td><td>${(p.product_labels || []).map(l => `<span class="tag">${esc(l)}</span>`).join('')}<div class="muted">${esc((p.caption || '').slice(0, 140))}</div></td></tr>`).join('')}</tbody></table>`;
   $('#close').onclick = () => d.classList.remove('open');
+  if ($('#keep')) $('#keep').onclick = async () => { try { await api(`creators?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body: { status: 'active', account_type: 'creator', review_reason: null, account_note: 'Kept as creator by hand in admin (' + new Date().toISOString().slice(0, 10) + ')', updated_at: new Date().toISOString() } }); toast('Kept as creator'); openCreator(id); if ($('#tbl')) creatorTable(); } catch (e) { toast(e.message); } };
   $('#save').onclick = async () => {
     const body = { updated_at: new Date().toISOString() };
     d.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; let v = el.value.trim();
       body[k] = el.dataset.bool ? v === 'true' : k === 'sub_tags' ? v.split(',').map(s => s.trim()).filter(Boolean) : k === 'content_quality_est' ? (v === '' ? null : Number(v)) : (v === '' ? null : v); });
     if (body.niche_primary !== x.niche_primary) body.classification_method = 'manual';
+    if (body.status !== 'review') body.review_reason = null;
+    else if (x.status !== 'review') body.review_reason = 'Set to review by hand in admin (' + new Date().toISOString().slice(0, 10) + ')';
     if (!body.fake_flag) body.fake_reason = null;
     else if (!x.fake_flag) body.fake_reason = 'Marked fake by hand in admin (' + new Date().toISOString().slice(0, 10) + ')';
     try { await api(`creators?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body }); toast('Saved'); if ($('#tbl')) creatorTable(); } catch (e) { toast(e.message); }
