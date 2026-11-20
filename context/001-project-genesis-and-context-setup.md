@@ -729,3 +729,37 @@ Open:
 - ~1–2% individuals still labelled "organization"; premium men's perfume falls back to photographers/filmmakers (data gap).
 - Project CLAUDE.md still says "No budget/price features" (product price level is allowed since S-015) and calls the third column "trending" (UI says "Wider reach").
 - AWS IAM: user to delete the two Bedrock keys.
+
+---
+
+## S-019 · 2026-11-21 · Silent no-AI fallback found; men's audience first in category; demo texts
+
+Asked:
+- "abhi meri baat sun tu sure hai na sab sahi hai iss baar"; "mujhe ye bata kitne credits baaki hai".
+- On a men's perfume search: "usne sab se phele toh koi female creator dikhayi 2nd wala sahi hai 3rd pe ek standup comedian koi rakha 5 th pe ek doctor ko dikhaya ... ye simple si cheez samjayi thi woh toh samaj le yaar"; "wapis bata kya problem hai"; "mujhe openrouter budget badhane ka link de"; "budget badha diya ab check kar".
+- With a screenshot of men's perfume (category 2): "sirf 2 hii fashion creators hai baaki bohot saare hai na woh kyu nhii dekh raha hai".
+- "demo webiste update kar de".
+
+Done:
+- Answered the "are you sure" question with what was and was not verified (16 eval briefs vs untested brief types, admin not opened in a browser, Haiku variance, data gaps).
+- Diagnosed the bad men's perfume result: the API returned `method: keywords`, `reviewed_by_ai: false`. A direct OpenRouter call returned HTTP 403 "Workspace daily budget of $4.00 exceeded … resets 2026-11-21T00:00:00Z" — a workspace budget separate from the $5 key limit, used up by the S-018 runs and evals. Search had silently fallen back to keyword-v1 (no review, no field/gender rules). The daily-cap counter (`llm-calls-per-day`) was only 107/400.
+- `/match` now returns 503 "The AI check is not available right now…" when the AI brand profile or review is missing; cached searches still return full results (f92610d). Tested: new brief → 503; cached brief → reviewed result.
+- User raised the OpenRouter workspace budget; a direct call then returned OK and "men perfume" ran with AI.
+- Men's perfume category showed 2: token-gated debug output added (`debug` in the request body must equal the Supabase secret DEBUG_TOKEN, set via the management API; token kept only in the session scratchpad) and showed 78 category candidates where unisex wedding photographers with "perfume" as a guessed (`possible`) product had relevance 2.5 and took the 12 review slots, while @rahul_champawat (2), @mihiirgoswami (1), @iam_rajatkapoor (2.5, lower score) were never reviewed. Fix (47b37d9): category shortlist sorted by audience fit first for gendered products, then relevance, then score; `possible` now 2 (same-category possible 1.5) below proven 3 / natural 2.5. Men's perfume category went to 7 men-audience fashion/grooming creators; men's jewellery 8; eval 0 violations.
+- Demo (`demo/index.html`, d632a3a): column descriptions per the user's definitions, a per-column empty message (niche: "No specialist for this product in our data yet. We never fill this group with unrelated creators."), a field badge (Same field / Close field / Different field · wide reach), category chips from `understood.category_column`, AI-off sentence removed. Served live (server reads the file per request); not viewed in a browser (Playwright profile busy).
+- Docs: data-and-matching.md "Search rules, consolidated" gained R0 (no AI, no results) and the audience-first / relevance changes.
+
+Did not work:
+- The first answer gave only the key-limit link (https://openrouter.ai/settings/keys); the stop was the workspace budget, which lives in the workspace Settings → Budgets (found via OpenRouter docs; exact URL not known).
+- Playwright navigation failed again: "Browser is already in use".
+
+Established:
+- OpenRouter has a workspace daily budget (resets 00:00 UTC = 05:30 IST) on top of the per-key credit limit; when hit it returns 403 for every call.
+- `can_promote` ("possible") is an audience guess and lists products like perfume for photographers; it must weigh less than posted or filmed products.
+
+User decided:
+- Raised the OpenRouter workspace daily budget (amount not stated). The key credit limit is still $5 ($0.96 left at the end of S-019).
+
+Open:
+- Raise the key credit limit (https://openrouter.ai/settings/keys) before demo day.
+- Push commits (S-018 and S-019 code, not pushed). See the S-018 Open list for the rest.
