@@ -10,7 +10,7 @@ Classification here is keyword-based ("keyword-v1"): category from post/bio
 keyword share plus the search term that found the creator. The LLM step will
 replace it later (classification_method = 'llm').
 """
-import gzip, json, os, re, sys, statistics as st, urllib.parse, urllib.request
+import gzip, json, os, re, sys, statistics as st, unicodedata, urllib.parse, urllib.request
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -32,6 +32,35 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 # bios that read like a shop/brand page rather than a creator -> status 'review'
 BRANDISH = re.compile(r"premium quality|dm to order|order now|cod available|cash on delivery|free shipping|"
                       r"shipping|wholesale|booking open|free delivery|our store|shop now|manufacturer", re.I)
+# Instagram business categories that are always a business/organisation, never a creator (checked against the
+# 2026-11-20 pilot: every account in these was a shop, venue, team or organisation). Ambiguous ones (Education,
+# Event Planner, Interior Design Studio, Travel Company, Comedy club, Jewelry/watches, and Nonprofit/NGO/Charity/
+# Gym/Political Party, which individual rescuers, coaches and fans also pick) are left to the LLM.
+BUSINESS_CATEGORIES = {
+    "Religious organization", "Public & Government Service", "Shopping & retail",
+    "Clothing (Brand)", "Brand", "Company", "Retail company", "Software Company", "Information Technology Company",
+    "Chemical Company", "Motor vehicle company", "Restaurant", "Health Food Restaurant", "Cafe", "Coffee shop", "Bar",
+    "Cocktail Bar", "Bakery", "Dessert Shop", "Hotel", "Hotel resort", "Esports Team", "Sports team",
+    "Professional Sports Team", "College & university", "School", "Preschool", "Medical School", "Marketing Agency",
+    "Advertising Agency", "Public Relations Agency", "Social Media Agency", "Media Agency", "Wedding Planning Service",
+    "Performance & Event Venue", "Sports & Recreation Venue", "Coworking Space", "Shopping Mall", "Shopping Center",
+    "Hair Salon", "Beauty Salon", "Nail Salon", "Adult Entertainment Club", "Motorcycle Dealership",
+    "Automotive Dealership", "Car dealership", "Jewelry Wholesaler"}
+BUSINESS_SUFFIX = re.compile(r"(Store|Shop|Dealership|Wholesaler)$")
+# a bio that calls itself a creator keeps the account for the LLM to judge, whatever its category
+CREATOR_WORDS = re.compile(r"creator|influencer|blogger|vlogger|\bugc\b|youtuber|content|\bi'?m\b|\bi am\b|\bmy\b|"
+                           r"\bi\b|promot|collab|comed|coach|athlete|rider|doctor|\bdr\b|mbbs|parent|journey|travell?er",
+                           re.I)
+
+
+def business_account(category, bio, username=""):
+    """True when the Instagram category says shop/venue/organisation and the bio does not claim to be a creator."""
+    cat = (category or "").strip()
+    bio = unicodedata.normalize("NFKC", bio or "")  # fancy fonts ("𝐯𝐢𝐝𝐞𝐨 𝐜𝐫𝐞𝐚𝐭𝐨𝐫") -> plain letters
+    return bool(cat) and (cat in BUSINESS_CATEGORIES or bool(BUSINESS_SUFFIX.search(cat))) \
+        and not CREATOR_WORDS.search(bio + " " + (username or "").replace("_", " ").replace(".", " "))
+
+
 COLLAB = re.compile(r"collab|dm for|for promo|promotion|pr friendly|business enquir|business inquir|work with|paid promo", re.I)
 
 
@@ -220,7 +249,9 @@ def cmd_build(out, reels_path, paths):
             "posts_per_week": posting_rate(posts),
             "last_post_at": max(p["timestamp"] for p in posts if p.get("timestamp")),
             "fake_flag": fake, "fake_reason": why_fake, "classification_method": "keyword-v1",
-            "status": "review" if brand_like or needs_reels else "active",
+            # business = shop/venue/organisation by its Instagram category: never shown, never sent to the LLM
+            "status": "business" if business_account(it.get("businessCategoryName"), bio, u)
+                      else "review" if brand_like or needs_reels else "active",
             "source_keyword": it.get("searchTerm"), "scraped_at": NOW.isoformat(),
             "updated_at": NOW.isoformat()})
         rows["snapshots"].append({"creator_id": pid, "taken_at": NOW.date().isoformat(),

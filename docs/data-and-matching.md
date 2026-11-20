@@ -71,6 +71,15 @@ numbers (shown in admin). Creators loaded without reel data (reel runs that ran 
 reel posts for creators already in the DB (category/products are not re-run). About half of the usable
 creators without reel data simply post no reels; re-scraping them returns nothing.
 
+Business accounts (2026-11-20, user: "kya pata woh brand ho"; also saves LLM credit): `process.py build` sets
+`status = 'business'` when the Instagram business category is clearly a shop, venue, company, school, team or agency
+(`BUSINESS_CATEGORIES`, or a name ending in Store/Shop/Dealership/Wholesaler) and the bio/username (NFKC-normalised)
+has no creator words (creator, influencer, I/my, promotion, collab, comedy, coach, athlete, doctor, parent...).
+Ambiguous categories (Education, Nonprofit, NGO, Charity, Gym, Event Planner, Interior Design Studio, Travel Company,
+Comedy club...) are left to the LLM, because individual rescuers, coaches and fans pick them too. Applied to the DB on
+2026-11-20: 173 accounts moved; business accounts are never shown and never sent to the LLM. The LLM still catches the
+rest (`is_shop`, `creator_type = organization`, `in_india = no`).
+
 Classification `keyword-v1`: category = keyword share across posts + bio + search
 term; products = keyword hits per post. Category level is usable; product level
 is noisy ("chain" on biker posts, "ring" ceremony) — needs the LLM step
