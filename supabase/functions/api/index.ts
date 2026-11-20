@@ -318,7 +318,8 @@ async function ask(system: string, user: string, schema: Row, maxTokens: number,
         messages: [{ role: "system", content: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] },
                    { role: "user", content: user }],
         response_format: { type: "json_schema", json_schema: { name: "result", strict: true, schema } },
-        provider: { require_parameters: true },
+        // only providers that enforce the strict JSON schema; Anthropic first so prompt caching hits
+        provider: { require_parameters: true, only: ["anthropic", "azure", "google-vertex"], order: ["anthropic", "azure", "google-vertex"] },
       }),
     });
     if (!r.ok) throw new Error(`openrouter ${r.status} ${(await r.text()).slice(0, 200)}`);

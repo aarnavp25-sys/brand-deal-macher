@@ -29,6 +29,7 @@ from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 
 MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
 OPENROUTER = "https://openrouter.ai/api/v1"
+PROVIDERS = ["anthropic", "azure", "google-vertex"]  # Haiku 5.5 endpoints with structured_outputs (checked 2026-11-20)
 PROMPT_VERSION = "v5-profile-2026-11-20"
 PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
@@ -291,7 +292,9 @@ def params(user):
                 {"role": "user", "content": user}],
             "response_format": {"type": "json_schema",
                                 "json_schema": {"name": "creator_profile", "strict": True, "schema": SCHEMA}},
-            "provider": {"require_parameters": True},  # only providers that honour the JSON schema
+            # only providers that enforce the strict JSON schema (2026-11-20: AWS/Bedrock endpoints list no
+            # structured_outputs); one preferred provider first so prompt caching hits (each provider caches apart)
+            "provider": {"require_parameters": True, "only": PROVIDERS, "order": PROVIDERS},
             "usage": {"include": True}}  # OpenRouter returns the real cost of the call
 
 
