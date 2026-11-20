@@ -11,7 +11,8 @@ Needs in admin/.env: SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENROUTER_API_KEY. Pyt
 Only creators shown in search (status active, not fake) are sent. Creators with a row of the same PROMPT_VERSION are
 skipped, so nothing is paid for twice; every reply is saved at once, so an interrupted run loses nothing.
 Credit guards: `run` needs --yes and --max-usd and stops before the cap (it adds up the real cost OpenRouter
-reports for each call); thinking off; structured output limited to the fixed lists; max_tokens 900; the fixed
+reports for each call); thinking off; structured output limited to the fixed lists; max_tokens 1500 (a cut-off
+reply is paid for but useless); the fixed
 instructions are marked for prompt caching (~2,100 of the ~3,000 input tokens per creator); 2 retries at most.
 Prompt v4 (2026-11-20): how the creator talks (role, credibility), niche, price level, whose products they feature,
 content values, scope (niche/category/broad), brand-fit note, audience. `test` prints them for review (the gold
@@ -174,7 +175,7 @@ def call(user):
             return openrouter("/chat/completions", params(user))
         except urllib.error.HTTPError as e:
             msg = e.read().decode()[:300]
-            if e.code in (400, 401, 402, 403):   # bad request, bad key, out of credit: never retry
+            if e.code in (400, 401, 402, 403, 404):  # bad request/key, out of credit, no provider/model: never retry
                 raise SystemExit(f"OpenRouter HTTP {e.code}: {msg}")
             if attempt == 2:
                 raise RuntimeError(f"OpenRouter HTTP {e.code}: {msg}")
@@ -257,7 +258,7 @@ def prompt(c, posts):
 
 def params(user):
     # no temperature: Haiku 5.5 rejects any non-default sampling value (400); the JSON schema keeps answers fixed
-    return {"model": MODEL, "max_tokens": 900,
+    return {"model": MODEL, "max_tokens": 1500,
             "reasoning": {"enabled": False},  # Haiku 5.5 thinks by default; thinking tokens bill as output
             "messages": [
                 # fixed instructions first and marked for caching: the same ~2,100 tokens for every creator
@@ -372,8 +373,10 @@ def load_work(only_usernames=None, redo=False, everyone=False):
         creators = [c for c in creators if c["status"] == "active" and not c["fake_flag"]]
     if only_usernames:
         creators = [c for c in creators if c["username"] in only_usernames]
+    # a saved reply without a category (cut off, bad JSON, refusal) is not done: it is tried again
     done = set() if redo else {r["creator_id"] for r in rest_all(
-        f"creator_llm?select=creator_id&prompt_version=eq.{urllib.parse.quote(PROMPT_VERSION)}&order=creator_id")}
+        f"creator_llm?select=creator_id&prompt_version=eq.{urllib.parse.quote(PROMPT_VERSION)}"
+        "&category=not.is.null&order=creator_id")}
     todo = [c for c in creators if c["id"] not in done]
     posts = {}
     for p in rest_all("posts?select=id,creator_id,source,type,caption,hashtags,coauthors,paid_partnership,location,"
@@ -395,12 +398,25 @@ def estimate(todo, posts):
     return user_tok + sys_tok * len(todo), tout, cached, uncached
 
 
+def measured(n):
+    """Real average cost per creator from replies already saved (after `test` / the pilot), or None."""
+    r = rest(f"creator_llm?select=cost_usd&prompt_version=eq.{urllib.parse.quote(PROMPT_VERSION)}"
+             "&cost_usd=not.is.null&limit=1000")
+    if len(r) < 20:
+        return None
+    avg = sum(x["cost_usd"] for x in r) / len(r)
+    return f"measured on {len(r)} real replies: ${avg:.5f} per creator -> ~${avg * n:.2f} for {n}"
+
+
 def cmd_estimate():
     creators, todo, posts = load_work()
     tin, tout, lo, hi = estimate(todo, posts)
     print(f"creators shown in search {len(creators)}, still to profile {len(todo)}; ~{tin / 1e6:.1f}M input + "
           f"~{tout / 1e6:.2f}M output tokens; cost ~${lo:.2f} with prompt caching, ~${hi:.2f} without "
           f"(+ OpenRouter's fee when buying credit)")
+    m = measured(len(todo))
+    if m:
+        print(m)
 
 
 def cmd_credits():
@@ -450,10 +466,12 @@ def run(todo, posts, max_usd, label):
             if spent["n"] % 100 == 0:
                 print(f"  {label}: {spent['n']} done, ${spent['usd']:.4f} spent", flush=True)
 
-    with ThreadPoolExecutor(WORKERS) as ex:
-        list(ex.map(one, todo))
-    if buf:
-        save(buf)
+    try:
+        with ThreadPoolExecutor(WORKERS) as ex:
+            list(ex.map(one, todo))
+    finally:  # even when the run stops on an error (no credit, bad key), every paid reply is saved
+        if buf:
+            save(buf)
     return rows, spent, stop.is_set()
 
 
@@ -499,6 +517,9 @@ def cmd_run(limit, max_usd, yes):
     tin, tout, lo, hi = estimate(todo, posts)
     print(f"to profile now: {len(todo)} (shown in search: {len(creators)}); estimated ${lo:.2f}-${hi:.2f}; "
           f"cap ${max_usd}")
+    m = measured(len(todo))
+    if m:
+        print(m)
     if not todo:
         return
     if not yes:

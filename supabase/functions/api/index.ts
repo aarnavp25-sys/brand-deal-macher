@@ -47,6 +47,9 @@ const MODEL = "anthropic/claude-haiku-5.5"; // OpenRouter id; brand profile + sh
 const MAX_BODY = 4000, MAX_BRIEF = 600;
 const LIMITS = { match: [600, 30], meta: [600, 120] } as const; // [window seconds, max requests per client]
 const CACHE_MS = 5 * 60_000;
+// Whole-site cap on paid LLM calls per day (cache hits are free and not counted); above it search falls back to
+// the formula alone. Protects the small OpenRouter credit if someone floods the public API.
+const LLM_PER_DAY = Number(Deno.env.get("LLM_PER_DAY") ?? "400");
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 const ALLOWED = env("ALLOWED_ORIGINS", "http://127.0.0.1:8788,http://localhost:8788").split(",").map((s) => s.trim());
@@ -285,6 +288,11 @@ async function ask(system: string, user: string, schema: Row, maxTokens: number,
   const key = env("OPENROUTER_API_KEY");
   if (!key) return null;
   try {
+    const ok = await rest("rpc/api_hit", { method: "POST",
+      body: JSON.stringify({ p_client: "llm-calls-per-day", p_window_seconds: 86400, p_max: LLM_PER_DAY }) });
+    if (ok === false) { console.error("daily LLM cap reached"); return null; }
+  } catch { /* limiter outage: the OpenRouter key limit is still the hard cap */ }
+  try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST", signal: AbortSignal.timeout(timeout),
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "Brand Deal Matcher" },
@@ -330,7 +338,7 @@ async function llmProfile(brief: string) {
   const key = "brand:" + await sha256("v4|" + brief.trim().toLowerCase().replace(/\s+/g, " "));
   let o = await cacheGet(key);
   if (!o) {
-    o = await ask(BRIEF_SYSTEM, `Brand description:\n"""${brief}"""`, BRIEF_SCHEMA, 600, 12000);
+    o = await ask(BRIEF_SYSTEM, `Brand description:\n"""${brief}"""`, BRIEF_SCHEMA, 1000, 20000);
     if (!o) return null;
     await cachePut(key, o);
   }
@@ -643,7 +651,8 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
   const key = "review:" + await sha256("v2|" + user);  // same brand profile + same shortlist -> same answer
   let saved: Row[] | null = await cacheGet(key);
   if (!saved) {
-    const o = await ask(REVIEW_SYSTEM, user, schema, 80 * all.length + 200, 25000);
+    // ~85 tokens per review at most; a cut-off reply is paid for but unusable, so leave room
+    const o = await ask(REVIEW_SYSTEM, user, schema, 140 * all.length + 300, 45000);
     if (!o || !Array.isArray(o.reviews)) return null;
     saved = [];
     for (const v of o.reviews) {

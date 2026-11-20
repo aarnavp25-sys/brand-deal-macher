@@ -99,8 +99,10 @@ $('#brief').onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)
 async function run() {
   const p = { brief: $('#brief').value.slice(0, 600), category: $('#category').value, product: $('#product').value, city: $('#city').value, tier: $('#tier').value, audience: $('#audience').value, price: $('#price').value, channel: $('#channel').value, goal };
   if (!$('#brief').value.trim() && !$('#category').value && !$('#product').value) { $('#out').innerHTML = '<div class="empty">Describe your brand or pick a category first.</div>'; return; }
-  $('#out').innerHTML = '<div class="empty">Understanding your brand and reviewing creators…</div>';
-  let d; try { d = await api('/match', p); } catch (e) { $('#out').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (run.busy) return; // a second click while waiting would pay for the same AI search twice
+  run.busy = true;
+  $('#out').innerHTML = '<div class="empty">Understanding your brand and reviewing creators… (up to ~30 seconds)</div>';
+  let d; try { d = await api('/match', p); } catch (e) { $('#out').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; } finally { run.busy = false; }
   last = d; render();
 }
 function render() {
