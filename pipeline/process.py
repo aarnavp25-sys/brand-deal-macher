@@ -195,7 +195,10 @@ def cmd_build(out, reels_path, paths):
         em = EMAIL.search(bio)
         # low ER alone is not fake: some low-ER accounts get 98x followers in reel views
         why_fake = fake_reason(f, er, avg_views)
-        fake = why_fake is not None
+        # Low engagement alone is not proof (viral accounts have it too): without reel data the creator goes to
+        # review until `process.py reels` brings views; only low engagement AND low reel reach marks fake.
+        needs_reels = why_fake is not None and not avg_views
+        fake = why_fake is not None and not needs_reels
         brand_like = bool(BRANDISH.search(bio))
         rows["creators"].append({
             "id": pid, "username": u, "full_name": it.get("fullName"), "bio": bio, "followers": f,
@@ -217,7 +220,7 @@ def cmd_build(out, reels_path, paths):
             "posts_per_week": posting_rate(posts),
             "last_post_at": max(p["timestamp"] for p in posts if p.get("timestamp")),
             "fake_flag": fake, "fake_reason": why_fake, "classification_method": "keyword-v1",
-            "status": "review" if brand_like else "active",
+            "status": "review" if brand_like or needs_reels else "active",
             "source_keyword": it.get("searchTerm"), "scraped_at": NOW.isoformat(),
             "updated_at": NOW.isoformat()})
         rows["snapshots"].append({"creator_id": pid, "taken_at": NOW.date().isoformat(),
@@ -331,7 +334,7 @@ def cmd_reels(reels_paths):
     creators = []
     for i in range(0, len(names), 100):  # look the creators up by username, 100 per request
         q = urllib.parse.quote("(" + ",".join(f'"{n}"' for n in names[i:i + 100]) + ")")
-        req = urllib.request.Request(f"{url}/rest/v1/creators?select=id,username,followers,engagement_rate&username=in.{q}", headers=H)
+        req = urllib.request.Request(f"{url}/rest/v1/creators?select=id,username,followers,engagement_rate,status,fake_reason&username=in.{q}", headers=H)
         creators += json.loads(urllib.request.urlopen(req, timeout=120).read())
     posts, updated, fakes = [], 0, 0
     for c in creators:
@@ -343,6 +346,8 @@ def cmd_reels(reels_paths):
         why = fake_reason(f, er, avg_views)
         body = {"avg_reel_views": round(avg_views), "reel_reach": round(avg_views / f, 2), "fake_flag": why is not None,
                 "fake_reason": why, "updated_at": NOW.isoformat()}
+        if c.get("status") == "review" and "no reel data" in (c.get("fake_reason") or ""):
+            body["status"] = "active"  # was held only for missing reels; the reel check above now decides
         req = urllib.request.Request(f"{url}/rest/v1/creators?id=eq.{urllib.parse.quote(c['id'])}", method="PATCH",
                                      data=json.dumps(body).encode(), headers={**H, "Prefer": "return=minimal"})
         urllib.request.urlopen(req, timeout=60).read()

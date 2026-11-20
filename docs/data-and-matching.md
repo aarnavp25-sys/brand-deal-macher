@@ -61,9 +61,9 @@ posts/week = recent posts / weeks since the oldest of them (Apify gives only 12
 posts, so a fixed 60-day window capped everyone at 1.4); fake flag = followers
 ≥10K and ER <0.5% **and** reach <0.3 (low ER alone flagged viral accounts);
 bios that read like shops (`BRANDISH` regex) get `status = review`.
-Known defect: `cmd_build` uses `(avg_views or 0)`, so a creator with no reel data
-counts as reach 0 and is flagged on low ER alone (6 of 166 flagged creators on
-2026-11-18). Fix: no reel data → `status = review`, not `fake_flag`.
+Fixed 2026-11-20 (was a known defect): low engagement without reel data no longer marks a creator fake. Such
+creators get `status = review` (183 moved from fake to review); `process.py reels` sets them back to active or
+fake once reel views exist. Only low engagement AND low reel reach marks fake.
 
 Every fake-flagged creator gets `creators.fake_reason`: the rule in plain words with the creator's own
 numbers (shown in admin). Creators loaded without reel data (reel runs that ran out of credit, or no reels in
