@@ -17,7 +17,7 @@ Prompt v4 (2026-11-20): how the creator talks (role, credibility), niche, price 
 content values, scope (niche/category/broad), brand-fit note, audience. `test` prints them for review (the gold
 set scores only category, products and shop). keyword-v1 labels in `creators` / `creator_products` are untouched.
 """
-import argparse, json, os, statistics, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import argparse, json, os, re, statistics, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -214,6 +214,18 @@ def rest_all(path):
         offset += 1000
 
 
+# Contact details never leave for the LLM provider (privacy / DPDP; the model does not need them to profile a creator)
+PII = [(re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"), "[email]"),
+       (re.compile(r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)"), "[phone]"),
+       (re.compile(r"(?i)(wa\.me|api\.whatsapp\.com)/\S+"), "[whatsapp link]")]
+
+
+def scrub(s):
+    for rx, sub in PII:
+        s = rx.sub(sub, s)
+    return s
+
+
 def prompt(c, posts):
     lines = [f"Username: @{c['username']}", f"Name: {c.get('full_name') or ''}",
              f"Instagram category: {c.get('ig_category') or 'none'}", f"Followers: {c['followers']}",
@@ -239,7 +251,7 @@ def prompt(c, posts):
         if p.get("location"):
             extra.append("location " + p["location"])
         lines.append(f"P{i} [{p.get('source')}/{p.get('type')}{'; ' + '; '.join(extra) if extra else ''}]: {cap} {tags}".strip())
-    return "\n".join(lines)
+    return scrub("\n".join(lines))
 
 
 def params(user):
