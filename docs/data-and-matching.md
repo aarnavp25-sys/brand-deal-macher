@@ -172,6 +172,12 @@ whose products, values), and results come in three columns, each creator reviewe
    films: …". The review prompt makes Haiku the brand owner: imagine where the product appears in what the creator
    already films; reason ≤20 words naming the decisive point (shot, trust, audience or price); idea = a reel inside
    their own usual scenes; no believable shot = "weak", which is never shown in the wider column.
+5d. **Who is shown at all** (user, 2026-11-20). Hidden: `status = 'business'` accounts (see Pipeline); LLM
+   `is_shop` unless the account is creator-type; `in_india = no`; `creator_type = organization` unless it openly
+   sells promotions (`takes_promotions = yes` and `collab_open`); professionals/celebrities only when
+   `takes_promotions = unlikely` and not `collab_open` ("woh kyu hii promotion karega": a TVF director or a CEO does
+   not make paid reels; "maybe" stays because a creator with no collab yet can still say yes). Web checks of
+   professionals were deferred: ~$0.01–0.02 per search, ask after the full run.
 5b. **Local shops** (user, 2026-11-20: a local store should see creators who make reels inside shops). The brand
    profile has `sales_channel` (online / local store / both; brand can override with "Where you sell"). The creator
    profile has `store_visits` (often / sometimes / never: shop tours, market hauls, "where to buy", cafe/salon or
@@ -256,13 +262,43 @@ so it is an account-level block, not the key. Only fix reported by others: an AW
 **Decision 2026-11-20 (user): forget AWS; use OpenRouter.** Model `anthropic/claude-haiku-5.5` ($0.10/$0.50 per
 MTok, cache reads $0.01; structured outputs supported per OpenRouter's public model list, 2026-11-20). A
 `:batch` variant is listed at half price but its mechanics are untested, so runs are real-time.
-Credit plan for the creator profiles (measured 2026-11-20): only the 5,399 creators search can show (active, not
-fake); ~950 input tokens per creator + ~2,100 fixed instructions (marked for prompt caching) + ~300 out →
-~$1.45 with caching, ~$2.48 without (+ OpenRouter's fee on buying credit). Order: `credits` (free) → `test`
-(20 gold, ~$0.02; check cached and reasoning tokens) → `run --limit 100 --max-usd 0.10` (pilot, review) →
-`run --max-usd <cap>`. `run` adds up the real cost OpenRouter reports per call and stops before the cap; every
-reply is saved at once (resumable). Posts are marked TOP/LOW (≥2× / ≤½ the creator's median likes) so the model
-sees what the audience responds to. Per search: brand profile + shortlist review ≈ $0.002.
+**Measured on real calls (2026-11-20, prompt v7–v10).** Per creator: ~11,400 cached input tokens (fixed
+instructions + JSON schema with the 82-product enums; the earlier "~2,100" guess was wrong), ~1,900 uncached
+(bio + 14 posts), ~670 out → **~$0.00064–0.0007 per creator**, ~$3.3–3.5 for ~5,100 creators (the first estimate of
+$1.5 assumed 300 output tokens and a 500-token schema). Cost shares: answer 52%, creator data 30%, cached
+instructions 18%. One request per creator on purpose: batching 10 creators per call would save at most ~$0.50 for
+the whole run (only the cached 18% shrinks) and risks mixing posts across creators and losing 10 profiles per
+cut-off. The first call of a run goes alone so it writes the prompt cache; then 6 run in parallel (~1 hour for
+5,000). `estimate`/`run` print a "measured" line from saved `cost_usd` once ≥20 replies exist.
+API gotchas found on the first paid calls: Haiku 5.5 rejects any non-default `temperature` (HTTP 400), so none is
+sent and replies vary slightly run to run; OpenRouter's Haiku 5.5 endpoints on Claude Platform on AWS and Amazon
+Bedrock list no `structured_outputs`, so `provider.only/order = anthropic, azure, google-vertex` (Anthropic first
+keeps cache hits); the Edge Function sends the same. `max_tokens` is 1500 per profile and 140/creator for reviews
+(a cut-off reply is paid but unusable). `llm_classify.py compare --model X` runs any model on the 20 gold creators
+without saving. Run so far: `credits` → `test` (v5, v6, v7) → pilot 100 (v8, v9, v10) → compare.
+**Jev Router ruled out (2026-11-20, user asked "kum cost me ache se"):** `typesafe/jev-router` on the same 20 gold
+creators and prompt: category 10/20, product 13/20, shop 18/20, 11/20 replies cut off by its reasoning tokens,
+$0.0043 per creator (6x Haiku), and it switched between GPT-6 Luna, Gemini 4 Hydrogen and DeepSeek V4.1 Flash, so
+profiles would not be comparable. Haiku on the same run: 16/20, 16/20, 19/20, 0 cut off, $0.0007.
+
+**Creator profile lessons (prompt v5 → v10, `pipeline/llm_classify.py`).**
+- Products: the model kept treating activities as products (squats → fitness equipment, a home recipe →
+  ready-to-cook, a pilgrimage → tour package) even with those exact counter-examples in the prompt. What fixed it
+  (gold product 9/20 → 18/20): every product must carry `item`, the exact thing seen ("Anveshan A2 ghee jar"), and
+  `clean()` drops a product whose item is empty or admits nothing concrete (`NOT_A_PRODUCT`: greeting, recipe,
+  no specific, not shown, not...). The item is shown in explanations ("e.g. Bella Vita Oud").
+- Gold set (`pipeline/gold20.py`) was written for the 42-type taxonomy; its allowed products were extended for the
+  82 types only where the evidence posts were read.
+- Role: people with professional standing in what they post (director, chef, founder) are expert/educator.
+  Store visits exclude stadiums, event venues, offices, temples, gyms and their own studio.
+- Content quality 1-10 bunches at 4–7 (the model reads captions, not video), so search uses its percentile.
+- `creator_type` creator / professional / celebrity / organization, `takes_promotions` yes/maybe/unlikely (own
+  company posts are not promotions), `in_india` yes/no/unclear. A person making content about their own craft
+  (makeup artist, coach, dancer, esports player, DJ, photographer) is a creator; meme/city/fan pages that sell
+  promotions are creators; `is_shop` only for pages selling physical products or running a venue (v9 over-hid
+  these: a makeup artist became a shop, a meme page and a coach became organizations).
+- Pilot findings on the first 100 by id: ~11% foreign accounts (Italy, UK, Chile, Australia, Hong Kong), ~10%
+  organisations, ~12% shops/own-business pages.
 Prompt v2 (`pipeline/llm_classify.py`, `PROMPT_VERSION v2`) adds `audience_gender`, `audience_age`,
 `audience`, `can_promote`. Measured size: ~1,000 tokens fixed instructions + ~1,000 per creator
 (14 posts, captions ≤450 chars) + ~180 out. Hashtags are sent twice (in the caption and as a list) —

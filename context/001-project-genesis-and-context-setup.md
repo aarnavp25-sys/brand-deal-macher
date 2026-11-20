@@ -626,3 +626,52 @@ Done:
 Open:
 - Remaining free prep: final prompt review, PRIVATE-GUIDE update (OpenRouter key, commands, costs, $8.5 budget). Then the key.
 - S-016 addendum (2026-11-20). User: "free prep kar ye kyu likhu jab context read karuga naye wale mai". Explained that `/context-read` reports and stops by design; any short go-ahead ("continue", "haa") is enough. Offered to change the skill so it starts free work by itself (paid OpenRouter calls would still need the user's yes); no answer yet.
+
+---
+
+## S-017 · 2026-11-20 · Key arrives; profile prompt v5→v10 on paid tests; business filter; Jev rejected
+
+Asked:
+- "isse aur better karne ke liye koi suggestion ho toh bata dekh le abhii key lene se phele"
+- Think like the brand: "koi creator travel wale real banata ho but waha real mai pahodo mai chai banata ho ... instant tea wala ke liye woh accha ho sakta hai"; "pahado wala sirf ek example tha ... hostel ya college student bhii promote kar sakta"; "content quality bhii dhyaan mai rkhna".
+- Wider column: "hostel mai student ... reach kam hai ... travel vlogger ... reach badi hai toh ye travel vloger hona chaiye ... saare 3no column mai engagement reach content quality".
+- Columns: "niche ka mtlb hai ki woh sirf uski baat karta ho ya woh field ka bana ho ... category ... in genral ... wider mai ... wider reach ke sath sath woh product ko possible content banata ho".
+- Gave the OpenRouter key in chat: "mai tujhe api key yaha duga tu usse apne hissab se save kar lena".
+- "aws ki saari keys kill karde ye openrouter wali ko hi rakhna".
+- Professionals: "tvf director ... gogle search karke ki woh koi proffesional toh nhii hai kyuki woh kyu hii promotion karega jiska reels source hai hi nhii".
+- "har profile ko analize kar ... acche se analize kar"; "kya woh creator hai bhi ya nhii kya pata woh brand ho"; "creators ko phele hi database alag karde toh model ke pass woh creators hii nhi jayege credits bachege".
+- "haiku sirf 1 llm request me 5100 creters ko kaise handle kar sakta hai"; "jev typesae ai se karwaya to ... kum cost me ache se kaaam hi sakta hai, chota test karke batao"; "dono ko acche se train kara toh konsa wala best result dega".
+
+Done:
+- Pre-key review (free): removed `temperature: 0` from both LLM calls (Haiku 5.5 400s on any non-default sampling value; found via the claude-api skill); creator price "mixed" when no products are shown; Hinglish briefs allowed. Credit guards: replies without a category are retried, buffered replies saved even when a run aborts (`try/finally`), `max_tokens` 1500 per profile and 140/creator for reviews, brief timeout 20 s / review 45 s, 404 stops a run, site-wide `LLM_PER_DAY` = 400 paid calls (via `api_hit`), demo search button blocks double clicks. Commits c9d8344, 64ec05d.
+- Matching changes (all deployed): creator `settings` + `natural_fits` (product types that fit scenes they already film, with the moment), brand `moments`, owner-view `REVIEW_SYSTEM` ("can they really promote it?"); content quality 1-10 from the LLM (the `creators.content_quality_est` column had never been filled: 0 of 5,386) weighted most in the wider column, quality ≤3 kept out of it, later used as a percentile; wider column ordered by reach-weighted score after the review removes "weak" (niche/category stay verdict-first); weights rebalanced; niche = specialists (product ≥20% of recent posts, or expert/professional in the product's category); demo column labels renamed ("Wider reach"). Migrations 20261120000005–08 (natural_fits/settings, content_quality/quality_note, creator_type/takes_promotions/collab_note, in_india). Commits 96ffd60, 2edbdbf, 18accfc, 5ab6529. Details: docs/data-and-matching.md (Matching 3–5d, LLM notes).
+- PRIVATE-GUIDE.md updated to OpenRouter (backup in the session scratchpad); key saved as `OPENROUTER_API_KEY` in `admin/.env` (chmod 600, gitignored). `credits`: key limit $4.00, account $8.50.
+- Free endpoint check found Claude Platform on AWS and Amazon Bedrock endpoints for Haiku 5.5 list no `structured_outputs` → `provider.only/order = anthropic, azure, google-vertex` in both files (0253005).
+- AWS keys: none in `admin/.env`, Supabase secrets, code, git history or `~/.aws`; two Bedrock keys (`ABSKQmVk…`, `ABSKXyFw…`) exist only in old Claude transcripts. Told the user to delete them in the AWS IAM console (no AWS access here); transcripts left untouched.
+- Paid runs (all capped): `test` v5 $0.0193 (category 20/20, product 4/20 on the old gold, shop 20/20); evidence read by hand → 14 extra products were right (gold written for 42 types), 12 wrong (activity treated as product). v6 $0.0134 (product 10/20). v7 named `item` per product $0.014 → 17/20, 18/20 after the free `NOT_A_PRODUCT` filter re-applied to saved replies. Pilot 100 v8 $0.0645, read all 100 → ~11% foreign, ~10% organisations, professionals' own-company posts counted as promotions. v9 pilot $0.0639 → hid 44/100 incl. ~6 real creators (makeup artist as shop, meme page/coach as organization). v10 pilot $0.064 → watch list all visible except a decor vendor; 2 borderline left (a science explainer page, a bikers group). Commits 9cb761f, 06dbff4, d8e31da, 6099c90, 49735ef, 3f2d43e.
+- Business pre-filter (user's idea): `process.py` `business_account()` with `BUSINESS_CATEGORIES` + Store/Shop/Dealership/Wholesaler suffix, guarded by creator words in NFKC-normalised bio/username; applied to the DB: 173 accounts → `status = 'business'` (search-visible 5,386 → 5,213). First drafts would have moved 266 and 200 incl. individual rescuers, a coach, a comedy group; categories Nonprofit/NGO/Charity/Gym/Political Party left to the LLM (8d50647).
+- `compare` command (no DB writes): Jev Router vs Haiku on the 20 gold creators, prompt v10 → Jev 10/13/18 of 20, 11 cut off, $0.0043 per creator, 3 different models; Haiku 16/16/19, $0.0007 (0cebbcb). Same commit: a creator-type account marked `is_shop` stays visible (@breathedreamgo came back is_shop), "not" in an item drops the product.
+- Spent: $0.33 of the $4 key limit (account ~$8.17 left). `creator_llm` holds v10 rows for 100 pilot creators (older versions overwritten by upsert).
+
+Did not work:
+- Prompt counter-examples alone did not stop activity-as-product ("squats is not fitness equipment" was in the prompt; v6 still returned it). Only the named-item field + filter worked.
+- First cost estimate ($1.54) was ~2.3x low: assumed 300 output tokens and a 500-token schema; real ~670 out and ~11,400 cached input.
+- Two scripted edits failed on non-matching strings (asserted before writing, so nothing changed); one shell chain still ran `deploy.py function` on unchanged code.
+- awk/sed on the pilot dump failed with "illegal byte sequence"; Python read it fine.
+
+Established:
+- Haiku 5.5 via OpenRouter: $0.10/$0.50, cache read $0.01 per MTok; caching works (81–85% of input cached after a warm-up call); zero reasoning tokens with `reasoning.enabled=false`.
+- Instagram business category is unreliable as a creator test (41% empty; a comedian listed "Furniture", a parenting creator "Chemical Company") but a curated set of shop/venue/school/team categories is near-certain.
+- Haiku without temperature 0 varies 1–3 labels per 20 between runs (borderline categories, is_shop).
+
+User decided:
+- Flow fixed: "haa yahi flow rakhna" — credits → test → pilot → one capped full run → only then `deploy.py secrets` + ~10 demo searches; stop and get a yes before each paid step.
+- AWS dropped completely; only the OpenRouter key stays.
+- Professionals/celebrities who do not promote other brands are hidden; Google checks only after the full run, with a cost shown first.
+- Columns as the user defined them (niche specialists / category general / wider = reach + believable fit); reach wins in the wider column; engagement, reach, quality count everywhere.
+- Haiku over Jev after the test; asked "train karke konsa best" — answered Haiku (prompt tuning applies to both; Jev's router mixes models and bills reasoning).
+
+Open:
+- User to raise the OpenRouter key limit to ~$5, then say yes to the full run: `python3 pipeline/llm_classify.py run --max-usd 3.8 --yes` (~5,100 creators, ~$3.3–3.5, ~1 hour, run in background). Then `deploy.py secrets`, ~10 demo searches, count thin niches and remaining professionals.
+- Delete the two Bedrock keys in the AWS console (user); update PRIVATE-GUIDE when done.
+- Perfume niche thin (3 specialists in keyword data); mid tier ~316; both need December Apify rounds.
