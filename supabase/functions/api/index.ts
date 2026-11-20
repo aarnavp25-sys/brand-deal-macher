@@ -500,6 +500,8 @@ async function match(q: Row) {
   const [d, req] = await Promise.all([data(), parseRequest(q)]);
   const creators = d.creators.filter((c) => !req.tier || c.follower_tier === req.tier);
   const reachR = pctRank(d.creators.map((c) => c.reel_reach));
+  // LLM quality scores bunch at 4-7 (it reads captions, not video), so use the percentile among all creators
+  const qualityR = pctRank(d.creators.map((c) => c.content_quality_est));
   const erByTier = Object.fromEntries(TIERS.map((t) =>
     [t, pctRank(d.creators.filter((c) => c.follower_tier === t).map((c) => c.engagement_rate))]));
   const pool: Row[] = [];
@@ -545,7 +547,7 @@ async function match(q: Row) {
       audience: audienceFit(c, req.audience),
       engagement: erByTier[c.follower_tier]?.(c.engagement_rate) ?? null,
       reach: reachPct,
-      quality: c.content_quality_est != null ? Number(c.content_quality_est) / 10 : null,
+      quality: c.content_quality_est != null ? qualityR(c.content_quality_est) : null,
       growth: d.growth.has(c.id) ? Math.max(0, Math.min(d.growth.get(c.id)! / 0.1, 1)) : null,
       consistency: c.posts_per_week == null ? null : Math.min(Number(c.posts_per_week) / 3, 1),
       location: !req.city ? null : sameCity ? 1 : !c.city ? 0.3 : 0,

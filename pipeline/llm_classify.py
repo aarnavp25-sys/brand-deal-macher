@@ -311,6 +311,10 @@ def params(user):
             "usage": {"include": True}}  # OpenRouter returns the real cost of the call
 
 
+# test 2026-11-20: items like "Diwali festive greeting post", "no specific gift product shown", "paneer sabzi recipe"
+NOT_A_PRODUCT = re.compile(r"(?i)\b(no specific|not shown|no product|greeting|wishes|recipe|generic|unspecified)\b")
+
+
 def clean(o, n_posts):
     """Structured output already limits values to the lists; still check evidence and lengths."""
     bad = []
@@ -343,8 +347,8 @@ def clean(o, n_posts):
             bad.append(f"product {p['type']!r} without evidence")
             continue
         item = p.get("item").strip() if isinstance(p.get("item"), str) else ""
-        if not item:
-            bad.append(f"product {p['type']!r} without a named item")
+        if not item or NOT_A_PRODUCT.search(item):  # the model itself says nothing concrete is shown
+            bad.append(f"product {p['type']!r} without a named item ({item[:40]!r})")
             continue
         if len(ev) >= prods.get(p["type"], (0, ""))[0]:
             prods[p["type"]] = (len(ev), item[:60])
