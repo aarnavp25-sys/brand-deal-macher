@@ -804,14 +804,15 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
     if (saved.length) await cachePut(key, saved);
   }
   // the user's rules applied in code to the AI's plain answers (Haiku called nearly everyone "good" when the rules
-  // were only prose, 2026-11-20): a personal account or an own-shop page is never shown; the category column keeps
-  // only "own field" creators (niche creators got there on product evidence; wider reach allows props)
+  // were only prose, 2026-11-20): a personal account or an own-shop page is never shown; in the category column a
+  // creator from another field is out (niche creators got there on product evidence; wider reach allows props)
   const out = new Map<string, Row>(saved.map((v) => {
     const field = ["own field", "related", "other field"].includes(v.field) ? v.field : "related";
     const account = ["creator", "personal", "own shop"].includes(v.account) ? v.account : "creator";
-    // category column = the brand's own field only (user, 2026-11-20: rappers marked "related" for men's jewellery
-    // landed in "your category"; Haiku also flips a skater between "related" and "other field" across runs)
-    const verdict = account !== "creator" || (field !== "own field" && v.column === "category") ? "weak" : v.verdict;
+    // category column: no creator from another field. "related" stays (user, 2026-11-20: a men's watch search lost
+    // its men's fashion creators when the column was "own field" only; the rappers who once showed for men's
+    // jewellery came in through the Entertainment category, which BROAD_CATS now keeps out of this column)
+    const verdict = account !== "creator" || (field === "other field" && v.column === "category") ? "weak" : v.verdict;
     return [v.id, { verdict, field, reason: v.reason, idea: verdict === "weak" ? null : v.idea }];
   }));
   return out.size ? out : null;
