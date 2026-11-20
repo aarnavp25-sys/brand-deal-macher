@@ -142,7 +142,9 @@ async function data() {
   const creators: Row[] = [], products = new Map<string, Map<string, Row>>();
   for (const c of cr) {
     const l = L.get(c.id), kw = KP.get(c.id) ?? new Map();
-    if (l?.is_shop) continue; // the LLM read the posts: a store/brand page is not a creator
+    // the LLM read the posts: a store/brand page is not a creator. A creator-type account marked shop is kept
+    // (compare 2026-11-20: a travel blogger who also runs a tour company came back is_shop once)
+    if (l?.is_shop && l.creator_type !== "creator") continue;
     // user, 2026-11-20: a film director or a CEO on Instagram does not make paid reels for a small brand
     // ("woh kyu hii promotion karega"): hide professionals/celebrities with no sign of taking promotions
     // only when the AI saw no sign at all ("unlikely"); "maybe" stays, a creator with no collab yet can still say yes

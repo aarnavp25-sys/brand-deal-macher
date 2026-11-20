@@ -234,11 +234,11 @@ def openrouter(path, body=None, timeout=90):
         return json.loads(r.read())
 
 
-def call(user):
+def call(user, model=None):
     """One profile request; at most 2 retries on network/5xx/429. Returns the OpenRouter JSON."""
     for attempt in range(3):
         try:
-            return openrouter("/chat/completions", params(user))
+            return openrouter("/chat/completions", params(user, model))
         except urllib.error.HTTPError as e:
             msg = e.read().decode()[:300]
             if e.code in (400, 401, 402, 403, 404):  # bad request/key, out of credit, no provider/model: never retry
@@ -322,7 +322,7 @@ def prompt(c, posts):
     return scrub("\n".join(lines))
 
 
-def params(user):
+def params(user, model=None):
     # no temperature: Haiku 5.5 rejects any non-default sampling value (400); the JSON schema keeps answers fixed
     return {"model": MODEL, "max_tokens": 1500,
             "reasoning": {"enabled": False},  # Haiku 5.5 thinks by default; thinking tokens bill as output
@@ -339,7 +339,51 @@ def params(user):
 
 
 # test 2026-11-20: items like "Diwali festive greeting post", "no specific gift product shown", "paneer sabzi recipe"
-NOT_A_PRODUCT = re.compile(r"(?i)\b(no specific|not shown|no product|greeting|wishes|recipe|generic|unspecified)\b")
+NOT_A_PRODUCT = re.compile(r"(?i)\b(no specific|not shown|no product|greeting|wishes|recipe|generic|unspecified|not)\b")
+
+
+_params_haiku = params
+
+
+def params(user, model=None):  # noqa: F811
+    """Haiku: fixed providers + thinking off. Another model (compare only): its own routing and reasoning."""
+    p = _params_haiku(user)
+    if model and model != MODEL:
+        p["model"] = model
+        p.pop("reasoning", None)
+        p["provider"] = {"require_parameters": True}
+    return p
+
+
+def cmd_compare(model, max_usd):
+    """Same 20 gold creators and the same prompt on another model; nothing is saved to the DB."""
+    from gold20 import GOLD, score
+    _, todo, posts = load_work(set(GOLD), redo=True, everyone=True)
+    tot, spent, out, used = {"cat": 0, "prod": 0, "shop": 0}, 0.0, [], {}
+    reasoning = 0
+    for c in sorted(todo, key=lambda c: c["username"]):
+        if spent >= max_usd:
+            print(f"stopped at the ${max_usd} cap"); break
+        resp = call(prompt(c, posts[c["id"]]), model)
+        row = message_row(c["id"], len(posts[c["id"]]), resp)
+        u = resp.get("usage") or {}
+        spent += u.get("cost") or 0
+        reasoning += (u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
+        used[resp.get("model")] = used.get(resp.get("model"), 0) + 1
+        s = score(c["username"], row)
+        for k in tot:
+            tot[k] += s[k]
+        out.append({"username": c["username"], "score": s, "row": {k: v for k, v in row.items() if k != "raw"},
+                    "model_used": resp.get("model"), "cost": u.get("cost")})
+        print(f"@{c['username']:30} cat {'ok' if s['cat'] else 'XX'} prod {'ok' if s['prod'] else 'XX'} "
+              f"shop {'ok' if s['shop'] else 'XX'} | {resp.get('model')} ${u.get('cost') or 0:.5f} | invalid {row['invalid']}",
+              flush=True)
+    n = len(out) or 1
+    print(f"\n{model}: category {tot['cat']}/{n}, product {tot['prod']}/{n}, shop {tot['shop']}/{n}; "
+          f"cost ${spent:.4f} (${spent / n:.5f} per creator); reasoning tokens {reasoning}; models used {used}")
+    path = os.path.join(os.environ.get("COMPARE_DIR", HERE), f"compare-{model.replace('/', '_')}.json")
+    json.dump(out, open(path, "w"), ensure_ascii=False, indent=1)
+    print("full answers:", path)
 
 
 def clean(o, n_posts):
@@ -627,11 +671,13 @@ def cmd_run(limit, max_usd, yes):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["estimate", "credits", "test", "run"])
+    ap.add_argument("cmd", choices=["estimate", "credits", "test", "run", "compare"])
+    ap.add_argument("--model", default=MODEL, help="compare: the OpenRouter model id to try")
     ap.add_argument("--yes", action="store_true", help="really send requests (they cost money)")
     ap.add_argument("--limit", type=int, default=0, help="profile at most this many creators")
     ap.add_argument("--max-usd", type=float, default=0, help="stop before this much real cost")
     a = ap.parse_args()
     load_env()
     {"estimate": cmd_estimate, "credits": cmd_credits, "test": cmd_test,
-     "run": lambda: cmd_run(a.limit, a.max_usd, a.yes)}[a.cmd]()
+     "run": lambda: cmd_run(a.limit, a.max_usd, a.yes),
+     "compare": lambda: cmd_compare(a.model, a.max_usd or 0.10)}[a.cmd]()
