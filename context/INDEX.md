@@ -4,7 +4,7 @@ The only mutable file in `context/`. Rewritten in full by every `/context-write`
 Read this every session. Read numbered files only when the topic map below
 points to them, or when the user asks for full history.
 
-Last rewritten: 2026-11-20 (S-015).
+Last rewritten: 2026-11-20 (S-016).
 
 > **Auto-compact is OFF globally** (`~/.claude/settings.json`, S-012). A session that fills its context stops;
 > run `/context-write` at ~70–80% and `/compact` by hand. Transcripts are kept 36,500 days.
@@ -84,7 +84,7 @@ not started.
    5. `python3 supabase/deploy.py secrets`.
    6. Live check: "Perfume brand for men" and a masala brief, with the AI review on.
    7. Stop and report if caching is not applied or the costs differ from the estimate.
-2. Free prep BEFORE any paid call (promised in S-015): also strip phone/email from bios before sending to the LLM.
+2. Free prep BEFORE any paid call: DONE in S-016 — PII scrub, fake-flag fix, hygiene. Left: final prompt review, PRIVATE-GUIDE update.
    Free DB work (proposed in S-013, user wants the DB "ekdum best"):
    1. Fix the fake-flag defect (no reel data → `status=review`).
    2. Add keyword-v1 tags for the 40 new product types from stored posts.
@@ -153,5 +153,6 @@ not started.
 | S-011 | 2026-11-19 | Shreyash added; share tunnel; demo video script; organised (migrations, round.py, Haiku 5.5, gzip); private guide | 001 |
 | S-012 | 2026-11-19 | Global Claude Code settings: auto/idle compaction off, transcripts kept 100 years | 001 |
 | S-013 | 2026-11-19 → 20 | Brand-first matching (3 columns + AI review), creator profile v4, OpenRouter, taxonomy 82, LLM cache | 001 |
+| S-016 | 2026-11-20 | Free prep: PII scrub, fake flag fix (183 → review), 0-post → review, trending ≥3K followers | 001 |
 | S-015 | 2026-11-20 | Budget $8.5 for demo day; price level separate signal; trending must be related | 001 |
 | S-014 | 2026-11-20 | Shop-visit creators for local stores; user: everything customised + personalised, nothing forgotten | 001 |

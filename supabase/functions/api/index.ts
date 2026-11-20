@@ -523,8 +523,10 @@ async function match(q: Row) {
     // (to take the product to a wide audience); category = talks about the category in general.
     const broad = c.scope === "broad" || BROAD_ROLES.includes(c.creator_role) || (c.method !== "llm" && (reachPct ?? 0) >= 0.85);
     const storeCreator = local && (store ?? 0) >= 0.7 && (sameCity || !req.city);
-    let column: string | null = kind === "proven" || storeCreator ? "niche" : (reachPct ?? 0) >= 0.6 && broad ? "trending"
-      : kind === "category" ? "category" : (reachPct ?? 0) >= 0.75 ? "trending" : null;
+    // one viral reel on a tiny account is not reliable wide reach: trending needs at least 3,000 followers
+    const canTrend = Number(c.followers) >= 3000;
+    let column: string | null = kind === "proven" || storeCreator ? "niche" : canTrend && (reachPct ?? 0) >= 0.6 && broad ? "trending"
+      : kind === "category" ? "category" : canTrend && (reachPct ?? 0) >= 0.75 ? "trending" : null;
     if (!column) continue; // "possible only" creators need high reach to be worth showing
     const s = scoreWith(WEIGHTS[column === "trending" ? "reach" : local ? "local" : req.goal], parts);
     if (s.score < 50) continue;
