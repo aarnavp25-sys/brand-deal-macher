@@ -151,7 +151,8 @@ whose products, values), and results come in three columns, each creator reviewe
    cannot believably promote the product (user, 2026-11-20: a hostel student fits instant tea perfectly but has small
    reach; a travel vlogger who can sell it as "time saving, easy to make" with big reach must rank higher there;
    engagement, reach and content quality count in all three columns);
-   weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
+   weak fits are never shown in any column (an empty group says so; before 2026-11-20 they filled columns with
+   fewer than 4 good fits, e.g. 8 restaurant reviewers for an instant chai premix); 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
 5a. **Price level and relevance** (user, 2026-11-20: "1000 ke perfumes" and "10000 ke" must not get the same
    creators; no wider-audience creators without a relation, e.g. a doctor for a perfume brand). Price is its own
@@ -185,7 +186,9 @@ whose products, values), and results come in three columns, each creator reviewe
    factory visits; specific shop location tags are strong evidence) + `store_visit_note`. For a shop brand, creators
    who film in shops (often/sometimes) in the brand's city go into the niche column and the "local" weights apply:
    product 20, shop-visit reels 20, location 20, brand fit 10, audience 10, engagement 10, reach 5, quality 3,
-   growth 1, consistency 1. Keyword matching on captions alone was too noisy (mall ads, quotes, festivals), so this
+   growth 1, consistency 1. A brand that sells only at its own shop (no online) with a city sees only creators
+   in that city, in every column (viewers elsewhere cannot walk in; before 2026-11-20 a Jaipur mithai shop got
+   out-of-city comedians in the wider column). "Both" (shop + online) keeps all cities. Keyword matching on captions alone was too noisy (mall ads, quotes, festivals), so this
    signal comes only from the LLM reading captions + location tags.
 6. Cost per search ≈ $0.002 (profile ~$0.0003 + review ~$0.0017). Rate limit 30 searches / 10 min per client.
    Both answers are cached in `llm_cache` for 7 days: the brand profile by the normalised brief, the review by the

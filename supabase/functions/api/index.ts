@@ -552,6 +552,10 @@ async function match(q: Row) {
     // local shop brands: creators who film inside shops, ideally in the brand's city
     const local = req.channel === "local store" || req.channel === "both";
     const sameCity = !!req.city && (c.city ?? "").toLowerCase() === req.city.toLowerCase();
+    // demo searches 2026-11-20: a Jaipur mithai shop (no online sales) got a Bengali comedian and a devotional singer
+    // from other cities in the wider column, and only out-of-city food reviewers in the category column. A shop that
+    // sells only at its own counter gains nothing from viewers in another city: every column is its city only.
+    if (req.channel === "local store" && req.city && !sameCity) continue;
     const store = !local ? null : c.store_visits === "often" ? 1 : c.store_visits === "sometimes" ? 0.7
       : c.store_visits === "never" ? 0.1 : null;
     const parts: Row = {
@@ -616,10 +620,9 @@ async function match(q: Row) {
     // with far bigger reach must rank higher in the wider column).
     rows.sort((a, b) => col === "trending" ? b.score - a.score
       : (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || b.score - a.score);
-    const ok = rows.filter((r) => r.verdict !== "weak");
-    // trending never shows weak fits (big reach without a real link to the product is useless to a small brand);
-    // other columns show weak fits only when they would otherwise be nearly empty
-    if (col === "trending" || ok.length >= 4) rows = ok;
+    // weak fits are never shown (demo searches 2026-11-20: "instant chai premix" filled the category column with 8
+    // restaurant reviewers the review itself called weak). An empty group says so in the UI instead.
+    rows = rows.filter((r) => r.verdict !== "weak");
     columns[col] = rows.slice(0, PER_COLUMN).map(publicRow);
   }
   return { understood: req, columns, reviewed_by_ai: !!reviewed, considered: creators.length, matched: pool.length,
