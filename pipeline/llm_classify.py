@@ -30,7 +30,7 @@ from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
 OPENROUTER = "https://openrouter.ai/api/v1"
 PROVIDERS = ["anthropic", "azure", "google-vertex"]  # Haiku 5.5 endpoints with structured_outputs (checked 2026-11-20)
-PROMPT_VERSION = "v6-profile-2026-11-20"
+PROMPT_VERSION = "v7-profile-2026-11-20"
 PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
 WORKERS = 6
@@ -70,6 +70,9 @@ Rules:
   enough either (a bike "chain", an engagement "ring"). Things that fit their scenes but are not featured go to
   natural_fits, never to products.
 - evidence = list of post numbers (P1, P2, ...) that show the product. No evidence -> do not list the product.
+- item = <= 8 words naming the exact product, brand or service seen in those posts (e.g. "Anveshan A2 ghee jar",
+  "Royal Enfield Meteor 350", "Lakme matte lipstick", "own Diwali hamper box"). If you cannot name a concrete
+  thing being shown, sold or promoted, it is NOT a product: leave it out (it may belong in natural_fits).
 - gender = the creator's apparent gender from bio, name and captions: "male", "female", "mixed/brand" (couple, group, page) or "unknown".
 - is_shop = true if the account mainly sells its own products (a store or brand page), not a creator.
 - city = Indian city if stated or clearly implied, else null.
@@ -145,9 +148,10 @@ SCHEMA = {
         "category": {"type": "string", "enum": CATS},
         "secondary": NULLABLE({"type": "string", "enum": CATS}),
         "products": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["type", "evidence"],
+            "type": "object", "additionalProperties": False, "required": ["type", "evidence", "item"],
             "properties": {"type": {"type": "string", "enum": list(PRODS)},
-                           "evidence": {"type": "array", "items": {"type": "string"}}}}},
+                           "evidence": {"type": "array", "items": {"type": "string"}},
+                           "item": {"type": "string"}}}},
         "gender": {"type": "string", "enum": GENDERS},
         "content_style": {"type": "string"},
         "language": {"type": "string"},
@@ -338,7 +342,12 @@ def clean(o, n_posts):
         if not ev:
             bad.append(f"product {p['type']!r} without evidence")
             continue
-        prods[p["type"]] = max(prods.get(p["type"], 0), len(ev))
+        item = p.get("item").strip() if isinstance(p.get("item"), str) else ""
+        if not item:
+            bad.append(f"product {p['type']!r} without a named item")
+            continue
+        if len(ev) >= prods.get(p["type"], (0, ""))[0]:
+            prods[p["type"]] = (len(ev), item[:60])
     nat = []
     for x in o.get("natural_fits") or []:
         if isinstance(x, dict) and x.get("type") in PRODS and x["type"] not in prods \
@@ -356,8 +365,9 @@ def clean(o, n_posts):
     short = lambda v, n: v.strip()[:n] if isinstance(v, str) and v.strip() else None  # noqa: E731
     pick = lambda v, allowed: v if v in allowed else None  # noqa: E731
     return {"category": cat, "secondary": sec,
-            "products": [{"type": t, "evidence_posts": k, "specialization": round(k / n_posts, 2) if n_posts else 0}
-                         for t, k in sorted(prods.items(), key=lambda kv: -kv[1])],
+            "products": [{"type": t, "evidence_posts": k, "item": item,
+                          "specialization": round(k / n_posts, 2) if n_posts else 0}
+                         for t, (k, item) in sorted(prods.items(), key=lambda kv: -kv[1][0])],
             "gender_est": pick(o.get("gender"), GENDERS),
             "is_shop": o.get("is_shop") if isinstance(o.get("is_shop"), bool) else None,
             "city": short(city, 40).title() if city else None,
@@ -547,7 +557,7 @@ def cmd_test():
         for k in tot:
             tot[k] += s[k]
         mark = lambda b: "ok" if b else "XX"  # noqa: E731
-        print(f"\n@{u}: cat {mark(s['cat'])} {r['category']} | prod {mark(s['prod'])} {[p['type'] for p in r['products']]}"
+        print(f"\n@{u}: cat {mark(s['cat'])} {r['category']} | prod {mark(s['prod'])} {[p['type'] + ': ' + p['item'] for p in r['products']]}"
               f" | shop {mark(s['shop'])}\n  niche: {r['niche']} | {r['creator_role']} ({r['credibility']}: "
               f"{r['credibility_note']})\n  price {r['price_segment']} | products for {r['products_for']} | "
               f"values {r['content_values']} | scope {r['scope']} | store visits {r['store_visits']}: {r['store_visit_note']}\n  audience {r['audience_gender']}, "

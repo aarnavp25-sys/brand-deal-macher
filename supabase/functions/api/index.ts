@@ -150,7 +150,7 @@ async function data() {
       const m = new Map<string, Row>();
       for (const p of l.products ?? []) {
         if (!PRODS[p.type]) continue;
-        m.set(p.type, { kind: "proven", evidence_posts: p.evidence_posts, specialization: p.specialization,
+        m.set(p.type, { kind: "proven", evidence_posts: p.evidence_posts, specialization: p.specialization, item: p.item ?? null,
                         paid_posts: kw.get(p.type)?.kind === "proven" ? kw.get(p.type)!.paid_posts : 0 });
       }
       // "natural" = fits a scene the creator already films (chai on mountain treks -> beverages), never promoted yet
@@ -456,7 +456,8 @@ function explain(c: Row, evidence: [string, Row | null] | null, parts: Row, req:
   if (evidence && evidence[1]) {
     const [p, cp] = evidence;
     if (cp.kind === "proven") {
-      s.push(`${Math.round(Number(cp.specialization) * 100)}% of recent posts feature ${p} (${cp.evidence_posts} posts)` +
+      s.push(`${Math.round(Number(cp.specialization) * 100)}% of recent posts feature ${p} (${cp.evidence_posts} posts` +
+        (cp.item ? `, e.g. ${cp.item}` : "") + ")" +
         (cp.paid_posts ? `, including ${cp.paid_posts} paid collab` : "") + ".");
     } else s.push(cp.kind === "natural" && cp.moment ? `Has not promoted ${p} yet, but already films: ${cp.moment}.`
       : `Has not posted about ${p} yet, but the content fits it.`);
@@ -580,7 +581,7 @@ async function match(q: Row) {
       id: c.id, column, score: s.score, breakdown: s.breakdown, c,
       explanation: explain(c, evidence, parts, req, storeCreator && c.store_visit_note
         ? [`Films inside shops (${c.store_visits}): ${c.store_visit_note}.`, ...style.notes] : style.notes),
-      evidence: evidence ? { about: evidence[0], posts: evidence[1]?.evidence_posts ?? 0, kind,
+      evidence: evidence ? { about: evidence[0], posts: evidence[1]?.evidence_posts ?? 0, kind, item: evidence[1]?.item ?? null,
                              moment: evidence[1]?.moment ?? null } : null,
     });
   }
@@ -682,7 +683,7 @@ function creatorLine(id: string, r: Row) {
     c.brand_fit && `fits: ${c.brand_fit}`,
     c.settings && `films: ${c.settings}`,
     c.content_quality_est != null && c.method === "llm" && `content quality ${c.content_quality_est}/10${c.quality_note ? ": " + c.quality_note : ""}`,
-    e && (e.kind === "proven" ? `posted about ${e.about} (${e.posts} posts)` : e.kind === "category" ? `creates ${e.about} content`
+    e && (e.kind === "proven" ? `posted about ${e.about} (${e.posts} posts${e.item ? ", e.g. " + e.item : ""})` : e.kind === "category" ? `creates ${e.about} content`
       : e.kind === "natural" ? `never promoted ${e.about}, but it fits a scene they film: ${e.moment}` : `could promote ${e.about}`),
     `${c.followers} followers, reel reach ${c.reel_reach ?? "?"}x, engagement ${c.engagement_rate ?? "?"}%`,
     c.method !== "llm" && "profile not read by AI yet",
