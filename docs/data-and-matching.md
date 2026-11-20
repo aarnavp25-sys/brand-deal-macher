@@ -75,7 +75,8 @@ Classification `keyword-v1`: category = keyword share across posts + bio + searc
 term; products = keyword hits per post. Category level is usable; product level
 is noisy ("chain" on biker posts, "ring" ceremony) — needs the LLM step
 (`classification_method = 'llm'`), which also fills `creator_gender_est` and
-`content_quality_est`.
+`content_quality_est`. (That column was never filled; since prompt v5 the LLM gives `creator_llm.content_quality`
+1-10 + `quality_note`, which the API uses as the quality signal.)
 
 ## Taxonomy
 
@@ -108,9 +109,13 @@ whose products, values), and results come in three columns, each creator reviewe
    trains on camera is "expert"), credibility + reason, price_segment, products_for (whose products they feature —
    a woman styling men's shirts = "men"), content_values (healthy vs indulgent, value-for-money vs luxury...),
    scope (niche / category / broad), brand_fit note, plus the v3 audience fields. v5 adds `settings` (the places and
-   situations they film) and `natural_fits` (see 5c).
-3. **Formula score 0–100** (deterministic). Sales: product 25, brand fit ("style") 20, audience 15, engagement 15,
-   reach 10, quality 7, growth 5, consistency 3, location 5. Reach goal and the trending column: reach 30.
+   situations they film), `natural_fits` (see 5c) and `content_quality` 1-10 + `quality_note` (original vs reposts,
+   effort, hook, format, audience response; capped at 3 if not brand-safe or mostly reposts).
+3. **Formula score 0–100** (deterministic). Weights (supabase/functions/api/index.ts `WEIGHTS`): sales = product 25,
+   audience 15, price 12, brand fit 12, engagement 12, quality 9, reach 7, growth 5, location 5, consistency 3;
+   reach goal and the wider column = reach 25, audience 15, product 15, quality 11, price 10, brand fit 10,
+   engagement 10. Content quality ≤3 never enters the wider column (user, 2026-11-20: "content quality bhii dhyaan
+   mai rkhna").
    - Product fit: proven product (posts show it) > category match > natural fit 0.42 (5c) > possible 0.3
      (`can_promote`, a guess from the audience).
    - Brand fit = mean of price fit (same 1, mixed 0.7, one step 0.55, budget vs premium 0.15), values
@@ -135,10 +140,11 @@ whose products, values), and results come in three columns, each creator reviewe
 5c. **Natural fits: think like the brand** (user, 2026-11-20: a travel creator who makes chai in the mountains can
    be good for an instant tea brand; the model must look from the brand's side at every possible shot, give a short
    reason for each creator, and show such creators in the wider column when their reach is good). The creator prompt
-   lists up to 6 `natural_fits` = product types that fit a scene the creator already films, each with the `moment`
-   from the posts ("brews chai on cold mountain treks" → beverages); only scenes really seen, never generic guesses.
-   The brand prompt lists up to 6 `moments` where customers use the product ("cold mornings in the hills", "road trip
-   chai breaks"). A natural fit with reel reach in the top 40% (and ≥3,000 followers) enters the wider ("trending")
+   lists up to 8 `natural_fits` = product types (any category) that fit a scene the creator already films, each with
+   the `moment` from the posts ("brews chai on cold mountain treks", "late-night study chai in the hostel room" →
+   beverages); only scenes really seen, never generic guesses. The mountain example was only one example: the user
+   wants every such angle (hostel/college, office, home, commute, travel...). The brand prompt lists up to 8
+   `moments` where every kind of buyer uses the product ("late-night study in hostel", "office tea break"). A natural fit with reel reach in the top 40% (and ≥3,000 followers) enters the wider ("trending")
    column even if the creator is a niche travel creator; the explanation says "Has not promoted X yet, but already
    films: …". The review prompt makes Haiku the brand owner: imagine where the product appears in what the creator
    already films; reason ≤20 words naming the decisive point (shot, trust, audience or price); idea = a reel inside
