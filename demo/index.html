@@ -38,7 +38,7 @@ select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid va
 .stats{display:flex;gap:14px;font-size:13px}.stats b{display:block;font-size:15px}
 .bd{display:grid;grid-template-columns:90px 1fr 46px;gap:4px 8px;font-size:12px;align-items:center}.track{height:6px;background:var(--chip);border-radius:3px}.fill{height:6px;background:var(--accent);border-radius:3px}
 .est{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:4px}.style{font-size:13px;color:var(--muted)}
-.why{font-size:14px;background:var(--bg);border-radius:10px;padding:10px}.empty{padding:40px;text-align:center;color:var(--muted)}
+.b-field{background:var(--bg);color:var(--muted);border:1px solid var(--line)}.why{font-size:14px;background:var(--bg);border-radius:10px;padding:10px}.empty{padding:40px;text-align:center;color:var(--muted)}
 footer{color:var(--muted);font-size:13px;padding:30px 0;border-top:1px solid var(--line)}
 </style>
 </head>
@@ -70,9 +70,13 @@ const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '';
 const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
 const EXAMPLES = ["Homegrown men's jewelry brand from Pune — silver rings and chains", "Natural skincare brand, face serums and sunscreen for young women", "Home baker in Pune selling custom cakes and brownies", "Perfume and fragrance brand for men", "Gaming accessories brand — controllers and triggers for BGMI players", "Pet food and treats brand for dogs"];
 let goal = 'sales', last = null;
-const COLS = [['niche', 'Your niche', 'Specialists — mainly make content about products like yours, or come from its field.'],
-              ['category', 'Your category', 'Make content in your category in general — a natural place for your product.'],
-              ['trending', 'Wider reach', 'Big reach, and your product fits their content — lifestyle and other creators.']];
+const COLS = [['niche', 'Your niche', 'Specialists — they post about this exact product or come from its field.',
+               'No specialist for this product in our data yet. We never fill this group with unrelated creators.'],
+              ['category', 'Your category', "Creators of your product's own field (for example men's fashion for a men's watch) — no comedians, photographers or other fields.",
+               'No creator of this field fits your brand yet.'],
+              ['trending', 'Wider reach', 'Bigger reach, and they can show your product believably in what they already film.',
+               'No wider-reach creator fits your product yet.']];
+const FIELD = { 'own field': 'Same field', related: 'Close field', 'other field': 'Different field · wide reach' };
 const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
 const NAMES = { price: 'Price match', store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
 const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };
@@ -107,7 +111,7 @@ async function run() {
 }
 function render() {
   const d = last, u = d.understood;
-  const chips = [...u.products.map(p => 'Sells: ' + p), ...u.categories.map(c => 'Category: ' + c),
+  const chips = [...u.products.map(p => 'Sells: ' + p), ...(u.category_column || u.categories).map(c => 'Category: ' + c),
     u.audience && 'Customers: ' + (u.audience === 'unisex' ? 'everyone' : u.audience) + (u.age ? ', ' + u.age : ''),
     u.price && 'Price: ' + u.price + (u.price_note ? ' (' + u.price_note + ')' : ''), u.channel && 'Sells: ' + (u.channel === 'local store' ? 'at own shop' : u.channel === 'both' ? 'shop + online' : 'online'), ...(u.values || []).map(v => 'Values: ' + v),
     ...(u.roles || []).map(r => 'Best creators: ' + (ROLE[r] || r)), u.city && 'City: ' + u.city, u.tier && 'Size: ' + u.tier,
@@ -119,9 +123,9 @@ function render() {
     ${u.needs ? `<p class="muted" style="margin:0 0 10px">What you need: ${esc(u.needs)}</p>` : ''}
     <div class="understood" style="margin:0">${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('') || '<span class="muted">nothing specific — try naming your product</span>'}</div>
     <p class="muted" style="margin:10px 0 0;font-size:13px">Not right? Change "Customers", "Price level", category or product above and search again.</p></div>
-  <p class="muted">${total} creators shown from ${d.matched} that fit (out of ${d.considered}).${d.reviewed_by_ai ? ' Each one was reviewed by AI for your brand.' : ' AI review is off, so creators are ordered by match score.'}</p>
-  <div class="cols">${COLS.map(([k, name, sub]) => `<section class="col"><h2>${name} · ${d.columns[k].length}</h2><p>${sub}</p>
-    <div class="stack">${d.columns[k].map(card).join('') || '<div class="empty">No creators in this group yet.</div>'}</div></section>`).join('')}</div>`;
+  <p class="muted">${total} creators shown from ${d.matched} that fit (out of ${d.considered}). Each one was checked by AI for your brand: fit, field, audience and price.</p>
+  <div class="cols">${COLS.map(([k, name, sub, none]) => `<section class="col"><h2>${name} · ${d.columns[k].length}</h2><p>${sub}</p>
+    <div class="stack">${d.columns[k].map(card).join('') || `<div class="empty">${esc(none)}</div>`}</div></section>`).join('')}</div>`;
 }
 function card(r) {
   const c = r.creator, pic = safeUrl(c.profile_pic_url);
@@ -130,7 +134,7 @@ function card(r) {
   return `<article class="card"><div class="top">${pic ? `<img src="${pic}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'">` : '<img alt="">'}
    <div><a href="https://instagram.com/${esc(c.username)}" target="_blank" rel="noopener">@${esc(c.username)}</a><div class="muted">${esc(c.full_name || '')}</div><div class="muted">${esc(c.niche_primary)}${c.city ? ' · ' + esc(c.city) : ''}</div></div>
    <div class="score"><b>${r.score}</b><small>match</small></div></div>
-   <div>${r.verdict ? `<span class="badge v-${r.verdict}">${VERDICT[r.verdict]}</span>` : ''}${c.collab_open ? ' <span class="badge b-potential">Open to collabs</span>' : ''}</div>
+   <div>${r.verdict ? `<span class="badge v-${r.verdict}">${VERDICT[r.verdict]}</span>` : ''}${r.field && FIELD[r.field] ? ` <span class="badge b-field">${FIELD[r.field]}</span>` : ''}${c.collab_open ? ' <span class="badge b-potential">Open to collabs</span>' : ''}</div>
    ${r.reason ? `<div class="why"><b>For your brand:</b> ${esc(r.reason)}</div>` : ''}
    ${r.idea ? `<div class="idea"><b>Idea:</b> ${esc(r.idea)}</div>` : ''}
    ${prof.length ? `<div class="style">${prof.map(esc).join(' · ')}<span class="est">estimated by AI</span></div>` : ''}
