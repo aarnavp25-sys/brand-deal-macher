@@ -103,14 +103,16 @@ whose products, values), and results come in three columns, each creator reviewe
    (supplements → expert/reviewer; snacks → lifestyle/entertainer) and what the brand needs. Shown to the brand as
    "How we understood your brand"; the brand can override customers, price, category, product. Keyword parser
    when the LLM is unavailable.
-2. **Creator profile** (`creator_llm`, prompt v4): niche (specific), creator_role (expert / reviewer / educator /
+2. **Creator profile** (`creator_llm`, prompt v5): niche (specific), creator_role (expert / reviewer / educator /
    enthusiast / entertainer / lifestyle / aspirational — a cricket fan page is "enthusiast", a state player who
    trains on camera is "expert"), credibility + reason, price_segment, products_for (whose products they feature —
    a woman styling men's shirts = "men"), content_values (healthy vs indulgent, value-for-money vs luxury...),
-   scope (niche / category / broad), brand_fit note, plus the v3 audience fields.
+   scope (niche / category / broad), brand_fit note, plus the v3 audience fields. v5 adds `settings` (the places and
+   situations they film) and `natural_fits` (see 5c).
 3. **Formula score 0–100** (deterministic). Sales: product 25, brand fit ("style") 20, audience 15, engagement 15,
    reach 10, quality 7, growth 5, consistency 3, location 5. Reach goal and the trending column: reach 30.
-   - Product fit: proven product (posts show it) > category match > possible (`can_promote`).
+   - Product fit: proven product (posts show it) > category match > natural fit 0.42 (5c) > possible 0.3
+     (`can_promote`, a guess from the audience).
    - Brand fit = mean of price fit (same 1, mixed 0.7, one step 0.55, budget vs premium 0.15), values
      (overlap; clashing values 0.1), role (brand's first ideal role 1, other ideal 0.85, else 0.45), credibility
      when the brand needs trust (professional 1 / experienced 0.8 / casual 0.45), audience age.
@@ -130,6 +132,17 @@ whose products, values), and results come in three columns, each creator reviewe
    ₹ amounts in `price_note`; keyword fallback reads ₹/Rs/k amounts (<₹1,500 budget, ≤₹5,000 mid, else premium).
    The creator prompt uses the same price scale. Brand categories must be ones whose creators naturally talk about
    the product; the review marks unrelated high-reach creators "weak", and weak fits are never shown in trending.
+5c. **Natural fits: think like the brand** (user, 2026-11-20: a travel creator who makes chai in the mountains can
+   be good for an instant tea brand; the model must look from the brand's side at every possible shot, give a short
+   reason for each creator, and show such creators in the wider column when their reach is good). The creator prompt
+   lists up to 6 `natural_fits` = product types that fit a scene the creator already films, each with the `moment`
+   from the posts ("brews chai on cold mountain treks" → beverages); only scenes really seen, never generic guesses.
+   The brand prompt lists up to 6 `moments` where customers use the product ("cold mornings in the hills", "road trip
+   chai breaks"). A natural fit with reel reach in the top 40% (and ≥3,000 followers) enters the wider ("trending")
+   column even if the creator is a niche travel creator; the explanation says "Has not promoted X yet, but already
+   films: …". The review prompt makes Haiku the brand owner: imagine where the product appears in what the creator
+   already films; reason ≤20 words naming the decisive point (shot, trust, audience or price); idea = a reel inside
+   their own usual scenes; no believable shot = "weak", which is never shown in the wider column.
 5b. **Local shops** (user, 2026-11-20: a local store should see creators who make reels inside shops). The brand
    profile has `sales_channel` (online / local store / both; brand can override with "Where you sell"). The creator
    profile has `store_visits` (often / sometimes / never: shop tours, market hauls, "where to buy", cafe/salon or
