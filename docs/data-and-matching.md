@@ -172,8 +172,11 @@ whose products, values), and results come in three columns, each creator reviewe
    after a men's jewellery search showed cricket players, watch reviewers and personal accounts: "kaha se ye
    personalized hai"; prose rules alone did not work, Haiku called nearly everyone "good"): `field` (own field /
    related / other field: is their usual content where buyers look for this product?) and `account` (creator /
-   personal / own shop). Personal accounts and own-shop pages are weak everywhere; "other field" is weak in the
-   category column (niche creators got there on product evidence; the wider column allows props). Niche and
+   personal / own shop). Personal accounts and own-shop pages are weak everywhere; the category column keeps only
+   "own field" (since 2026-11-20 evening: rappers rated "related" landed in "your category" for men's jewellery, and
+   Haiku flips borderline creators between "related" and "other field" across runs). "Entertainment & Comedy" is a
+   reach category: it qualifies a creator for the category column only when the product itself belongs there
+   (the brand AI sometimes adds it, e.g. to a men's jewellery brand) (niche creators got there on product evidence; the wider column allows props). Niche and
    category are ordered by verdict, then field, then product fit (0.1 steps), then score, so one viral reel cannot
    lift a weaker fit above a closer one. Formula side: a specialist in another product of the brand's product
    category (watch reviewer for a chain brand) never enters the category column; an account with no sign of brand

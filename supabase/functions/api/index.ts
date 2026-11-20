@@ -510,6 +510,7 @@ function scoreWith(W: Record<string, number>, parts: Row) {
 }
 
 const BROAD_ROLES = ["lifestyle", "entertainer", "aspirational"];
+const BROAD_CATS = ["Entertainment & Comedy"];
 
 async function match(q: Row) {
   const [d, req] = await Promise.all([data(), parseRequest(q)]);
@@ -596,7 +597,12 @@ async function match(q: Row) {
       (c.creator_role === "expert" || c.credibility === "professional");
     const specialist = (kind === "proven" && Number(ev!.specialization) >= 0.2) ||
       ((kind === "proven" || kind === "natural") && fromField);
-    const wantedCats = new Set([...req.categories, ...(prodCat ? [prodCat] : [])]);
+    // "Entertainment & Comedy" is where comedians, rappers and fan pages live: a reach category, not the brand's own
+    // field. It counts for the category column only when the product itself belongs there (events, OTT...). User,
+    // 2026-11-20: the brand AI added it to a men's jewellery brand and 3 rappers landed in "your category".
+    const productCats = new Set(req.products.map((p) => PRODS[p]?.[0]));
+    const wantedCats = new Set([...req.categories.filter((cat) => !BROAD_CATS.includes(cat) || productCats.has(cat)),
+                                ...(prodCat ? [prodCat] : [])]);
     // category column = creators whose MAIN content is the brand's category (user's definition), or who showed the
     // product. A secondary-category match alone is not enough (user, 2026-11-20: a box-cricket creator with
     // "Fashion & Clothing" as secondary ranked first for a men's jewellery brand on one viral reel's reach).
@@ -798,12 +804,14 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
     if (saved.length) await cachePut(key, saved);
   }
   // the user's rules applied in code to the AI's plain answers (Haiku called nearly everyone "good" when the rules
-  // were only prose, 2026-11-20): a personal account or an own-shop page is never shown; in the category column a
-  // creator from another field is out (niche creators got there on product evidence; wider reach allows props)
+  // were only prose, 2026-11-20): a personal account or an own-shop page is never shown; the category column keeps
+  // only "own field" creators (niche creators got there on product evidence; wider reach allows props)
   const out = new Map<string, Row>(saved.map((v) => {
     const field = ["own field", "related", "other field"].includes(v.field) ? v.field : "related";
     const account = ["creator", "personal", "own shop"].includes(v.account) ? v.account : "creator";
-    const verdict = account !== "creator" || (field === "other field" && v.column === "category") ? "weak" : v.verdict;
+    // category column = the brand's own field only (user, 2026-11-20: rappers marked "related" for men's jewellery
+    // landed in "your category"; Haiku also flips a skater between "related" and "other field" across runs)
+    const verdict = account !== "creator" || (field !== "own field" && v.column === "category") ? "weak" : v.verdict;
     return [v.id, { verdict, field, reason: v.reason, idea: verdict === "weak" ? null : v.idea }];
   }));
   return out.size ? out : null;
