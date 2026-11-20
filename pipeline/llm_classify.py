@@ -30,7 +30,7 @@ from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
 OPENROUTER = "https://openrouter.ai/api/v1"
 PROVIDERS = ["anthropic", "azure", "google-vertex"]  # Haiku 5.5 endpoints with structured_outputs (checked 2026-11-20)
-PROMPT_VERSION = "v5-profile-2026-11-20"
+PROMPT_VERSION = "v6-profile-2026-11-20"
 PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
 WORKERS = 6
@@ -61,8 +61,14 @@ with evidence; pick the most specific type, e.g. a masala brand reel is "spices 
 {json.dumps(PROD_HINTS, ensure_ascii=False)}
 
 Rules:
-- A product counts only if a post clearly features or promotes that product type. A word alone is not enough
-  (a bike "chain", an engagement "ring", "tea" as a drink in a travel post is not a beverage review).
+- products = product types the creator FEATURES AS THINGS TO BUY: the product is shown, named, brand-tagged,
+  reviewed, unboxed, sold or promoted in the post. Doing an activity or talking about a topic is NOT featuring a
+  product: squats in a gym is not "fitness equipment", a transformation reel is not "gym wear", playing dodgeball is
+  not "toys & games", cooking a home recipe is not "ready-to-cook meals", a personal pilgrimage or trip is not
+  "tours & trips" (that is a tour package or agency), biking hashtags are not "bike & car accessories", a founder
+  talking strategy is not "apps & software", food counters at an arcade are not "beverages". A word alone is not
+  enough either (a bike "chain", an engagement "ring"). Things that fit their scenes but are not featured go to
+  natural_fits, never to products.
 - evidence = list of post numbers (P1, P2, ...) that show the product. No evidence -> do not list the product.
 - gender = the creator's apparent gender from bio, name and captions: "male", "female", "mixed/brand" (couple, group, page) or "unknown".
 - is_shop = true if the account mainly sells its own products (a store or brand page), not a creator.
@@ -85,6 +91,8 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
   "enthusiast" (fan or hobbyist sharing a passion, no professional standing), "entertainer" (comedy, skits, trends),
   "lifestyle" (day-in-life, vlogs, many topics), "aspirational" (looks, aesthetics, modelling, luxury vibe).
   Example: a sports page that reacts to matches as a fan -> "enthusiast"; a state-level player who trains on camera -> "expert".
+  Someone with professional standing in what they post about (a film director, chef, founder, coach, doctor) is
+  "expert" or "educator", not "enthusiast".
 - credibility = "professional" (stated credentials or clearly works in the field), "experienced" (years of serious
   practice visible in posts), "casual". credibility_note <= 15 words: the reason, from the posts or bio.
 - price_segment = price level of the things they show or recommend, judged against what that product usually costs
@@ -99,8 +107,9 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
 - scope = "niche" (one narrow topic), "category" (many topics inside one category), "broad" (lifestyle or variety
   creator across several categories; good for taking a product to a wide audience).
 - store_visits = how often they make content AT physical places that sell things: shop/store/showroom tours, market
-  or mall hauls, "where to buy" reels, cafe/restaurant/salon visits, factory or wholesale visits ("often" = a
-  regular format, "sometimes" = a few posts, "never"). Location tags of specific shops or cafes are strong evidence.
+  or mall hauls, "where to buy" reels, cafe/restaurant/salon visits, factory or wholesale visits; stadiums, event
+  venues, offices, temples, gyms they train at and their own studio do NOT count ("often" = a regular format,
+  "sometimes" = a few posts, "never"). Location tags of specific shops or cafes are strong evidence.
   store_visit_note <= 15 words: what kind of places and where (e.g. "street food stalls and cafes in Jaipur",
   "saree shops in Surat markets"); empty if never. Local shops pay for exactly these creators.
 - brand_fit <= 25 words: which kinds of brands fit this creator and how they would show the product
@@ -426,7 +435,7 @@ def load_work(only_usernames=None, redo=False, everyone=False):
 
 def estimate(todo, posts):
     """(input tokens, output tokens, cost if the cache works, cost if it does not)."""
-    sys_tok = len(SYSTEM) / 3.6 + 500  # + the JSON schema
+    sys_tok = len(SYSTEM) / 3.6 + 3300  # + the JSON schema (its enum lists; measured ~7,200 cached tokens 2026-11-20)
     user_tok = sum(len(prompt(c, posts[c["id"]])) / 3.6 for c in todo)
     tout = 300 * len(todo)
     out_cost = tout / 1e6 * PRICE_OUT
@@ -504,8 +513,10 @@ def run(todo, posts, max_usd, label):
                 print(f"  {label}: {spent['n']} done, ${spent['usd']:.4f} spent", flush=True)
 
     try:
+        if todo:  # one call first writes the prompt cache; the parallel calls after it read it (cheaper)
+            one(todo[0])
         with ThreadPoolExecutor(WORKERS) as ex:
-            list(ex.map(one, todo))
+            list(ex.map(one, todo[1:]))
     finally:  # even when the run stops on an error (no credit, bad key), every paid reply is saved
         if buf:
             save(buf)
