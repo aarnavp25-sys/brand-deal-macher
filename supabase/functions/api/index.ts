@@ -128,7 +128,7 @@ async function data() {
     restAll("creator_llm?select=creator_id,category,secondary,products,gender_est,is_shop,city,content_style,language," +
       "audience_gender,audience_age,audience_desc,can_promote,niche,creator_role,credibility,credibility_note," +
       "price_segment,products_for,content_values,scope,brand_fit,store_visits,store_visit_note,settings,natural_fits," +
-      "content_quality,quality_note" +
+      "content_quality,quality_note,creator_type,takes_promotions,collab_note" +
       "&order=creator_id"),
     restAll("creator_products?select=creator_id,product_type,kind,evidence_posts,specialization,paid_posts&order=creator_id,product_type"),
     restAll("creator_snapshots?select=creator_id,taken_at,followers&order=taken_at,creator_id"),
@@ -143,6 +143,10 @@ async function data() {
   for (const c of cr) {
     const l = L.get(c.id), kw = KP.get(c.id) ?? new Map();
     if (l?.is_shop) continue; // the LLM read the posts: a store/brand page is not a creator
+    // user, 2026-11-20: a film director or a CEO on Instagram does not make paid reels for a small brand
+    // ("woh kyu hii promotion karega"): hide professionals/celebrities with no sign of taking promotions
+    if (l && (l.creator_type === "professional" || l.creator_type === "celebrity") && l.takes_promotions !== "yes" &&
+        !c.collab_open) continue;
     if (l?.category) {
       // LLM labels. The LLM gives no category share; its primary category is the majority of the content,
       // so use at least 0.5 (keyword share kept when both methods agree).
@@ -175,6 +179,7 @@ async function data() {
                       content_values: l.content_values ?? [], scope: l.scope, brand_fit: l.brand_fit,
                       store_visits: l.store_visits, store_visit_note: l.store_visit_note, settings: l.settings,
                       content_quality_est: l.content_quality ?? c.content_quality_est, quality_note: l.quality_note,
+                      creator_type: l.creator_type, takes_promotions: l.takes_promotions, collab_note: l.collab_note,
                       method: "llm" });
       products.set(c.id, m);
     } else {
@@ -684,6 +689,7 @@ function creatorLine(id: string, r: Row) {
     c.city && `city: ${c.city}`,
     c.brand_fit && `fits: ${c.brand_fit}`,
     c.settings && `films: ${c.settings}`,
+    c.creator_type && c.creator_type !== "creator" && `${c.creator_type} (takes promotions: ${c.takes_promotions}${c.collab_note ? ", " + c.collab_note : ""})`,
     c.content_quality_est != null && c.method === "llm" && `content quality ${c.content_quality_est}/10${c.quality_note ? ": " + c.quality_note : ""}`,
     e && (e.kind === "proven" ? `posted about ${e.about} (${e.posts} posts${e.item ? ", e.g. " + e.item : ""})` : e.kind === "category" ? `creates ${e.about} content`
       : e.kind === "natural" ? `never promoted ${e.about}, but it fits a scene they film: ${e.moment}` : `could promote ${e.about}`),

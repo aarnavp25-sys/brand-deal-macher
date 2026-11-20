@@ -30,7 +30,7 @@ from taxonomy import CATEGORIES, PRODUCT_TYPES  # noqa: E402
 MODEL = "anthropic/claude-haiku-5.5"   # OpenRouter id; checked in its public model list 2026-11-20
 OPENROUTER = "https://openrouter.ai/api/v1"
 PROVIDERS = ["anthropic", "azure", "google-vertex"]  # Haiku 5.5 endpoints with structured_outputs (checked 2026-11-20)
-PROMPT_VERSION = "v7-profile-2026-11-20"
+PROMPT_VERSION = "v8-profile-2026-11-20"
 PRICE_IN, PRICE_OUT, PRICE_CACHED = 0.10, 0.50, 0.01  # USD per million tokens (OpenRouter list price 2026-11-20)
 MAX_POSTS = 14
 WORKERS = 6
@@ -50,6 +50,8 @@ VALUES = ["healthy", "indulgent", "value-for-money", "luxury", "sustainable", "t
           "kids", "handmade", "performance", "glam", "minimal", "adventure", "spiritual", "tech-savvy"]
 SCOPES = ["niche", "category", "broad"]
 STORE_VISITS = ["often", "sometimes", "never"]
+CREATOR_TYPES = ["creator", "professional", "celebrity"]
+PROMOS = ["yes", "maybe", "unlikely"]
 
 SYSTEM = f"""You classify Indian Instagram creators for a brand-matching product. Use ONLY the allowed values.
 
@@ -129,6 +131,14 @@ Read the creator closely, like a brand manager deciding whether to pay them. Jud
   a bike tourer -> "skincare" ("long highway rides in harsh sun"); a working-mom vlogger -> "spices & masala"
   ("quick weekday dinners for the family"). Only scenes really seen in the posts, never generic guesses; do not
   repeat types already in products; [] if none.
+- creator_type = what this Instagram account is for the person: "creator" (making content is their main work or a
+  serious side hustle), "professional" (their main career is elsewhere and Instagram is a side presence: a film or
+  web-series director, company founder/CEO, doctor at a hospital, lawyer, officer, full-time athlete), or
+  "celebrity" (a well-known actor, singer, sportsperson or public figure). Use what you know about the person too
+  (e.g. the director of a TVF series -> "professional").
+- takes_promotions = "yes" (paid partnerships, brand tags, "DM for collabs", UGC work, giveaways), "maybe" (no clear
+  sign either way), "unlikely" (a professional or celebrity with no sign of paid brand posts). collab_note <= 12
+  words: the evidence.
 - content_quality = 1-10, how good their content is for a paid collaboration, judged from the posts: original content
   they make themselves (not reposted memes or clips), effort (tutorials, real reviews, storytelling, series, a clear
   hook), a consistent format, captions that talk to the audience, and how followers respond (TOP vs LOW posts).
@@ -143,6 +153,7 @@ SCHEMA = {
                  "audience_gender", "audience_age", "audience", "can_promote", "niche", "creator_role", "credibility",
                  "credibility_note", "price_segment", "products_for", "content_values", "scope", "store_visits",
                  "store_visit_note", "brand_fit", "settings", "natural_fits", "content_quality", "quality_note",
+                 "creator_type", "takes_promotions", "collab_note",
                  "confidence"],
     "properties": {
         "category": {"type": "string", "enum": CATS},
@@ -175,6 +186,9 @@ SCHEMA = {
         "settings": {"type": "string"},
         "content_quality": {"type": "integer", "enum": list(range(1, 11))},
         "quality_note": {"type": "string"},
+        "creator_type": {"type": "string", "enum": CREATOR_TYPES},
+        "takes_promotions": {"type": "string", "enum": PROMOS},
+        "collab_note": {"type": "string"},
         "natural_fits": {"type": "array", "items": {
             "type": "object", "additionalProperties": False, "required": ["type", "moment"],
             "properties": {"type": {"type": "string", "enum": list(PRODS)}, "moment": {"type": "string"}}}},
@@ -325,7 +339,7 @@ def clean(o, n_posts):
                 "credibility": None, "credibility_note": None, "price_segment": None, "products_for": None,
                 "content_values": [], "scope": None, "store_visits": None, "store_visit_note": None,
                 "brand_fit": None, "settings": None, "natural_fits": [], "content_quality": None,
-                "quality_note": None}, ["no JSON"]
+                "quality_note": None, "creator_type": None, "takes_promotions": None, "collab_note": None}, ["no JSON"]
     cat = o.get("category") if o.get("category") in CATS else None
     if not cat:
         bad.append(f"category {o.get('category')!r}")
@@ -389,6 +403,8 @@ def clean(o, n_posts):
             "settings": short(o.get("settings"), 100), "natural_fits": nat[:8],
             "content_quality": o.get("content_quality") if o.get("content_quality") in range(1, 11) else None,
             "quality_note": short(o.get("quality_note"), 100),
+            "creator_type": pick(o.get("creator_type"), CREATOR_TYPES),
+            "takes_promotions": pick(o.get("takes_promotions"), PROMOS), "collab_note": short(o.get("collab_note"), 100),
             "store_visits": pick(o.get("store_visits"), STORE_VISITS),
             "store_visit_note": short(o.get("store_visit_note"), 120) if o.get("store_visits") != "never" else None,
             "confidence": conf}, bad
@@ -567,6 +583,7 @@ def cmd_test():
               f"values {r['content_values']} | scope {r['scope']} | store visits {r['store_visits']}: {r['store_visit_note']}\n  audience {r['audience_gender']}, "
               f"{r['audience_age']}: {r['audience_desc']}\n  brand fit: {r['brand_fit']}\n  settings: {r['settings']}"
               f"\n  quality {r['content_quality']}/10: {r['quality_note']}"
+              f"\n  type {r['creator_type']}, promotions {r['takes_promotions']}: {r['collab_note']}"
               f"\n  natural fits: {'; '.join(n['type'] + ' <- ' + n['moment'] for n in r['natural_fits']) or '-'}")
     n = len(rows) or 1
     print(f"\nscore: category {tot['cat']}/{n}, product {tot['prod']}/{n}, shop {tot['shop']}/{n} "
