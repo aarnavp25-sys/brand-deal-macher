@@ -476,7 +476,8 @@ function explain(c: Row, evidence: [string, Row | null] | null, parts: Row, req:
     } else s.push(cp.kind === "natural" && cp.moment ? `Has not promoted ${p} yet, but already films: ${cp.moment}.`
       : `Has not posted about ${p} yet, but the content fits it.`);
   } else if (evidence) {
-    s.push(c.method === "llm" ? `Creates ${evidence[0]} content.`
+    s.push(c.niche_primary !== evidence[0] ? `Mainly ${c.niche_primary}; sometimes ${evidence[0]} content.`
+      : c.method === "llm" ? `Creates ${evidence[0]} content.`
       : `Creates ${evidence[0]} content (${Math.round(Number(c.niche_share ?? 0) * 100)}% of recent posts).`);
   }
   s.push(...styleNotes);
@@ -583,7 +584,11 @@ async function match(q: Row) {
     const specialist = (kind === "proven" && Number(ev!.specialization) >= 0.2) ||
       ((kind === "proven" || kind === "natural") && fromField);
     const wantedCats = new Set([...req.categories, ...(prodCat ? [prodCat] : [])]);
-    const inCategory = kind === "category" || wantedCats.has(c.niche_primary) || wantedCats.has(c.niche_secondary);
+    // category column = creators whose MAIN content is the brand's category (user's definition), or who showed the
+    // product. A secondary-category match alone is not enough (user, 2026-11-20: a box-cricket creator with
+    // "Fashion & Clothing" as secondary ranked first for a men's jewellery brand on one viral reel's reach).
+    const inCategory = wantedCats.has(c.niche_primary) ||
+      (kind === "proven" && wantedCats.has(c.niche_secondary));
     const broad = c.scope === "broad" || BROAD_ROLES.includes(c.creator_role) || (c.method !== "llm" && (reachPct ?? 0) >= 0.85);
     const storeCreator = local && (store ?? 0) >= 0.7 && (sameCity || !req.city);
     // one viral reel on a tiny account is not reliable wide reach: trending needs at least 3,000 followers

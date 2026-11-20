@@ -137,7 +137,10 @@ whose products, values), and results come in three columns, each creator reviewe
      role expert or credibility professional in the product's category, and they show or naturally fit it); for a
      local-store brand also creators who film inside shops in its city. A creator who posted the product once or
      twice is not a specialist.
-   - *category* = make content in this category in general (occasional product posters inside the category land here).
+   - *category* = make content in this category in general: their MAIN category is one the brand needs, or they
+     showed the product (occasional product posters inside the category land here). A secondary-category match alone
+     is not enough (2026-11-20: a box-cricket creator with secondary "Fashion" topped a men's jewellery search on
+     one viral reel's reach).
    - *trending* ("Wider reach" in the UI) = big reach and the product can believably appear in their content:
      scope broad or a lifestyle/entertainer/aspirational role with reel reach in the top 40%; natural fits and
      occasional posters outside the category also need the top 40%; possible-only creators the top 25%; always
