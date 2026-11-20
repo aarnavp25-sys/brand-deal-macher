@@ -164,6 +164,10 @@ checks R1–R9; run it after every matching change (first full pass: 0 violation
 - R7 Niche: product evidence or (local store) shop-visit creator. R8 One column per creator.
 - R9 A men's product never shows a creator whose audience is women and who features women's products (and back);
   a woman styling men's products stays.
+- R0 No AI check, no results: if the brand profile or the review fails (2026-11-20: OpenRouter's workspace daily
+  budget of $4.00 stopped every call and search silently fell back to keywords, showing a woman's page, a comedian
+  and a doctor for men's perfume), `/match` returns 503 "The AI check is not available right now" instead of
+  unchecked creators. Cached searches keep working. OpenRouter has a workspace daily budget separate from the key limit.
 Known gaps (data, not rules): no men's jewellery or perfume specialists; premium men's perfume falls back to premium
 photographers/filmmakers; Haiku varies run to run on borderline creators (cache keeps a repeated search stable).
 

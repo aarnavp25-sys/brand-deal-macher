@@ -923,7 +923,14 @@ Deno.serve(async (req) => {
       try { body = JSON.parse(raw); } catch { return json(400, { message: "Invalid JSON." }, origin); }
       const { q, error } = validate(body ?? {});
       if (error) return json(400, { message: error }, origin);
-      return json(200, await match(q!), origin);
+      const out = await match(q!);
+      // never show creators the AI did not check (user, 2026-11-20: an OpenRouter daily budget stop made search fall
+      // back to keywords silently and a men's perfume search showed a woman's page, a comedian and a doctor)
+      if (!out.reviewed_by_ai) {
+        return json(503, { message: "The AI check is not available right now, so we are not showing unchecked " +
+          "creators. Please try again in a little while." }, origin);
+      }
+      return json(200, out, origin);
     }
     return json(404, { message: "Not found." }, origin);
   } catch (e) {
