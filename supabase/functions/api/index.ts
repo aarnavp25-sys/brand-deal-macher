@@ -28,7 +28,8 @@ const TIERS = ["nano", "micro", "mid"];
 // "style" = brand fit: price level, values, creator role and credibility, audience age (see styleFit)
 const WEIGHTS: Record<string, Record<string, number>> = {
   // quality = LLM content quality (user, 2026-11-20: "content quality bhii dhyaan mai rkhna"), weighted most in the wider column
-  sales: { product: 25, price: 12, style: 12, audience: 15, engagement: 12, reach: 7, quality: 9, growth: 5, consistency: 3, location: 5 },
+  // user, 2026-11-20: engagement, reach and content quality count in all three columns
+  sales: { product: 22, price: 12, style: 12, audience: 15, engagement: 12, reach: 10, quality: 9, growth: 5, consistency: 3, location: 5 },
   reach: { product: 15, price: 10, style: 10, audience: 15, engagement: 10, reach: 25, quality: 11, growth: 5, consistency: 3, location: 5 },
   // a brand with its own shop: creators who film inside shops in the brand's city matter most (user, 2026-11-20)
   local: { product: 20, store: 20, location: 20, price: 8, style: 6, audience: 10, engagement: 9, reach: 4, quality: 5, growth: 1, consistency: 1 },
@@ -578,7 +579,12 @@ async function match(q: Row) {
   const columns: Record<string, Row[]> = {};
   for (const col of COLUMNS) {
     let rows = cols[col].map((r) => ({ ...r, ...(reviewed?.get(r.id) ?? {}) }));
-    rows.sort((a, b) => (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || b.score - a.score);
+    // niche/category: the better fit first, then the score. Trending (wider reach): the review only decides whether
+    // they can believably promote it (weak = out); among those the reach-weighted score decides (user, 2026-11-20:
+    // a hostel student fits instant tea perfectly, but a travel vlogger who can sell it as "time saving, easy to make"
+    // with far bigger reach must rank higher in the wider column).
+    rows.sort((a, b) => col === "trending" ? b.score - a.score
+      : (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || b.score - a.score);
     const ok = rows.filter((r) => r.verdict !== "weak");
     // trending never shows weak fits (big reach without a real link to the product is useless to a small brand);
     // other columns show weak fits only when they would otherwise be nearly empty
@@ -620,8 +626,15 @@ Look at each creator the way you would before paying them, and imagine every pos
   and your customers' moments. A creator need not have posted your product before. Example: a travel creator who
   brews chai on mountain treks suits an instant tea brand ("cold morning chai at camp"); a hostel-life creator suits
   ready-to-cook noodles; a bike tourer suits sunscreen. If no believable shot exists, it is "weak".
-- Content quality matters, most of all in the trending (wider reach) group: original, effortful content with a
-  clear hook sells; low-effort reposts, or content a family brand would not want next to its name, is "weak".
+- Can they really promote it? Ask whether this creator could sell the product believably, in their own voice and
+  with an honest angle (taste, convenience, price, gifting, a daily habit). A travel vlogger can sell instant tea as
+  "time saving and easy to make on the road"; that is a real promotion, not "weak".
+- In the trending (wider reach) group, the verdict is only about that: can they believably promote it to their wide
+  audience? Do not mark a big creator "weak" just because a smaller creator fits more perfectly; we rank that group
+  by reach, engagement and quality ourselves. Mention the reach in the reason when it is their strength.
+- In every group, weigh engagement, reel reach and content quality: a fit with dead engagement does not sell;
+  original, effortful content with a clear hook does. Low-effort reposts, or content a family brand would not want
+  next to its name, is "weak".
 - Would their audience trust them about this product? An expert or honest reviewer beats a fan page for skincare or
   supplements; lifestyle creators and entertainers work for snacks, tea or fashion.
 - Price level must match: a ₹10,000 perfume needs creators whose audience buys premium; a budget-deals creator is weak
@@ -683,7 +696,7 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
                     reason: { type: "string" }, idea: { type: "string" } } } } },
   };
   const user = `${brand}\n\nCreators:\n${all.map((r, i) => creatorLine(ids[i], r)).join("\n")}`;
-  const key = "review:" + await sha256("v4|" + user);  // same brand profile + same shortlist -> same answer
+  const key = "review:" + await sha256("v5|" + user);  // same brand profile + same shortlist -> same answer
   let saved: Row[] | null = await cacheGet(key);
   if (!saved) {
     // ~85 tokens per review at most; a cut-off reply is paid for but unusable, so leave room

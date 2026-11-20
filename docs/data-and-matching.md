@@ -111,8 +111,8 @@ whose products, values), and results come in three columns, each creator reviewe
    scope (niche / category / broad), brand_fit note, plus the v3 audience fields. v5 adds `settings` (the places and
    situations they film), `natural_fits` (see 5c) and `content_quality` 1-10 + `quality_note` (original vs reposts,
    effort, hook, format, audience response; capped at 3 if not brand-safe or mostly reposts).
-3. **Formula score 0–100** (deterministic). Weights (supabase/functions/api/index.ts `WEIGHTS`): sales = product 25,
-   audience 15, price 12, brand fit 12, engagement 12, quality 9, reach 7, growth 5, location 5, consistency 3;
+3. **Formula score 0–100** (deterministic). Weights (supabase/functions/api/index.ts `WEIGHTS`): sales = product 22,
+   audience 15, price 12, brand fit 12, engagement 12, reach 10, quality 9, growth 5, location 5, consistency 3;
    reach goal and the wider column = reach 25, audience 15, product 15, quality 11, price 10, brand fit 10,
    engagement 10. Content quality ≤3 never enters the wider column (user, 2026-11-20: "content quality bhii dhyaan
    mai rkhna").
@@ -127,7 +127,11 @@ whose products, values), and results come in three columns, each creator reviewe
    lifestyle/entertainer/aspirational role, reel reach in the top 40%; possible-only creators need the top 25%),
    *category* (talks about the category). Score ≥50 to enter; top 12 per column go to review.
 5. **AI review** (one Haiku call, ~36 creators): the brand profile + each creator's profile line → verdict
-   strong/good/weak, a reason specific to the brand, and a reel idea. Order in a column = verdict, then score;
+   strong/good/weak, a reason specific to the brand, and a reel idea. Order in niche and category = verdict, then
+   score. Order in trending (wider reach) = score only (reach-weighted), the verdict there only removes creators who
+   cannot believably promote the product (user, 2026-11-20: a hostel student fits instant tea perfectly but has small
+   reach; a travel vlogger who can sell it as "time saving, easy to make" with big reach must rank higher there;
+   engagement, reach and content quality count in all three columns);
    weak fits are hidden when a column has ≥4 others; 8 shown per column. The LLM changes the order and the advice,
    never the score, and cannot add creators. Without an AI brand profile or on failure the order is the score.
 5a. **Price level and relevance** (user, 2026-11-20: "1000 ke perfumes" and "10000 ke" must not get the same
