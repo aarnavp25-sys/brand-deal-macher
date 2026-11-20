@@ -128,7 +128,7 @@ async function data() {
     restAll("creator_llm?select=creator_id,category,secondary,products,gender_est,is_shop,city,content_style,language," +
       "audience_gender,audience_age,audience_desc,can_promote,niche,creator_role,credibility,credibility_note," +
       "price_segment,products_for,content_values,scope,brand_fit,store_visits,store_visit_note,settings,natural_fits," +
-      "content_quality,quality_note,creator_type,takes_promotions,collab_note" +
+      "content_quality,quality_note,creator_type,takes_promotions,collab_note,in_india" +
       "&order=creator_id"),
     restAll("creator_products?select=creator_id,product_type,kind,evidence_posts,specialization,paid_posts&order=creator_id,product_type"),
     restAll("creator_snapshots?select=creator_id,taken_at,followers&order=taken_at,creator_id"),
@@ -147,6 +147,9 @@ async function data() {
     // ("woh kyu hii promotion karega"): hide professionals/celebrities with no sign of taking promotions
     if (l && (l.creator_type === "professional" || l.creator_type === "celebrity") && l.takes_promotions !== "yes" &&
         !c.collab_open) continue;
+    // pilot 2026-11-20: colleges, NGOs, teams and event organisers are not creators; foreign accounts do not help an
+    // Indian brand
+    if (l && (l.creator_type === "organization" || l.in_india === "no")) continue;
     if (l?.category) {
       // LLM labels. The LLM gives no category share; its primary category is the majority of the content,
       // so use at least 0.5 (keyword share kept when both methods agree).
