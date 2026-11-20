@@ -123,9 +123,19 @@ whose products, values), and results come in three columns, each creator reviewe
      when the brand needs trust (professional 1 / experienced 0.8 / casual 0.45), audience age.
    - Audience fit = best of the creator's audience gender and products_for (same 1 / 0.9, unisex 0.6, opposite 0.1).
    - Engagement is percentile within the follower tier; missing signals are dropped and weights re-normalised.
-4. **Three columns**, each creator in one: *niche* (already posted this product), *trending* (scope broad or a
-   lifestyle/entertainer/aspirational role, reel reach in the top 40%; possible-only creators need the top 25%),
-   *category* (talks about the category). Score ≥50 to enter; top 12 per column go to review.
+4. **Three columns**, each creator in one (user's definitions, 2026-11-20):
+   - *niche* = specialists: the product is ≥20% of their recent posts (~3 of 14), or they come from its field (LLM
+     role expert or credibility professional in the product's category, and they show or naturally fit it); for a
+     local-store brand also creators who film inside shops in its city. A creator who posted the product once or
+     twice is not a specialist.
+   - *category* = make content in this category in general (occasional product posters inside the category land here).
+   - *trending* ("Wider reach" in the UI) = big reach and the product can believably appear in their content:
+     scope broad or a lifestyle/entertainer/aspirational role with reel reach in the top 40%; natural fits and
+     occasional posters outside the category also need the top 40%; possible-only creators the top 25%; always
+     ≥3,000 followers and content quality >3.
+   Score ≥50 to enter; top 12 per column go to review. Measured on keyword-v1 data (2026-11-20): only ~9 of 106
+   perfume posters are specialists, so the perfume niche column is thin (3 shown) until LLM profiles and more
+   perfume creators exist.
 5. **AI review** (one Haiku call, ~36 creators): the brand profile + each creator's profile line → verdict
    strong/good/weak, a reason specific to the brand, and a reel idea. Order in niche and category = verdict, then
    score. Order in trending (wider reach) = score only (reach-weighted), the verdict there only removes creators who

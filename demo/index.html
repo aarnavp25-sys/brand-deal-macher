@@ -70,9 +70,9 @@ const safeUrl = u => /^https:\/\//.test(u || '') ? esc(u) : '';
 const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN');
 const EXAMPLES = ["Homegrown men's jewelry brand from Pune — silver rings and chains", "Natural skincare brand, face serums and sunscreen for young women", "Home baker in Pune selling custom cakes and brownies", "Perfume and fragrance brand for men", "Gaming accessories brand — controllers and triggers for BGMI players", "Pet food and treats brand for dogs"];
 let goal = 'sales', last = null;
-const COLS = [['niche', 'Your niche', 'Already show products like yours — the most trusted voices for it.'],
-              ['category', 'Your category', 'Talk about your category in general — a natural place for your product.'],
-              ['trending', 'Wider reach', 'High-reach creators whose content fits your product — take it to a wider audience.']];
+const COLS = [['niche', 'Your niche', 'Specialists — mainly make content about products like yours, or come from its field.'],
+              ['category', 'Your category', 'Make content in your category in general — a natural place for your product.'],
+              ['trending', 'Wider reach', 'Big reach, and your product fits their content — lifestyle and other creators.']];
 const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
 const NAMES = { price: 'Price match', store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
 const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };

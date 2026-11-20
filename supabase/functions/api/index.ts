@@ -549,16 +549,29 @@ async function match(q: Row) {
       location: !req.city ? null : sameCity ? 1 : !c.city ? 0.3 : 0,
       store,
     };
-    // Column: niche = already shows this exact product; trending = broad/lifestyle creators with high reel reach
-    // (to take the product to a wide audience); category = talks about the category in general.
+    // Columns (user, 2026-11-20): niche = specialists: mainly make content about this product (>= 20% of recent
+    // posts, ~3 of 14) or come from its field (LLM: expert/professional in the product's category who shows or
+    // naturally fits it), plus shop-visit creators for a local store; category = make content in this category in
+    // general (occasional product posts land here); trending = wider reach, and the product can believably appear
+    // in their content (lifestyle/broad creators, natural fits, occasional posters outside the category).
+    const ev = evidence && evidence[1] ? evidence[1] : null;
+    const prodCat = ev && (kind === "proven" || kind === "natural") ? PRODS[evidence![0]][0] : null;
+    const fromField = c.method === "llm" && !!prodCat && c.niche_primary === prodCat &&
+      (c.creator_role === "expert" || c.credibility === "professional");
+    const specialist = (kind === "proven" && Number(ev!.specialization) >= 0.2) ||
+      ((kind === "proven" || kind === "natural") && fromField);
+    const wantedCats = new Set([...req.categories, ...(prodCat ? [prodCat] : [])]);
+    const inCategory = kind === "category" || wantedCats.has(c.niche_primary) || wantedCats.has(c.niche_secondary);
     const broad = c.scope === "broad" || BROAD_ROLES.includes(c.creator_role) || (c.method !== "llm" && (reachPct ?? 0) >= 0.85);
     const storeCreator = local && (store ?? 0) >= 0.7 && (sameCity || !req.city);
     // one viral reel on a tiny account is not reliable wide reach: trending needs at least 3,000 followers
     // and low-quality or not brand-safe content (LLM quality <= 3) never goes to the wider column
     const canTrend = Number(c.followers) >= 3000 && !(c.content_quality_est != null && Number(c.content_quality_est) <= 3);
     // natural fit (product fits a scene they already film) + good reach -> wider column even for a niche creator
-    let column: string | null = kind === "proven" || storeCreator ? "niche" : canTrend && (reachPct ?? 0) >= 0.6 && broad ? "trending"
-      : kind === "category" ? "category" : canTrend && (reachPct ?? 0) >= (kind === "natural" ? 0.6 : 0.75) ? "trending" : null;
+    let column: string | null = specialist || storeCreator ? "niche"
+      : canTrend && (reachPct ?? 0) >= 0.6 && broad ? "trending"
+      : inCategory && kind !== "possible" && kind !== "natural" ? "category"
+      : canTrend && (reachPct ?? 0) >= (kind === "natural" || kind === "proven" ? 0.6 : 0.75) ? "trending" : null;
     if (!column) continue; // "possible only" creators need high reach to be worth showing
     const s = scoreWith(WEIGHTS[column === "trending" ? "reach" : local ? "local" : req.goal], parts);
     if (s.score < 50) continue;
@@ -619,8 +632,9 @@ function publicRow(r: Row) {
 // ---------- AI review of the shortlist ----------
 const REVIEW_SYSTEM = `You are the owner of this small Indian homegrown brand, with a small budget: every collaboration
 must bring customers. You get your brand's profile and a shortlist of Instagram creators our formula found, in three
-groups: niche (already show this product, or film inside shops for a local store), category (talk about the
-category), trending (wider reach: broad lifestyle creators, or creators whose existing scenes fit your product).
+groups: niche (specialists: mainly make content about this product or come from its field; for a local store also
+creators who film inside shops), category (make content in this category in general), trending (wider reach:
+lifestyle and other big-reach creators whose content can carry your product).
 Look at each creator the way you would before paying them, and imagine every possible shot:
 - Where would your product appear in what they ALREADY film? Use their niche, settings, natural fits and audience,
   and your customers' moments. A creator need not have posted your product before. Example: a travel creator who
@@ -696,7 +710,7 @@ async function review(req: Req, cols: Record<string, Row[]>): Promise<Map<string
                     reason: { type: "string" }, idea: { type: "string" } } } } },
   };
   const user = `${brand}\n\nCreators:\n${all.map((r, i) => creatorLine(ids[i], r)).join("\n")}`;
-  const key = "review:" + await sha256("v5|" + user);  // same brand profile + same shortlist -> same answer
+  const key = "review:" + await sha256("v6|" + user);  // same brand profile + same shortlist -> same answer
   let saved: Row[] | null = await cacheGet(key);
   if (!saved) {
     // ~85 tokens per review at most; a cut-off reply is paid for but unusable, so leave room
