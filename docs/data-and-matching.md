@@ -153,11 +153,15 @@ checks R1–R9; run it after every matching change (first full pass: 0 violation
   brand AI also picked (`CAT_NEIGHBOURS`: jewellery/watches ↔ fashion, beauty ↔ fashion, fitness ↔ sports, tech ↔
   gaming), or who posted the product. The brand AI's other categories (it added Entertainment to men's jewellery,
   Parenting/Travel to instant chai) never open the category column.
-- R1b Inside that, the creator's own products must touch the product's world (`relevance`: 3 posted it, 2.5 could
-  promote it or it fits a scene they film, 2 same-category product such as watches for men's chains or men's grooming
-  for perfume, 1 any product of those categories, 0 = only the category label, which the profile AI got wrong for
+- R1b Inside that, the creator's own products must touch the product's world (`relevance`: 3 posted it, 2.5 it fits
+  a scene they film, 2 the AI guesses they could promote it, or they posted/film a same-category product such as
+  watches for men's chains, 1.5 a same-category product only guessed, 1 any product of those categories, 0 = only the
+  category label, which the profile AI got wrong for
   dermatology-exam, vegan-advocacy and mural-art pages labelled "Beauty"). Relevance 0 never enters the column, and
-  the 12 review slots go to the most relevant first (reach-led scores used to fill them with photographers).
+  the 12 review slots go to the most relevant first (reach-led scores used to fill them with photographers). For a
+  men's or women's product, creators whose audience matches come first (2026-11-21: men's perfume showed 2 of many
+  men's fashion creators because unisex photographers with "perfume" as a guessed product took the slots).
+  A token-gated `debug` field (secret DEBUG_TOKEN) returns the whole pool with column, relevance, fit and score.
 - R2 Review answers field + account; "other field" is out of the category column; "related" stays.
 - R3 Weak is never shown. R4 Personal / own-shop accounts never shown (account check + review).
 - R5 A shop that sells only at its counter: its city only. R6 Wider reach: ≥3,000 followers.

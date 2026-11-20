@@ -538,11 +538,13 @@ function relevance(prods: Map<string, Row>, req: Req, colCats: Set<string>): num
     const gp = p ? genderOf(p) : null;
     return !!gp && gp !== g;
   };
+  // "possible" (the AI's guess of what this audience could buy) is weaker than posting it or a scene it fits:
+  // photographers had "perfume" as possible and outranked men's fashion creators (men's perfume, 2026-11-21)
   let best = 0;
   for (const [t, v] of prods) {
     for (const p of req.products) {
-      if (t === p) best = Math.max(best, v.kind === "proven" ? 3 : 2.5);
-      else if (PRODS[t]?.[0] === PRODS[p]?.[0] && !clash(t, p)) best = Math.max(best, 2);
+      if (t === p) best = Math.max(best, v.kind === "proven" ? 3 : v.kind === "natural" ? 2.5 : 2);
+      else if (PRODS[t]?.[0] === PRODS[p]?.[0] && !clash(t, p)) best = Math.max(best, v.kind === "possible" ? 1.5 : 2);
     }
     if (colCats.has(PRODS[t]?.[0]) && !clash(t)) best = Math.max(best, 1);
   }
@@ -674,7 +676,7 @@ async function match(q: Row) {
     const s = scoreWith(WEIGHTS[column === "trending" ? "reach" : local ? "local" : req.goal], parts);
     if (s.score < 50) continue;
     pool.push({
-      id: c.id, column, score: s.score, fit, rel, breakdown: s.breakdown, c,
+      id: c.id, column, score: s.score, fit, rel, aud: af == null ? 0.5 : af, breakdown: s.breakdown, c,
       explanation: explain(c, evidence, parts, req, storeCreator && c.store_visit_note
         ? [`Films inside shops (${c.store_visits}): ${c.store_visit_note}.`, ...style.notes] : style.notes),
       evidence: evidence ? { about: evidence[0], posts: evidence[1]?.evidence_posts ?? 0, kind, item: evidence[1]?.item ?? null,
@@ -690,7 +692,9 @@ async function match(q: Row) {
     const tierOf = (r: Row) => Math.round(Number(r.fit) * 10);
     cols[col] = pool.filter((r) => r.column === col)
       .sort((a, b) => col === "trending" ? b.score - a.score
-        : col === "category" ? b.rel - a.rel || b.score - a.score
+        // a men's (women's) product: creators whose audience is men (women) first (user, 2026-11-21: 2 of
+        // many men's fashion creators shown for men's perfume; unisex photographers took the review slots)
+        : col === "category" ? Math.round(b.aud * 10) - Math.round(a.aud * 10) || b.rel - a.rel || b.score - a.score
         : tierOf(b) - tierOf(a) || b.score - a.score)
       .slice(0, REVIEW_PER_COLUMN);
   }
@@ -716,7 +720,12 @@ async function match(q: Row) {
     rows = rows.filter((r) => r.verdict !== "weak");
     columns[col] = rows.slice(0, PER_COLUMN).map(publicRow);
   }
-  return { understood: { ...req, category_column: [...colCats] }, columns, reviewed_by_ai: !!reviewed, considered: creators.length, matched: pool.length,
+  // debug (only with the DEBUG_TOKEN secret): every pooled creator with column, relevance, fit and score
+  const debug = q.debug && env("DEBUG_TOKEN") && q.debug === env("DEBUG_TOKEN")
+    ? pool.map((r) => ({ u: r.c.username, col: r.column, rel: r.rel, fit: Math.round(r.fit * 100) / 100,
+                         score: r.score, cat: r.c.niche_primary, aud: audienceOf(r.c) }))
+    : undefined;
+  return { understood: { ...req, category_column: [...colCats] }, columns, reviewed_by_ai: !!reviewed, debug, considered: creators.length, matched: pool.length,
            labelled_by_llm: d.creators.filter((c) => c.method === "llm").length };
 }
 
@@ -885,7 +894,7 @@ function validate(body: Row): { q?: Row; error?: string } {
   const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const q: Row = { brief: s(body.brief), category: s(body.category), product: s(body.product), city: s(body.city),
                    tier: s(body.tier), goal: s(body.goal) || "sales", audience: s(body.audience), price: s(body.price),
-                   channel: s(body.channel) };
+                   channel: s(body.channel), debug: s(body.debug) };
   if (q.brief.length > MAX_BRIEF) return { error: `Description is too long (max ${MAX_BRIEF} characters).` };
   if (q.category && !CATS[q.category]) return { error: "Unknown category." };
   if (q.product && !PRODS[q.product]) return { error: "Unknown product type." };
