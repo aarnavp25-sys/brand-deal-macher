@@ -173,8 +173,9 @@ whose products, values), and results come in three columns, each creator reviewe
    already films; reason ≤20 words naming the decisive point (shot, trust, audience or price); idea = a reel inside
    their own usual scenes; no believable shot = "weak", which is never shown in the wider column.
 5d. **Who is shown at all** (user, 2026-11-20). Hidden: `status = 'business'` accounts (see Pipeline); LLM
-   `is_shop` unless the account is creator-type; `in_india = no`; `creator_type = organization` unless it openly
-   sells promotions (`takes_promotions = yes` and `collab_open`); professionals/celebrities only when
+   `is_shop` unless the account is creator-type; `in_india = no`; `creator_type = organization` unless it takes
+   paid promotions (`takes_promotions = yes`, seen in its posts; a "DM for collab" bio line is not required — that
+   rule hid 107 meme/community pages and rider/run clubs that do brand collabs); professionals/celebrities only when
    `takes_promotions = unlikely` and not `collab_open` ("woh kyu hii promotion karega": a TVF director or a CEO does
    not make paid reels; "maybe" stays because a creator with no collab yet can still say yes). Web checks of
    professionals were deferred: ~$0.01–0.02 per search, ask after the full run.
