@@ -511,6 +511,53 @@ function scoreWith(W: Record<string, number>, parts: Row) {
 
 const BROAD_ROLES = ["lifestyle", "entertainer", "aspirational"];
 const BROAD_CATS = ["Entertainment & Comedy"];
+// Category column (user's definition: creators who make content in this category in general). Which categories
+// count is decided here, not by the brand AI (which added "Entertainment & Comedy" to men's jewellery and
+// "Parenting & Kids" / "Travel" to instant chai, 2026-11-20): the product's own category, plus these close
+// neighbours when the brand AI also picked them. Rethought 2026-11-20 after a run of one-off fixes.
+const CAT_NEIGHBOURS: Record<string, string[]> = {
+  "Jewelry & Accessories": ["Fashion & Clothing"],
+  "Fashion & Clothing": ["Jewelry & Accessories", "Beauty & Skincare"],
+  "Beauty & Skincare": ["Fashion & Clothing"],
+  "Fitness & Wellness": ["Sports"],
+  "Sports": ["Fitness & Wellness"],
+  "Tech & Gadgets": ["Gaming"],
+  "Gaming": ["Tech & Gadgets"],
+};
+// How close a creator's own products are to the brand's products (proven = posted it; natural = fits a scene they
+// film; possible = the AI's list of what they could promote). 3 = posted the product, 2.5 = could promote it / fits a
+// scene, 2 = a product of the same category (watches for men's chains, men's grooming for perfume), 1 = any product of
+// the category-column categories, 0 = nothing: only the category label matches, which the profile AI got wrong for
+// dermatology-exam, vegan-advocacy and mural-art pages labelled "Beauty" (perfume search, 2026-11-20).
+const genderOf = (t: string) => t.startsWith("men's") ? "men" : t.startsWith("women's") ? "women" : null;
+function relevance(prods: Map<string, Row>, req: Req, colCats: Set<string>): number {
+  const clash = (t: string, p?: string) => {
+    const g = genderOf(t);
+    if (!g) return false;
+    if (req.audience && req.audience !== "unisex" && g !== req.audience) return true;
+    const gp = p ? genderOf(p) : null;
+    return !!gp && gp !== g;
+  };
+  let best = 0;
+  for (const [t, v] of prods) {
+    for (const p of req.products) {
+      if (t === p) best = Math.max(best, v.kind === "proven" ? 3 : 2.5);
+      else if (PRODS[t]?.[0] === PRODS[p]?.[0] && !clash(t, p)) best = Math.max(best, 2);
+    }
+    if (colCats.has(PRODS[t]?.[0]) && !clash(t)) best = Math.max(best, 1);
+  }
+  return best;
+}
+function categoryColumnCats(req: Req): Set<string> {
+  if (!req.products.length) {
+    const own = req.categories.filter((c) => !BROAD_CATS.includes(c));
+    return new Set(own.length ? own : req.categories);
+  }
+  const home = new Set(req.products.map((p) => PRODS[p]?.[0]).filter(Boolean));
+  const out = new Set(home);
+  for (const h of home) for (const n of CAT_NEIGHBOURS[h] ?? []) if (req.categories.includes(n)) out.add(n);
+  return out;
+}
 
 async function match(q: Row) {
   const [d, req] = await Promise.all([data(), parseRequest(q)]);
@@ -521,6 +568,7 @@ async function match(q: Row) {
   const erByTier = Object.fromEntries(TIERS.map((t) =>
     [t, pctRank(d.creators.filter((c) => c.follower_tier === t).map((c) => c.engagement_rate))]));
   const pool: Row[] = [];
+  const colCats = categoryColumnCats(req);
   for (const c of creators) {
     const prods = d.products.get(c.id) ?? new Map();
     const proven = [...prods.entries()].filter(([, v]) => v.kind === "proven");
@@ -560,6 +608,11 @@ async function match(q: Row) {
       });
     }
     if (fit <= 0) continue;
+    // a men's product needs a creator whose audience is men or who features men's products (and the other way
+    // round): user's rule (2026-11-20, S-015), which the review prompt alone did not hold (eval 2026-11-20: women-only
+    // audiences shown for men's perfume and men's watches)
+    const af = audienceFit(c, req.audience);
+    if (af != null && af <= 0.1) continue;
     const style = styleFit(c, req);
     const price = priceFit(c, req);
     if (price.note) style.notes.unshift(price.note);
@@ -600,14 +653,13 @@ async function match(q: Row) {
     // "Entertainment & Comedy" is where comedians, rappers and fan pages live: a reach category, not the brand's own
     // field. It counts for the category column only when the product itself belongs there (events, OTT...). User,
     // 2026-11-20: the brand AI added it to a men's jewellery brand and 3 rappers landed in "your category".
-    const productCats = new Set(req.products.map((p) => PRODS[p]?.[0]));
-    const wantedCats = new Set([...req.categories.filter((cat) => !BROAD_CATS.includes(cat) || productCats.has(cat)),
-                                ...(prodCat ? [prodCat] : [])]);
+    const wantedCats = colCats;
     // category column = creators whose MAIN content is the brand's category (user's definition), or who showed the
     // product. A secondary-category match alone is not enough (user, 2026-11-20: a box-cricket creator with
     // "Fashion & Clothing" as secondary ranked first for a men's jewellery brand on one viral reel's reach).
-    const inCategory = (wantedCats.has(c.niche_primary) && !(kind === "category" && sibling >= 0.2)) ||
-      (kind === "proven" && wantedCats.has(c.niche_secondary));
+    const rel = relevance(prods, req, colCats);
+    const inCategory = ((wantedCats.has(c.niche_primary) && !(kind === "category" && sibling >= 0.2)) ||
+      (kind === "proven" && wantedCats.has(c.niche_secondary))) && (rel >= 1 || !req.products.length);
     const broad = c.scope === "broad" || BROAD_ROLES.includes(c.creator_role) || (c.method !== "llm" && (reachPct ?? 0) >= 0.85);
     const storeCreator = local && (store ?? 0) >= 0.7 && (sameCity || !req.city);
     // one viral reel on a tiny account is not reliable wide reach: trending needs at least 3,000 followers
@@ -622,7 +674,7 @@ async function match(q: Row) {
     const s = scoreWith(WEIGHTS[column === "trending" ? "reach" : local ? "local" : req.goal], parts);
     if (s.score < 50) continue;
     pool.push({
-      id: c.id, column, score: s.score, fit, breakdown: s.breakdown, c,
+      id: c.id, column, score: s.score, fit, rel, breakdown: s.breakdown, c,
       explanation: explain(c, evidence, parts, req, storeCreator && c.store_visit_note
         ? [`Films inside shops (${c.store_visits}): ${c.store_visit_note}.`, ...style.notes] : style.notes),
       evidence: evidence ? { about: evidence[0], posts: evidence[1]?.evidence_posts ?? 0, kind, item: evidence[1]?.item ?? null,
@@ -631,7 +683,16 @@ async function match(q: Row) {
   }
   const cols: Record<string, Row[]> = {};
   for (const col of COLUMNS) {
-    cols[col] = pool.filter((r) => r.column === col).sort((a, b) => b.score - a.score).slice(0, REVIEW_PER_COLUMN);
+    // who gets reviewed: niche/category by closeness to the product first (0.1 steps of fit), then score; reach-led
+    // scores used to fill the 12 review slots with photographers and cosplayers labelled "Fashion" while men's
+    // fashion creators were never reviewed (men's watch search, 2026-11-20). Wider reach: by score.
+    // category: closeness of their own products first (relevance), then score
+    const tierOf = (r: Row) => Math.round(Number(r.fit) * 10);
+    cols[col] = pool.filter((r) => r.column === col)
+      .sort((a, b) => col === "trending" ? b.score - a.score
+        : col === "category" ? b.rel - a.rel || b.score - a.score
+        : tierOf(b) - tierOf(a) || b.score - a.score)
+      .slice(0, REVIEW_PER_COLUMN);
   }
   const reviewed = await review(req, cols);
   const RANK: Record<string, number> = { strong: 0, good: 1, weak: 2 };
@@ -649,13 +710,13 @@ async function match(q: Row) {
     const FIELD: Record<string, number> = { "own field": 0, related: 1, "other field": 2 };
     rows.sort((a, b) => col === "trending" ? b.score - a.score
       : (RANK[a.verdict] ?? 1) - (RANK[b.verdict] ?? 1) || (FIELD[a.field] ?? 1) - (FIELD[b.field] ?? 1) ||
-        tier(b) - tier(a) || b.score - a.score);
+        (col === "category" ? b.rel - a.rel : tier(b) - tier(a)) || b.score - a.score);
     // weak fits are never shown (demo searches 2026-11-20: "instant chai premix" filled the category column with 8
     // restaurant reviewers the review itself called weak). An empty group says so in the UI instead.
     rows = rows.filter((r) => r.verdict !== "weak");
     columns[col] = rows.slice(0, PER_COLUMN).map(publicRow);
   }
-  return { understood: req, columns, reviewed_by_ai: !!reviewed, considered: creators.length, matched: pool.length,
+  return { understood: { ...req, category_column: [...colCats] }, columns, reviewed_by_ai: !!reviewed, considered: creators.length, matched: pool.length,
            labelled_by_llm: d.creators.filter((c) => c.method === "llm").length };
 }
 
@@ -676,7 +737,8 @@ function publicRow(r: Row) {
       method: c.method,
     },
     column: r.column, score: r.score, breakdown: r.breakdown, explanation: r.explanation,
-    verdict: r.verdict ?? null, reason: r.reason ?? null, idea: r.idea ?? null,
+    verdict: r.verdict ?? null, field: r.field ?? null, reason: r.reason ?? null, idea: r.idea ?? null,
+    evidence_kind: r.evidence?.kind ?? null,
   };
 }
 

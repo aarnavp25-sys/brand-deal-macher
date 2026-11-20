@@ -146,6 +146,27 @@ whose products, values), and results come in three columns, each creator reviewe
      when the brand needs trust (professional 1 / experienced 0.8 / casual 0.45), audience age.
    - Audience fit = best of the creator's audience gender and products_for (same 1 / 0.9, unisex 0.6, opposite 0.1).
    - Engagement is percentile within the follower tier; missing signals are dropped and weights re-normalised.
+**Search rules, consolidated 2026-11-20 after one-off fixes kept breaking other searches** (user: "saari cheeze
+ek baar re think kar sab properly fix kar"). `pipeline/eval_search.py` runs 16 fixed briefs against the live API and
+checks R1–R9; run it after every matching change (first full pass: 0 violations).
+- R1 Category column = creators whose main category is the product's own category, or a fixed close neighbour the
+  brand AI also picked (`CAT_NEIGHBOURS`: jewellery/watches ↔ fashion, beauty ↔ fashion, fitness ↔ sports, tech ↔
+  gaming), or who posted the product. The brand AI's other categories (it added Entertainment to men's jewellery,
+  Parenting/Travel to instant chai) never open the category column.
+- R1b Inside that, the creator's own products must touch the product's world (`relevance`: 3 posted it, 2.5 could
+  promote it or it fits a scene they film, 2 same-category product such as watches for men's chains or men's grooming
+  for perfume, 1 any product of those categories, 0 = only the category label, which the profile AI got wrong for
+  dermatology-exam, vegan-advocacy and mural-art pages labelled "Beauty"). Relevance 0 never enters the column, and
+  the 12 review slots go to the most relevant first (reach-led scores used to fill them with photographers).
+- R2 Review answers field + account; "other field" is out of the category column; "related" stays.
+- R3 Weak is never shown. R4 Personal / own-shop accounts never shown (account check + review).
+- R5 A shop that sells only at its counter: its city only. R6 Wider reach: ≥3,000 followers.
+- R7 Niche: product evidence or (local store) shop-visit creator. R8 One column per creator.
+- R9 A men's product never shows a creator whose audience is women and who features women's products (and back);
+  a woman styling men's products stays.
+Known gaps (data, not rules): no men's jewellery or perfume specialists; premium men's perfume falls back to premium
+photographers/filmmakers; Haiku varies run to run on borderline creators (cache keeps a repeated search stable).
+
 4. **Three columns**, each creator in one (user's definitions, 2026-11-20):
    - *niche* = specialists: the product is ≥20% of their recent posts (~3 of 14), or they come from its field (LLM
      role expert or credibility professional in the product's category, and they show or naturally fit it); for a
