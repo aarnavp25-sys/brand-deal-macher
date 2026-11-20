@@ -675,3 +675,57 @@ Open:
 - User to raise the OpenRouter key limit to ~$5, then say yes to the full run: `python3 pipeline/llm_classify.py run --max-usd 3.8 --yes` (~5,100 creators, ~$3.3–3.5, ~1 hour, run in background). Then `deploy.py secrets`, ~10 demo searches, count thin niches and remaining professionals.
 - Delete the two Bedrock keys in the AWS console (user); update PRIVATE-GUIDE when done.
 - Perfume niche thin (3 specialists in keyword data); mid tier ~316; both need December Apify rounds.
+
+---
+
+## S-018 · 2026-11-20 → 2026-11-21 · Full profile run; live search on; personalised matching rethought; account check
+
+Asked:
+- "maine limit badha di hai tu kaam chalu kar" (key limit raised to $5; go for the full run); later "haa" to `deploy.py secrets` + demo searches.
+- On a men's jewellery search: "jewellery brand mai sab se uppar sports ka banda aaraha hai kaha se ye personalized hai"; then "bhai sunn ab serious hoja yrr kya gand result diya hai ... phela creator sports ki real banata hai dusra watches ki teesra bhi watches ki ... 6th wala dekh woh creator hai hi nhii normal user hai".
+- "sunn ek kaam kar pure database mai se jo bhii aise personal account hai unhe hata de"; "10k se niche kitne creators"; "saare 10k se niche wala account ko haiku se check karwa aur un sab ko review mai daal aur saari cheeze admin dashbord mai update kar".
+- "last ke 3 sare rapper hai apni kya baat hui thi woh sab your categroy mai nhii aayega aur pheli baat uhne rakh bhi kyu raha isme".
+- "jab maine men watch ka request daala tha tab usne in general mai 0 bataya but ingeneral mai men fashion wale result jaise rahul_champawat aise creators aasakte the".
+- "bhai tu itna fuck up kyu kar raha saari cheeze ek baar re think kar sab properly fix kar"; on empty niche columns: "haa chalega agar niche khali hai toh".
+
+Done:
+- Full run `llm_classify.py run --max-usd 3.8 --yes` (background): 5,113 creators profiled with prompt v10, 0 failed, real cost $3.1889 (68.3M input tokens, 59.5M cached; 3.43M output). Every search-visible creator now has a v10 row.
+- Free checks of the result: hidden by reason (organisation 1,346 → later ~1,240, shop/brand page 678, foreign 278, professional without promotions 197). Samples of 20–40 per group read by hand. 107 promotion-taking organisations (meme/community pages, rider/run clubs with brand collabs, a NEET educator, a stand-up comic) were hidden only for lacking a "DM for collab" bio line → API rule changed to `takes_promotions = yes` alone (d1f1801). Product-type coverage counted: perfume 25 creators / 1 specialist, spices 12/1, pickles 2.
+- `deploy.py secrets` (OPENROUTER_API_KEY live in Supabase). 9 live demo searches via a scratchpad script calling `/functions/v1/api/match` with the anon key and Origin 127.0.0.1:8788.
+- Fixes in `supabase/functions/api/index.ts`, all deployed, in order: weak verdicts never shown in any column; a local-store-only brand with a city sees only that city in every column (930e0f2); category column needs the brand category as the creator's MAIN category or the product shown (9cf2627); review answers `field` (own field / related / other field) and `account` (creator / personal / own shop) as schema fields, applied in code at read time, cache key bumped v6→v10 (e8205ea); personal-account filter in the formula (no brand work, no product, quality ≤4); `BROAD_CATS` keeps Entertainment & Comedy out of the category column (489cfd1, 11827be).
+- Rethink (ddc3a00): `CAT_NEIGHBOURS` + `categoryColumnCats()` decide the category column from the product's own category plus fixed neighbours the brand AI also picked (jewellery/watches↔fashion, beauty↔fashion, fitness↔sports, tech↔gaming); `relevance()` tiers (3 posted / 2.5 can_promote or natural fit / 2 same-category product, gender-consistent / 1 any product of those categories / 0 label only) gate the category column and order its review shortlist and final list; gender rule in code (`audienceFit ≤ 0.1` → dropped); API returns `field`, `evidence_kind`, `understood.category_column`. New `pipeline/eval_search.py`: 16 fixed briefs, rules R1–R9; final pass 0 violations, 0 warnings. Consolidated rules written in docs/data-and-matching.md (Matching, "Search rules, consolidated").
+- Account check (6d4c48c): migration `20261120000009_account_check.sql` (creators.account_type, account_note, account_checked_at, review_reason); `pipeline/account_check.py estimate|test|run|apply` (Haiku, saved profile + bio + 8 captions). Test 50 ($0.006), prompt clarified (paid promos for other shops = creator), full run 2,375 more ($0.264): 2,047 creator, 260 personal, 109 own shop, 8 unclear. Two own-shop labels whose notes said they promote other brands set to creator by hand (@coolmumsofbaroda, @cerebellum_prep_discountss). `apply --yes` moved 367 to `status = 'review'`; search-visible 3,598 → 3,231. The 311 older review rows got a `review_reason` by SQL (207 low engagement without reel data, 89 shop-like bio, 15 no posts); `process.py` now writes `review_reason` and clears it on reactivation; `round.py` runs account check + apply after the AI profile of new creators. Details: docs/data-and-matching.md (Pipeline, "Account check").
+- Admin (`admin/server.py` + `admin/index.html`, server restarted): `creator_llm` added to the proxy table list; Overview KPIs (shown in search, AI profiled, business, AI personal/own shop/checked) and a "why not shown" card using the API's rules; Creators filter "AI account", tags, review reasons; drawer shows the account check, the full AI profile and a "Keep as creator (set active)" button; `business` added to STATUSES. JS syntax-checked with node; not opened in a browser (Playwright browser was in use by another session).
+- Data fix: @m_farh_an (skateboarding) category Fashion → Sports in creator_llm and creators (manual).
+- Spend: OpenRouter key $4.0006 of $5.00 used (account ~$4.50 of $8.50 left). Commits d1f1801 … ddc3a00 (8), not pushed.
+
+Did not work:
+- A "no promotion signal → not in category/wider columns" gate removed real gym creators (gym owner, bodybuilders marked takes_promotions "maybe") and let promoted box-cricket players take their place; reverted the same hour.
+- The first sibling-specialist demotion (watch reviewers for chains) never fired: it compared against the creator's category, and the LLM had labelled @_wristologist_ "Fashion & Clothing", not "Jewelry & Accessories".
+- Prose rules in REVIEW_SYSTEM ("a watch reviewer is weak for chains", "personal accounts are weak", "own shop is weak") were mostly ignored: Haiku still rated nearly everyone "good". Only schema fields + code worked.
+- "Category column = own field only" (489cfd1) emptied the men's watch category column (men's fashion creators were "good, related"); reverted in 11827be.
+- The 12-slot review shortlist sorted by score filled the category column with mislabelled accounts (dermatology-exam, Ayurveda-student, vegan-advocacy, mural-art pages labelled "Beauty"; wedding photographers, cosplay, farm life labelled "Fashion"), so real fits were never reviewed. Fixed by relevance tiers.
+- eval_search hit HTTP 429 after 4 searches (API limit 30 searches / 10 min per client IP; my test shares the user's IP); added 60 s waits.
+- Playwright: "Browser is already in use" — another session held the profile.
+
+Established:
+- The brand-profile AI adds categories unrelated to the product (Entertainment & Comedy for men's jewellery, Parenting & Kids / Travel for instant chai), so its categories must not decide the category column.
+- `creator_llm.can_promote` is a better relevance signal than the category label (5,218 of 5,221 rows have it).
+- Haiku flips borderline review answers between runs (a skater "related" vs "other field"); the 7-day cache keeps a repeated search stable.
+- The review cache key (`review:` + sha256("vN|" + user prompt)) does not include the system prompt; bump the version whenever the review prompt or stored fields change.
+- Search-visible accounts under 10K followers: 2,424 of 3,598 before the account check (3,852 of 6,224 in the whole DB).
+
+User decided:
+- Personal accounts and own-shop pages under 10K go to `status = 'review'` (checked by Haiku), not deleted; admin shows why and can restore.
+- Category column = creators of the product's own field (fashion creators fine for watches and jewellery; rappers, comedians, cricket players, photographers, skaters are not "your category").
+- An empty niche column is acceptable when the DB has no specialists ("haa chalega agar niche khali hai toh").
+- Rappers stay in the DB (useful for music/streetwear brands); they must only stay out of the wrong columns.
+
+Open:
+- Raise the OpenRouter key limit before demo day ($1.00 left on the key; account ~$4.50).
+- December Apify rounds: perfume, men's fashion, streetwear, men's accessories/jewellery (acc3 resets 2026-12-09; others 2026-12-15/16/17); new creators get profile + account check automatically via round.py.
+- Push the 8 commits (not pushed; ask first).
+- Admin page not yet seen in a browser after the changes.
+- ~1–2% individuals still labelled "organization"; premium men's perfume falls back to photographers/filmmakers (data gap).
+- Project CLAUDE.md still says "No budget/price features" (product price level is allowed since S-015) and calls the third column "trending" (UI says "Wider reach").
+- AWS IAM: user to delete the two Bedrock keys.
