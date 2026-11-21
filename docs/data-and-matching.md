@@ -90,6 +90,11 @@ Same day, same way: of the 553 fake-flagged accounts (never AI-profiled), a manu
 170 real creators (kept, still fake-flagged) and 383 non-creators (159 business/shop, 110 pages, 57 outside India,
 33 personal/professional, 24 organisations), which were deleted; backup `removed-2026-11-21-fake-noncreators.json.gz`
 (it holds each account's label). Labels came from a quick read, not the AI profile; check the backup if one is missed.
+Then (user: "jitne bhii non usable creators mai se sach mai creators hai unhe rakh aur baaki saare db mai se nikal de")
+1,432 more were deleted on existing labels, no new reading: organisations 519, outside India 278 (incl. 125 creators
+abroad: an Indian brand never sees them), AI account check personal 260 and own shop 107, `status = business` 173,
+and the 95 shops that take promotions. Backup `removed-2026-11-21-noncreators.json.gz` (each account's group).
+`removed_creators` holds every deleted username.
 
 **Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
 karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
