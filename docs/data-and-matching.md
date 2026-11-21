@@ -95,6 +95,11 @@ Then (user: "jitne bhii non usable creators mai se sach mai creators hai unhe ra
 abroad: an Indian brand never sees them), AI account check personal 260 and own shop 107, `status = business` 173,
 and the 95 shops that take promotions. Backup `removed-2026-11-21-noncreators.json.gz` (each account's group).
 `removed_creators` holds every deleted username.
+Last, on the user's order ("review wale saare creators ko db se hata de"), all 286 `status = review` accounts were
+deleted: 182 without reel data (about 78 looked like creators), 89 with shop-like bios, 15 without posts; none had an
+AI profile. Backup `removed-2026-11-21-review.json.gz`. They are in `removed_creators` too, so December rounds skip
+them; delete a username from that table to let a round pick it up again. After this: 3,563 creators, 3,231 shown,
+169 fake-flagged (real creators), 163 professionals; no account is in review.
 
 **Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
 karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
