@@ -86,6 +86,10 @@ with them by cascade). The 95 shops with `takes_promotions = yes` were kept (sti
 in storage `raw-scrapes/backups/removed-2026-11-21-shops.json.gz` (local copy in `pipeline/runs/`). Their usernames
 are in `removed_creators`, which `round.py` treats as already known, so a later round never scrapes or profiles them
 again (the search/profile scrape that finds them is still paid; reels and the LLM are not).
+Same day, same way: of the 553 fake-flagged accounts (never AI-profiled), a manual read of bio and captions found
+170 real creators (kept, still fake-flagged) and 383 non-creators (159 business/shop, 110 pages, 57 outside India,
+33 personal/professional, 24 organisations), which were deleted; backup `removed-2026-11-21-fake-noncreators.json.gz`
+(it holds each account's label). Labels came from a quick read, not the AI profile; check the backup if one is missed.
 
 **Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
 karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
