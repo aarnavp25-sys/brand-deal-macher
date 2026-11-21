@@ -80,6 +80,13 @@ Comedy club...) are left to the LLM, because individual rescuers, coaches and fa
 2026-11-20: 173 accounts moved; business accounts are never shown and never sent to the LLM. The LLM still catches the
 rest (`is_shop`, `creator_type = organization`, `in_india = no`).
 
+Deleted shops (2026-11-21, user's order): the 560 accounts the AI profile called a shop/brand page (`is_shop`, not a
+creator) that do not take promotions were deleted from `creators` (posts, AI profile, snapshots and products went
+with them by cascade). The 95 shops with `takes_promotions = yes` were kept (still hidden from search). Full rows are
+in storage `raw-scrapes/backups/removed-2026-11-21-shops.json.gz` (local copy in `pipeline/runs/`). Their usernames
+are in `removed_creators`, which `round.py` treats as already known, so a later round never scrapes or profiles them
+again (the search/profile scrape that finds them is still paid; reels and the LLM are not).
+
 **Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
 karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
 creator / personal / own shop / unclear, from its saved AI profile + bio + 8 recent captions (no new scraping;

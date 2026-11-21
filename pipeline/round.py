@@ -179,6 +179,8 @@ def main():
         raise SystemExit("no profile/search output")
     proc("filter", os.path.join(D, "keep.json"), *outs)
     existing = {c["username"].lower() for c in rest_all("creators?select=username&order=id")}
+    # accounts deleted on purpose (shops, 2026-11-21) are not scraped or profiled again
+    existing |= {r["username"].lower() for r in rest_all("removed_creators?select=username&order=username")}
     new = [u for u in json.load(open(os.path.join(D, "keep.json"))) if u.lower() not in existing]
     print(f"new creators that passed the filter: {len(new)}", flush=True)
     # 3. reels for the new creators (Reel Scraper runs take 4 GB each: at most 3 at once)
