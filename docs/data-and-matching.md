@@ -100,6 +100,11 @@ deleted: 182 without reel data (about 78 looked like creators), 89 with shop-lik
 AI profile. Backup `removed-2026-11-21-review.json.gz`. They are in `removed_creators` too, so December rounds skip
 them; delete a username from that table to let a round pick it up again. After this: 3,563 creators, 3,231 shown,
 169 fake-flagged (real creators), 163 professionals; no account is in review.
+Then the 163 professionals/celebrities with no sign of promotions (AI profile, no collab line) were deleted on the
+user's order too (films/theatre ~68, politicians ~16, doctors ~16, artists ~20...); backup
+`removed-2026-11-21-professionals.json.gz`. After this: 3,399 creators = 3,230 shown + 169 fake-flagged.
+(@anuuuuuuuuuuu__47, a shown comedy creator, disappeared in the same window but not by these scripts: not in any
+backup or in `removed_creators`; most likely the admin's Delete button.)
 
 **Account check** (`pipeline/account_check.py`, user 2026-11-20: "saare 10k se niche wala account ko haiku se check
 karwa aur un sab ko review mai daal"). Every search-visible account under 10K followers gets one Haiku question:
