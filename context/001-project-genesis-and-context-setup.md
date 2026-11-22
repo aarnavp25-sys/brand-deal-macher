@@ -763,3 +763,44 @@ User decided:
 Open:
 - Raise the key credit limit (https://openrouter.ai/settings/keys) before demo day.
 - Push commits (S-018 and S-019 code, not pushed). See the S-018 Open list for the rest.
+
+---
+
+## S-020 · 2026-11-21 → 2026-11-22 · Deletions by another session; credits form; why captions only; Vercel/Render connected
+
+Asked:
+- On the college cloud-credits form (AWS / GCP / VULTR / AZURE / OTHER): "mujhe kya fill karna hai aur kitna"; "mujhe aws ka bata"; "tu samaj usse humlog gemini ki key lege"; "gcp kya hai"; "tu pakka sure hai humne gemini ki api key milegi".
+- "isme jo jass dhingra hai usse ek dekh toh sahi woh ek personal creator hai"; "5k se kaam kitne hai".
+- "itni baar saari cheeze baar baar explain karne ke baad bhii ye ho raha hai result mai kya problem aarahi hai aur kyu"; "ai sirf caption padh raha hai kyu kyu woh videos ya photos nhii dekhta"; then "sunn abhi ye sab chod".
+- Deployment: "vercel cli aur render cli ko ache se browser prompt se athrize karwa lo ... bakend ko render par au frotend ko vercel par ... uptime robot ... /health ... har 5 minute mein request"; gave the Render API key in chat; "deployment k time wesbite ka naam mujse puch k tay karna pehle hi" / "Abhi kuchh bhi rakh de, baad mein change kar denge isko".
+
+Done:
+- Credits form: recommended OTHER (OpenRouter, no code change, $20); explained AWS (Bedrock Haiku endpoints lack JSON-schema enforcement; promo credits may not cover third-party models). User wants a Gemini key → GCP, $25, justification text written. Said honestly that a Gemini key is likely but not certain (voucher vs account; credit exclusions) and to ask the advisor first.
+- @jass.dhingra777 (posts: Diwali greetings, meeting Rakesh Tikait, social work, gau sewa, own kurta portraits) set by hand to `status = review`, `account_type = personal` (the S-018 account check had called him a fashion creator).
+- Counts: 3,229 shown in search; 1,510 under 5K, 1,083 under 3K, 697 under 2K.
+- Found the creators table at 3,399 rows (was 6,224). Postgres stats: 2,825 creators, 30,240 posts, 1,992 creator_llm, 11,297 creator_products, 2,837 snapshots deleted before 2026-11-21 16:19 UTC. Not done by this session. Git showed five commits by another session on 2026-11-21 21:31–22:11 IST, each "on the user's order" with a full backup in Supabase Storage and usernames in a new `removed_creators` skip-list (migration 20261121000000_removed_creators.sql; round.py skips them): 986f5b8 560 shop/brand pages that take no promotions (95 kept), 2783470 383 fake-flagged non-creators (170 real kept), e0979ef 1,432 non-creators (organisations, foreign, personal, business, own shop), 7eb7f25 286 review accounts, f0c3362 163 non-promoting professionals. `removed_creators` holds 2,824. raw_scrapes (174 files) untouched.
+- Root-cause answer for repeated bad results: (1) hashtag/keyword scraping brings in non-creators — a random 40 of the shown creators read by hand: ~25 clearly hireable, ~8 borderline, ~7 personal accounts or own services; 1,234 of 3,229 shown have no brand-work sign, 1,439 quality ≤5, 1,354 no products; (2) the AI reads captions only; (3) Haiku is lenient and varies; (4) thin coverage for some products; (5) my process (one-off fixes, late eval, untested failure modes). Proposed a stricter all-account check (~$0.40), a human Keep/Remove pass for demo searches, and creator-centric December scraping. User set it aside.
+- Why captions only: posts store `thumbnail_url`, but Instagram CDN links expire (a stored profile picture link returned 403); images were never downloaded; images cost far more tokens at full size (small thumbnails would be ~$0.0003–0.001 per creator); Haiku cannot watch video. Admitted the limit had not been told to the user plainly.
+- Deployment setup: `npm i -g vercel` failed (EACCES); installed with `npm i -g --prefix ~/.local vercel` → Vercel CLI 66.6.0 at ~/.local/bin/vercel. Render CLI v2.38.0 installed by its official script (read first) to ~/.local/bin/render. Browser device logins done: Vercel account aarnavmathakiya25-6012 (CLI suggested enabling 2FA), Render login OK. Render API key saved as `RENDER_API_KEY` in admin/.env (chmod 600, gitignored) and verified (GET /v1/owners → 200, workspace "My Workspace"). Render MCP added with `claude mcp add --transport http render https://mcp.render.com/mcp --header "Authorization: Bearer …"` (~/.claude.json, project /Users/aarnavmathakiya/Documents/ojt; tools load after a restart).
+- Told the user Render's free tier sleeps after 15 minutes idle (not 50) and has 750 instance hours a month (enough for one always-on service).
+- Memory `deploy-site-name.md`: ask the user before a final public name; placeholder names proposed: Vercel `brand-deal-matcher`, Render `brand-deal-matcher-api`.
+
+Did not work:
+- `npm i -g vercel`: "permissions of the file and its containing directories" (global prefix not writable without sudo).
+- Playwright still could not open a browser ("Browser is already in use").
+
+Established:
+- Another Claude session works on this repo in parallel and did not write the journal; check `git log` against INDEX at session start.
+- Homebrew is not installed; CLIs live in ~/.local/bin.
+- The Render API key and the Gemini/GCP plan were given in chat; the Render key should be rotated after deployment.
+
+User decided:
+- Cloud credits: GCP, $25, to get a Gemini key (Gemini to be tested against Haiku before any switch, per the no-accuracy-loss rule).
+- Deployment: backend on Render, frontend on Vercel, UptimeRobot pinging a `/health` endpoint every 5 minutes.
+- Site name: ask before fixing it; a placeholder is fine for now.
+- The 2,825 deletions were ordered by the user in the other session (commit messages say "on the user's order").
+
+Open:
+- Four deployment questions sent, unanswered: (1) Render backend = small Python service with /health that forwards /api/match and /api/meta to the Supabase Edge Function (recommended) or move all matching to Render; (2) admin dashboard stays local (recommended: holds the service key, no login) or goes online behind a password; (3) Vercel serves the current demo page or a new Next.js site; (4) answered by git: the deletions were the other session's.
+- After deploy: UptimeRobot monitor on the Render /health URL every 5 minutes; Render key rotation; Vercel 2FA.
+- Gemini: when GCP credits arrive, test on the 20 gold creators and the 16-brief eval before switching.
