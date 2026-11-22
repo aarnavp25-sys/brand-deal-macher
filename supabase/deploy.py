@@ -66,6 +66,8 @@ def secrets():
     body = [{"name": "ALLOWED_ORIGINS", "value": os.environ.get("ALLOWED_ORIGINS", ORIGINS)}]
     if os.environ.get("OPENROUTER_API_KEY"):  # brand profile + shortlist review (Claude Haiku 5.5 via OpenRouter)
         body.append({"name": "OPENROUTER_API_KEY", "value": os.environ["OPENROUTER_API_KEY"]})
+    if os.environ.get("PROXY_SECRET"):  # shared with the Render forwarder so it may pass the visitor's IP
+        body.append({"name": "PROXY_SECRET", "value": os.environ["PROXY_SECRET"]})
     if "RATE_SALT" not in existing:  # keep the salt stable so rate-limit buckets survive redeploys
         body.append({"name": "RATE_SALT", "value": pysecrets.token_hex(16)})
     mgmt("POST", "/secrets", body)

@@ -81,7 +81,8 @@ const VERDICT = { strong: 'Strong fit', good: 'Good fit', weak: 'Weak fit' };
 const NAMES = { price: 'Price match', store: 'Shop-visit reels', product: 'Product fit', style: 'Brand fit', audience: 'Audience fit', engagement: 'Engagement', reach: 'Reel reach', quality: 'Content quality', growth: 'Growth', consistency: 'Consistency', location: 'Location' };
 const ROLE = { expert: 'Expert', reviewer: 'Reviewer', educator: 'Educator', enthusiast: 'Enthusiast / fan', entertainer: 'Entertainer', lifestyle: 'Lifestyle', aspirational: 'Aspirational' };
 
-const H = { apikey: BDM.anon, Authorization: 'Bearer ' + BDM.anon };
+// local demo calls Supabase directly with the anon key; the deployed site calls the Render API, which adds it
+const H = BDM.anon ? { apikey: BDM.anon, Authorization: 'Bearer ' + BDM.anon } : {};
 async function api(path, body) {
   const r = await fetch(BDM.api + path, body ? { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { headers: H });
   let d = {}; try { d = await r.json(); } catch {}

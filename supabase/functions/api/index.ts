@@ -97,8 +97,18 @@ async function sha256(s: string): Promise<string> {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
+// The public site reaches us through the Render forwarder (render/server.py), so x-forwarded-for would be Render's
+// IP for every visitor. The forwarder sends the visitor's IP in x-client-ip with PROXY_SECRET; trust it only then.
+function clientIp(req: Request): string {
+  const secret = env("PROXY_SECRET");
+  if (secret && req.headers.get("x-proxy-key") === secret) {
+    const ip = (req.headers.get("x-client-ip") ?? "").trim();
+    if (ip) return ip;
+  }
+  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+}
 async function allowed(req: Request, route: keyof typeof LIMITS): Promise<boolean> {
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  const ip = clientIp(req);
   const client = route + ":" + (await sha256(env("RATE_SALT", "brand-deal-matcher") + ip)).slice(0, 32);
   const [win, max] = LIMITS[route];
   try {
