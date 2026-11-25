@@ -3,87 +3,86 @@
 The only mutable file in `context/`. Rewritten in full by every `/context-write`. Read it every session; read
 numbered files only when the topic map points to them or the user asks for full history.
 
-Last rewritten: 2026-11-25 (S-023).
+Last rewritten: 2026-11-26 (S-024).
 
 > **Auto-compact is OFF** (`~/.claude/settings.json`). Run `/context-write` at ~70–80% context.
 > **Git: never credit Claude** (user's order 2026-11-18; hooks block it in both repos).
 > **Do not build or install anything without the user's explicit "bana" / "banana shuru karo"**; research is fine.
-> **Final creator DB = Supabase project "database", schema `public` (848 creators).** Schema `legacy` there = old index
-> (read-only). The old main DB (yqaducvspzrqokcqwlga, 3,229) is legacy too, but the live site still reads it.
-> Two repos: this one (`brand deal matcher/`, PUBLIC) and `~/Documents/ojt/instagram-scraper/` (PRIVATE; scraper, final
-> data code, dashboard). `cd` into the right one first; network git needs
-> `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
+> **Never use reel captions or hashtags** for AI profiles, and not when checking results either (user, 2026-11-26).
+> **OpenRouter has a key limit AND a workspace daily budget** (resets 05:30 IST): check both before any paid run.
+> Two repos: this one (`brand deal matcher/`, GitHub PUBLIC) and `~/Documents/ojt/instagram-scraper/` (PRIVATE, scraper
+> only). `cd` into the right one first; network git needs `-c credential.helper= -c credential.helper='!gh auth git-credential'`.
 
 ## Where things stand
 
-Brand Deal Matcher helps small Indian brands find Instagram creators (10K–100K). The old prototype (Vercel → Render →
-Supabase Edge Function on the old main DB, 3,229 creators found by Apify name search) is still live but its data is weak.
+The product is named **Kindred** (user, 2026-11-25; live URLs still say brand-deal-matcher). It helps small Indian
+brands find Instagram creators (10K–100K). The live prototype (Vercel → Render → Supabase Edge Function) still runs on
+the OLD main DB (3,229 creators, legacy) and the user's demo was on the morning of 2026-11-26 with that site.
 
-In S-023 (2026-11-24 → 25) we built our own logged-out Instagram scraper as a separate private repo,
-`~/Documents/ojt/instagram-scraper/` (README + docs/instagram-notes.md + docs/metrics.md explain everything). It uses
-curl_cffi through "lanes": 10 Docker WARP containers (127.0.0.1:1081–1090), the Mac's WARP app (40000, proxy mode) and the
-hostel Wi-Fi (direct, slow, pauses 30 min on a block). It scraped all 961 index usernames: profile, latest 12 non-pinned
-reels with full detail, pinned reels, grid posts, every reel's 360p mp4 + m4a, cover images and profile pictures (~20 GB
-in instagram-scraper/media/, only on this Mac). Blocks were few (20 in ~11,400 requests) and handled by IP rotation.
+The final creator data is the 848 creators in Supabase project "database", schema `public`, collected by the private
+scraper repo (S-023). In S-024 (2026-11-25 → 26) every one of the **685 active creators got an AI profile from their
+reel videos**: Gemini 3.1 Flash Lite via OpenRouter (flex tier) watched the latest 12 non-pinned reels with audio, in
+three requests of 4 reels, chosen by a paid method comparison scored against a hand-checked truth sheet (creator level
+100%). The AI writes facts per reel; code counts the creator facts (category = subject, comedy/dance as the second
+category, Lifestyle for > 5 real categories, gender and life context only from the account owner, every spoken
+language, niche only for one-topic creators, collabs from reel evidence, "expert" only with a stated credential).
+Result: 662 profiled, 23 stopped as not creators (salons, shops, brands, repost pages), 0 failed, $8.80; 139 flagged for
+review. Results are in tables `creator_ai` (json + flat columns) and `reel_ai`, view `creator_overview`. Everything is
+explained in `docs/ai-profile-spec.md`.
 
-After cleanup the final set is **848 creators** (113 removed with reasons and JSON backups: 57 not found, 28 now >100K,
-16 not creators after manual review, 7 private, 5 restricted). 10,093 latest reels; 685 active / 163 inactive under the
-user's rule (inactive = newest non-pinned reel older than 45 days). `public.creator_metrics` holds per-creator numbers
-(median views, reach, engagement with an `est.` flag, comment rate, reels/week, viral, collab share, content_format
-own_audio/music/mixed, fewer_than_12); content_topic is empty until AI. Metrics are written only when Python and an
-independent SQL computation agree (0 differences). A read-only admin dashboard runs at http://127.0.0.1:8791
-(`instagram-scraper/dashboard/server.py`); the old dashboards 8787 and 8789 were stopped on the user's order.
+The AI code (`ai/`) and the admin dashboard **Kindred Board** (`kindred_board/`, http://127.0.0.1:8791; AI columns,
+filters, per-reel notes; non-creators hidden) were moved into this repo on the user's order ("scraper mein sirf
+scraper"); they read the scraper repo's `igs/store.py`, `.env`, `media/` and are run with its `.venv`. AI outputs are
+in `ai/state/` (gitignored). Commits 0f67cc3, 0a5f6a3 here and 1257bfe in the scraper repo are local only, not pushed.
 
-The "database" Supabase project was reorganised at the end of S-023: final tables in `public` (scrape_profiles,
-scrape_reels, creator_metrics, scrape_status, scrape_runs, scrape_log, index_*), old index in read-only `legacy`, `work`
-dropped; backup in instagram-scraper/state/backups/2026-11-25_before_reorg/. Everything was re-verified after the move.
-
-Credits: only Vultr is available; the user submitted $215 on the OJT portal (GPU for Whisper + Qwen-VL, Serverless
-Inference, Archival Object Storage, a VPS, buffer). Nothing is approved yet. OpenRouter key has ~$0.95.
+The new data is NOT yet used by matching or the website. A per-brand matching design was discussed (hard filters →
+relevance gate → per-brand score → embeddings → Haiku review → 3 columns; adjacency for "never promoted but fits";
+audience-persona idea) but nothing is built.
 
 ## Continue from here
 
-1. Ask the user what next; likely candidates: (a) when Vultr credits arrive, a 50-reel test of Whisper large-v3 + an open
-   vision model on gold creators, then content_topic; (b) review the remaining creators for personal accounts like the
-   31 reviewed in S-023; (c) integrate the final DB into this repo's matching/API and switch the live site.
-2. Decide fareeha.ganie (active, but all collabs South African).
-3. Back up instagram-scraper/media (20 GB) — single copy on the Mac.
-4. Refresh later: `cd ~/Documents/ojt/instagram-scraper && .venv/bin/python scrape.py run --users … --yes`, then
-   `scrape.py metrics`; Docker Desktop + `cd warp-docker && docker compose up -d` first.
-5. Reminders: rotate Render API key, Apify keys acc14–19 and the Supabase access token (pasted in chat); demo video due
-   2026-11-28; UptimeRobot.
+1. Ask how the demo went and what next. Likely: build matching on `creator_overview` (the design in S-024 / the
+   matching section of `docs/data-and-matching.md`), then switch the live site to the "database" project.
+2. Ask before pushing: this repo is PUBLIC (no keys or creator usernames in the pushed files; data is gitignored).
+3. Review list: 139 flagged creators and the 23 stopped ones on Kindred Board (decide whether salon business accounts
+   count as creators); the user's language check of the 5 pilot creators.
+4. Small fixes: the PROGRESS denominator in `ai/gemini_run.py`; @trivago_expedition_'s missing reel (compress and
+   redo); set an OpenRouter key limit again (it showed none after the run).
+5. Reminders: rotate Render API key, Apify keys acc14–19, Supabase token; back up `instagram-scraper/media` (20 GB);
+   Vultr $215 request still pending; UptimeRobot.
 
 ## Topic -> file
 
 | Topic | File |
 |---|---|
 | Product idea, brand flow, paywall; refused budget/WhatsApp | docs/product-design.md; 001 (S-001) |
-| Old pipeline, matching, LLM prompt, eval, deployment | docs/data-and-matching.md; 001 (S-016–S-021) |
-| Apify actors audit; social_developer index; username index | docs/data-and-matching.md; 001 (S-020–S-022) |
-| Own scraper: requirements, lanes, WARP/Docker, hostel IP, IP pool limit | instagram-scraper/README.md, docs/instagram-notes.md; 002 (S-023) |
-| Logged-out page/JSON fields, not-found/restricted markers, doc_ids | instagram-scraper/docs/instagram-notes.md; 002 |
-| Steps 0–3, blocks, bugs found and fixed, audit | instagram-scraper/docs/instagram-notes.md; 002 |
-| Metric definitions, content_format, checks | instagram-scraper/docs/metrics.md; 002 |
-| Removed creators (97 + 16), inactive rule | 002; backups in index/backups/2026-11-25_* |
-| Supabase "database" layout (public final, legacy old) | instagram-scraper/README.md; 002 |
-| Vultr credits ($215) breakdown and reason text | 002 (S-023) |
+| Old pipeline, matching rules R1–R9, eval, deployment | docs/data-and-matching.md; 001 (S-016–S-021) |
+| Own scraper, lanes, WARP, 848 final creators, metrics | instagram-scraper/README.md, docs/; 002 (S-023) |
+| AI creator profiles: rules, method choice, run, platform limits | docs/ai-profile-spec.md; 002 (S-024) |
+| Method comparison numbers, truth sheet, noise check | 002 (S-024); ai/state/ai_compare/, ai/state/ai_truth/ |
+| Kindred Board, creator_ai / reel_ai / creator_overview | README.md, docs/ai-profile-spec.md; 002 (S-024) |
+| Name Kindred, website flow plan, Vultr / OpenRouter model research | 002 (S-024) |
+| Per-brand matching design for the new data, failure cases | 002 (S-024) (discussion only) |
+| Vultr credits ($215) breakdown | 002 (S-023) |
 | Accounts, keys by name, live URLs, project refs | ~/Documents/ojt/PRIVATE-GUIDE.md |
 
 ## Open decisions
 
-1. Next main track: AI analysis on Vultr (after approval) vs personal-account review of the rest vs site integration.
-2. fareeha.ganie: keep or remove (likely South African).
-3. Media backup target (external drive / cloud) for 20 GB.
-4. When integrating: move the final data into the main project or point the app at the "database" project.
-5. Older: final site name, UptimeRobot, Shreyash's access.
+1. Next track: matching on the new data + site switch vs review of flagged creators vs inactive 163.
+2. Push both repos (this one is public).
+3. Salon / studio business accounts: keep stopped or treat as creators.
+4. Audience-persona field (why people follow a creator) and comment scraping (research only so far).
+5. Site name rollout to Kindred (domain, URLs); older: UptimeRobot, Shreyash's access, media backup target.
 
 ## Ruled out
 
-- Budget fields, WhatsApp flow, creators >100K (S-001); live scraping at search time; city as a requirement.
+- Budget fields, WhatsApp flow, creators >100K (S-001); live scraping at search time; city as a requirement; city /
+  location in AI profiles (S-024).
+- Captions and hashtags as AI input or as evidence when checking (S-024).
+- Haiku for video (no video/audio input); 12 videos in one request (Gemini max 10); fewer than 12 reels (worse niche
+  and collab calls); body type, skin colour, "married", price level as AI fields (S-024).
 - Name/bio search and collab snowball for discovery; copying Modash/Qoruz data; login-based scraping (S-021).
-- social_developer with city filters or ranked sortBy (S-022); a third Supabase project (free limit).
-- Cloud/datacenter IPs, GitHub Actions (GitHub terms), free proxy lists, Tor for scraping (S-022/S-023).
-- More than ~11 Docker WARP exits (BLR pool has ~12 /64s) (S-023).
+- Cloud/datacenter IPs, GitHub Actions, free proxies, Tor for scraping; > ~11 Docker WARP exits (S-022/S-023).
 - AWS/GCP credits (only Vultr offered); Claude as git co-author.
 
 ## Sessions
@@ -97,4 +96,5 @@ Inference, Archival Object Storage, a VPS, buffer). Nothing is approved yet. Ope
 | S-020 | 2026-11-21 → 22 | Credits form; why results fail; Vercel/Render CLIs | 001 |
 | S-021 | 2026-11-22 → 23 | Deployed; Apify data audit; discovery research; index/ built; scraper test | 001 |
 | S-022 | 2026-11-23 → 24 | Index collected (961 kept), `work` clone, scraper research/probes, WARP test | 001 |
-| S-023 | 2026-11-24 → 25 | Own scraper repo; 961 scraped; 848 final; metrics + dashboard 8791; Supabase reorganised; Vultr $215 | 002 |
+| S-023 | 2026-11-24 → 25 | Own scraper repo; 961 scraped; 848 final; metrics + dashboard; Supabase reorganised; Vultr $215 | 002 |
+| S-024 | 2026-11-25 → 26 | Name Kindred; Gemini video AI profiles for 685 active ($8.80); Kindred Board; AI moved here | 002 |

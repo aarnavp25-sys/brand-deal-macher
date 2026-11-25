@@ -111,3 +111,63 @@ Open:
 - Back up instagram-scraper/media (20 GB, single copy on the Mac). Supabase free projects pause after a week idle.
 - Docker: 10 WARP containers still running (`cd warp-docker && docker compose stop`). Phones lane never set up.
 - Reminders unchanged: rotate Render API key, Apify keys acc14–19, Supabase token; demo video due 2026-11-28.
+
+---
+
+## S-024 · 2026-11-25 → 2026-11-26 · Name Kindred; AI creator profiles from reel videos (Gemini) for all 685 active creators; Kindred Board; AI moved into this repo
+
+Asked:
+- "abhii mujhe ye project ke liye naam suggest kar" → "nhii kuch acche naam bata jo sunn ke premium lage" → "tk h kindred final karte hai".
+- Website plan only: landing page, Google sign-in, "Find Creators" with question-answer that adapts, then creators ("abhi sirf apan baat kar rahe hain ... kuch bhi karna nahi hai").
+- Vultr: "achhe se research kar aur bata ki vulture mein apan kya-kya kar sakte hain, kya nahi"; Haiku: "kya-kya support karta hai aur kya nahi"; cost of frames + transcript for 848 ("captions nahi dekhna hai, hashtag nahi dekhna hai").
+- A credits request mail "human ne likha ho waisa".
+- "mujhe bata apne pass ek creators ki kyaa kya details hai ... mai last time jaisa fuck up nhii chahta ke tu kahe ye aise ai ne isko aise samaja".
+- "open router pe konse konse model hai direct video aur audio lete hai ... best konsa hai"; "gemini 3.1 flash lite kaise rehega sach sach batana haiku ya ye"; dry-run script; "sirf active creators pe kitna aayega"; "batching chal raha hai ya nhi".
+- Requirements: category "ekdam perfect ... 12 reels dekhne ke baad hii decision le", male/female/couple, audience for fashion/beauty, "creatory hai ya nhii ya fir random shop hai ya personal account", creator role, "saari language pata honi chaiye"; "ek bubble mat bana dena ki sirf vo yahi karti hai ... agar koi sirf ek hi cheez ke baare mein baat kar raha hai, to usko niche mein daalna"; "main kuchh bhi hardcoded nahi keh raha hoon ... thoda apna dimaag laga ke"; "tere hisaab se set kar de ... baad mein mat kehna ya fuck up hogya".
+- Tests: "5 alag-alag creator ka ... poori 12 reels de ... cap 0.2 dollars"; "language jo bhi ho ... identify honi chahiye"; "poora shehar hata de"; "Kam se kam ka matlab yeh nahin ki accuracy ... jahan cost cutting ho paaye"; "12 ke badle 10 kar de ... 5 plus 5, 6 plus 6 ... 4 plus 4 ... last 6 tak aa ja"; "12 vaale ko base kaise le raha hai? Tere ko shor hai tu ki 12 wala sahi hai?" → "haan dono kar, sach wali sheet bana".
+- Rules: "caption aur hashtag mat dekha kar" (also for checking); "Fitness Naseem fitness aur comedy dono aana chahiye"; "paanch cheezon se zyada ... Lifestyle ek cheez rakh de"; "expert ya educator tabhi daalna jab uske paas koi degree ho"; "ye cheezein chord bhool ja, tu pehle barabar likh raha tha".
+- Matching: "ye score har ek brand ke requirements ke liye alag-alag banni chahiye ... chhanne ke liye tu kaun sa model use karega"; perfume brand vs fashion creator who never promoted perfume, "possibilities ... solutions"; audience-based matching for multi-topic creators ("sirf suggestion hai").
+- Run: early stop "jab tak tere ko high confidence na ho, utni reels chalana"; key limit $17 ("Iska matlab ye nahin ki 17 dollar tak poora jaana hai. Ek cap rakh dena"); "ek monitor lagana hai ... Kal subah mera ek iska demo hai live, to please sab kuch sahi karna".
+- DB/dashboard: "database pe bhi update karte rahna ... purani cheezein hataana mat, chahe to extra columns"; dashboard name "kind red board" (Kindred Board); "dashboard mein jo-jo creators nahi hain na, unko hata dein".
+- Repos: "Scraper mein sirf scraper ... Brand deal matcher mein ye sab daal de"; "haan commit kar de".
+
+Done:
+- Name: suggested desi then premium names; the user chose **Kindred** (memory deploy-site-name updated; live URLs not renamed).
+- Research (no build): website flow (Next.js + Supabase Auth Google + mostly fixed Q&A with AI follow-ups); Vultr products (Serverless Inference has whisper-large-v3-turbo $0.0000111/s, qwen3-embedding, rerank; object storage, VPS; GPU only if needed; no scraping from Vultr IPs); Haiku 5.5 = text/image/PDF only (docs + OpenRouter list); OpenRouter models with video+audio input: 41 of 472 (35 Gemini), list in scratchpad CSV; credits mail drafted (Vultr $215 follow-up).
+- Built `ai/gemini_dryrun.py` (first in the scraper repo as tools/gemini_dryrun.py): prompts, schemas, code counting rules (`aggregate`, `finalize`), 18 self-tests; `docs/ai-profile-spec.md`. Design: per-reel facts by the AI, creator facts counted by code, creator step for judgements.
+- Paid tests (Gemini 3.1 Flash Lite, flex, cap each time): interrupted 5-reel test $0.0044; v2 pilot 5 creators × 12 reels $0.068 (8 errors found by checking frames: makeup artist filed Fashion, trainer+client "couple", mother's cooking → "homemaker", Ariel "Other", Vicks Beauty, "fair skin" in looks, confidence always "high"); v3 fixes (bio context per reel, people with roles, owner-only gender, Home & Household, own products vs services, all Indian languages, no city, appearance words stripped) → v3 pilot $0.075 (4 creators; 5th blocked by key limit).
+- Method comparison `ai/gemini_compare.py` (5 creators; 1x12, 10in1, 5+5, 6+6, 4x3, 8in1, 4+4, 6in1, 1x10/1x8/1x6): $0.34. Noise run (fresh 1x12 + 4x3) $0.108 (stopped at 3 creators, see below). Hand-checked truth sheet of 60 reels (`ai/state/ai_truth/truth_v1.json`) scored by `ai/gemini_truth.py`: creator level 4x3 46/46 and 27/27, 1x12 45/46 and 27/27, 6+6 44/46, 10in1/1x10/1x8 43/46, 5+5/1x6 42/46, 4+4 41/46, 6in1 39/46; reel level 96–99% for all; self-agreement 1x12 97–99%, 4x3 97–100%. Chosen: 12 reels as 4+4+4.
+- Rule changes after the user's corrections (v3.1→v3.4): niche/near_niche/not_niche; Hindi family; low-confidence languages flagged; collabs decided by code from promoted non-own brands; expert shown only with a credential quoted from bio/speech and matching a credential regex (8 creators have one; all checked in their bios); category = subject, comedy/dance style as the reel's secondary_category; main category counted from reel main categories only; Lifestyle when > 5 real (≥2-reel) categories or no leader; 7-creator v3.4 test incl. 2 pure-comedy controls (no Fitness added) $0.088.
+- `ai/gemini_run.py`: groups ≤ 18 MB, 180 s trim, early stop after each group, single-reel fallback, resume, spend cap, writes `creator_ai` (json + flat columns), `reel_ai`, view `creator_overview` (`--migrate`, `--flatten`). 12-creator test $0.27. Full run 2026-11-26 01:35–03:05 (three parts: 10 workers, then 20, then resumed after the workspace budget): **685/685 active creators: 662 done, 23 stopped_non_creator (salons, nail studios, shops, brands, restaurant, agency, repost pages), 0 failed, $8.80 stored cost**; 139 need review; categories Lifestyle 133, Beauty 102, Food 100, Fashion 73, Travel 64, Comedy 59, Fitness 46; female 380 / male 242 / unclear 40; main language Hindi family 390, none 93, English 62, Malayalam 21.
+- Dashboard → **Kindred Board** (`kindred_board/`, 8791): AI columns, filters, AI profile + per-reel notes in the drawer, CSV AI fields; active by default; the 23 non-creators hidden (kept in DB).
+- Moved everything AI out of the scraper repo into this repo: `ai/`, `kindred_board/`, `docs/ai-profile-spec.md`; AI data `ai/state/` (372 MB, gitignored); scripts read the scraper's `igs/store.py`, `.env`, `media/` via `../instagram-scraper` (run with its `.venv`). Verified from the new place (self-test, dry run, truth scoring, resume skip, board + video). Commits: scraper 50b6d6e then 1257bfe (removal, README); this repo 0f67cc3, 0a5f6a3 (not pushed). Memories: examples-mean-principles, no-captions-hashtags.
+
+Did not work:
+- My first "$6.5 for 685" was a guess for one request per creator; after switching to one reel per request the estimate rose to $12–13 and I did not say clearly why; the user asked and I explained (instructions repeated per request).
+- 12 reels in one request is impossible: Gemini takes ≤ 10 videos per request.
+- v3 pilot: @iamasish_tripura 12/12 reels HTTP 402 "requires at least $1.00 in balance for video" (key limit $5, $0.80 left).
+- Method test: two flex requests hung ~15 min (one video group, one text-only creator step) → 900 s timeout; later 240 s + retry.
+- Noise run stopped instantly then after 3 creators: per-call reserve × parallel calls exceeded the small cap (8×$0.05 > $0.25; later 0.02). Same cause stopped the 12-creator script test at $0.11 (cap $0.30).
+- Full-run script first version failed creators that have fewer than 6 reels in total ("only 5 reel notes") → fixed to accept all available reels.
+- v3.4 first versions: one-off categories made a Marathi comedy creator "Lifestyle"; counting secondary categories equally made a makeup artist "Fashion" main → both fixed and self-tested.
+- I misread the user twice (proposed tips_howto/skill_showcase roles and "creator title"; the user wanted the original roles plus two category rules) and built a truth sheet using captions (user: never use captions).
+- Full run: 10 workers ≈ 5 h projected → restarted with 20; **OpenRouter workspace daily budget $5 → HTTP 403 for every request at creator 279/648** (separate from the key limit; S-016 had noted it, I did not check before starting); stopped, user raised it to $12, resumed. One request of 29.2 MB → HTTP 413 "exceeds the 20000000 byte limit for Google AI Studio" (@trivago_expedition_ kept 11/12 reels). PROGRESS lines show a wrong denominator (skipped subtracted twice).
+- Prompt caching via cache_control: 25% then 7% cached.
+
+Established:
+- Durable details are in `docs/ai-profile-spec.md` (rules, method, run, platform limits).
+- Gemini through OpenRouter bills ~66–70 tokens per video second and ~20–25 per audio second; flex endpoints are half price and synchronous; `:batch` (Vertex) may take up to 96 h.
+- After the run the OpenRouter key showed no limit (`limit_remaining` null); the run's own cap protected spend.
+- INDEX had said the OpenRouter key had ~$0.95; it actually had $14.44 (account $18.50 credits).
+
+User decided:
+- Product name Kindred. Model Gemini 3.1 Flash Lite (flex), 12 reels as 4+4+4, accuracy before cost ("jahan cost cutting ho paaye" only).
+- Never captions/hashtags, not even when checking; no city/location at all; every spoken language identified.
+- Category = what the creator makes content about (gym comedy = Fitness + Comedy); > 5 different things = Lifestyle; niche only for one-topic creators; expert only with a stated degree/certificate; roles stay expert_educator/reviewer/entertainer/lifestyle.
+- Early stop for clear non-creators only at high confidence; cap below the key limit.
+- AI work and the dashboard live in Brand Deal Matcher; the scraper repo holds only the scraper. Dashboard named Kindred Board, non-creators hidden.
+
+Open:
+- Matching on the new data (score per brand, adjacency "never promoted but fits", embeddings, Haiku review; persona idea) is designed, not built; live site still reads the old DB.
+- Push both repos (this one is PUBLIC; asked, not answered). Review the 139 flagged and 23 stopped creators (salons: creator or business?). 163 inactive not analysed. @trivago_expedition_ missing reel. User's language check of the 5 pilot creators pending. Fix the PROGRESS denominator.
+- Set an OpenRouter key limit again; workspace budget now $12/day.

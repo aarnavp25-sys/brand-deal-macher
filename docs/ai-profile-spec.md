@@ -94,7 +94,27 @@ active ~$12.5, 163 inactive ~$2.7 (flex). Gemini caches a repeated prompt prefix
 these endpoints); if that works through OpenRouter, the active run drops to ~$7. The 5-reel paid test checks
 `usage` for cached tokens before any bigger run.
 
-## Order
+## How it is run (ai/gemini_run.py)
 
-dry run ($0) -> 5-reel paid test (cents; real tokens, upload works) -> gold test (~$0.4) -> fix or switch off ->
-685 active creators (~$7–9 with flex, spend cap, every raw answer saved) -> owner reviews flagged creators on 8791.
+12 latest reels per creator, sent as 4+4+4 (a group is split further so one request stays under 18 MB of base64
+video); videos longer than 180 s are cut to their first 180 s with a stream copy and the model is told so. After each
+group, until the account is clearly a creator, a text-only check asks whether it is a personal account, a shop/brand or
+a repost page; the account is stopped only when the AI says so with high confidence AND the code's own count agrees
+(status `stopped_non_creator`, kept in the DB, hidden on Kindred Board). A reel the group answer leaves out is retried
+alone. Resumable (creators finished with the same prompt version are skipped); hard spend cap; 20 creators at a time
+gave ~7 creators/min. Results: `creator_ai` (json + flat columns), `reel_ai` (one note per reel), view
+`creator_overview`. First full run 2026-11-26, prompt video-v3.4: 685 active creators, 662 profiled, 23 stopped as
+not creators, 0 failed, $8.80 (about $0.013 per creator).
+
+## Platform limits found while running (keep in mind before any paid run)
+
+- OpenRouter has two separate limits: the **key limit** and a **workspace daily budget** (it stopped the run at
+  $5.00 with HTTP 403 "Workspace daily budget ... exceeded"; it resets at 00:00 UTC = 05:30 IST). A video request also
+  needs at least $1.00 left on the key (HTTP 402 otherwise). Check both before starting.
+- Gemini takes at most 10 videos per request. Through OpenRouter the Google AI Studio route rejects request bodies
+  over 20,000,000 bytes (HTTP 413); the Vertex route accepted 25.5 MB. Hence the 18 MB group limit.
+- Flex requests sometimes hang ~15 min: 240 s timeout + retry. Batch on Vertex may take up to 96 h, so flex (same
+  half price, synchronous) is used.
+- Prompt caching through OpenRouter was unreliable (7–25% of prompt tokens cached); costs are planned without it.
+- `igs/metrics.py` (scraper) writes `content_topic = None` on every recompute, so the AI category is kept only in
+  `creator_ai`, never in `creator_metrics`.
