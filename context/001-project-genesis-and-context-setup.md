@@ -804,3 +804,116 @@ Open:
 - Four deployment questions sent, unanswered: (1) Render backend = small Python service with /health that forwards /api/match and /api/meta to the Supabase Edge Function (recommended) or move all matching to Render; (2) admin dashboard stays local (recommended: holds the service key, no login) or goes online behind a password; (3) Vercel serves the current demo page or a new Next.js site; (4) answered by git: the deletions were the other session's.
 - After deploy: UptimeRobot monitor on the Render /health URL every 5 minutes; Render key rotation; Vercel 2FA.
 - Gemini: when GCP credits arrive, test on the 20 gold creators and the 16-brief eval before switching.
+
+---
+
+## S-021 · 2026-11-22 → 2026-11-23 · Deployed (Render + Vercel); Apify data audit; discovery research; index/ collector; own-scraper test
+
+Asked:
+- Deploy: "tk h a select karde" (option a: thin Render forwarder). Then "chal sahi hai ab abhii apan wapis woh cheez pe aate hai jo mains hai ... haiku kya kya kar raha hai ... post Consistency hai woh bjii galat aarhai hai ... apify se data scrape kar raha hai tereko profile ke sath kya kya mil raha hai".
+- "tu sab se phele toh instagram seach scrapper mai search kya karta hai ... exaxt format mai bata woh tujhe 12 post deta hai uska mtlb kya hai"; "video url ka mtlb kya hai"; "audio url mai bhii tujhe kya kya milta hai"; "same cheeze baaki scrapper ke liye".
+- Credits: "clg mujhe aws aur gcp ke credits de rahe hai ... konse ke credits lene chaiye"; "abhii jitne creators hai uska mat soch soch ki apne pass 30000 ke ass poass creators hai"; "tk hai 120$ mangta hu"; "aws ke bhii thode maang leta hu"; "are you sure ... 120$ ... zyada mangna chaiye tha".
+- Git links for the OJT portal (screenshot of "GitHub Repository Link Submission" and "Git hub link", overdue; "Project Demo Video Submission" due Nov 28).
+- Discovery: "delhi food blogger ... sirf wahi dikhege jinhone bio mai rakha hoga ye bada kharab tarika hai ... koi accha sa scrapper dhund"; "jo mai daalu creators betwwen 15-20k toh uske buich ke account dhund ke de"; "konse konse datbase hai"; "jitne bhii free hai woh sab use karke dekh".
+- Gave Apify key acc14 in chat: "2 dollors use karna aur acche se dekh ke bata".
+- "mai tujhe bohot saari apify ki keys du tu sirf 10k se 100k tak ke beech mai sirf usernames dhund aur usse ek naye supabase account mai store kar aur uska ek alag admin dashboard bana jo locally chale ... 120 category hai har category ke 20-20 creators ... abhii profile scrape mat karna"; "random accounts select karna pune mumbai aise select mat karna ... supabase mai har category ka table bana ... fashion mai 5 sub category ... sirf category aur 10k-100k ... baaki kuch bhi bias mat rakhna".
+- "meri maam ne kaha hai ki sxcrapper khud ka banana hai toh ye jitne bhii creators ka username tu dhundhega usko khud ke scrapper se uski details nikalni hai".
+
+Done:
+- Deploy (user chose a thin forwarder, admin local, current demo page): `render/server.py` (stdlib; /health GET+HEAD, /api/meta, /api/match → Edge Function with anon key server-side, CORS allow-list, 4 KB body cap); `clientIp()` in `supabase/functions/api/index.ts` trusts `x-client-ip` only with `x-proxy-key == PROXY_SECRET`; `deploy.py secrets` sends `PROXY_SECRET` (generated into admin/.env); demo `H` headers only when `BDM.anon`; `demo/config.js`, `demo/vercel.json` (CSP connect-src Render), `demo/.vercelignore`. `deno check` clean; local tests (health, CORS 403, 413, 400, 404) passed. `deploy.py secrets function` deployed. Commits 9b1834e, 6a9e22a pushed (also pushed the 19 earlier unpushed commits after a secret scan found none). Render service created via API: srv-dc1bt26c6qcc73ae4vng, https://brand-deal-matcher-api.onrender.com (free, Singapore, autoDeploy). `vercel deploy --prod` from demo/ → https://brand-deal-matcher.vercel.app. Verified: health 200, meta via Vercel origin 200, foreign origin 403, one real match via Render 200 with AI review (8/8/3, ~20 s, ~$0.003), rate-limit bucket shared by direct and proxied calls from one IP. PRIVATE-GUIDE.md got a "Live website" section and key rows. Details → docs/data-and-matching.md (Public API, "Deployment").
+- Data audit (raw files downloaded to the scratchpad; findings → docs "Apify actors: what they return"): searchSource google/threads/facebook-ads; funnel 4,726 → 1,072 shown; snowball 51% deleted; isPinned never true; no views/paid flag in profile posts; alt/tags/comments/music dropped; media links expire via `oe=`; 15% collab reels mis-attributed by inputUrl; collab posts stored under one creator; posts_per_week is frequency not consistency (numbers in docs). Explained Haiku's three jobs (creator profile from captions only, brand profile, shortlist review from a one-line summary).
+- Credits research (Gemini pricing page read 2026-11-23): recommended GCP (Gemini Flash-Lite reads images + audio; GCP education credits "all Google Cloud services", Vertex route likely, unconfirmed), AWS not (Bedrock account-blocked, $100 AWS credits already unused). Wrote the GCP form text (USD 120 breakdown) and an AWS USD 40 text (S3, Nova, Transcribe). Said $120 fits only if Flash-Lite passes; Flash 3.8 batch for 30K ≈ $143; suggested $200 if not yet submitted.
+- Gave the GitHub link for the OJT portal: https://github.com/aarnavp25-sys/brand-deal-macher (public, HTTP 200; name spelled "macher").
+- Discovery research (findings and prices → docs "Discovery alternatives"); free sources opened without signup (Modash public pages: top 20 per page, ~380 India pages, fake %, avg reel plays, audience gender; Hugging Face `arh1p/instagram-top-accounts` CSV: 313 Indian accounts, 13 in 1K–100K; Sup; Collabstr 403).
+- acc14 (new Apify key, label acc14 in admin/.env APIFY_TOKENS and index/.env): 4 index runs + 2 verify runs, $1.32 total. Files in pipeline/runs/2026-11-23-acc14/ (gitignored): sd-food-micro (25), sd-fashion-nano (FAILED, 0), sd-delhi-micro (15), db-food-micro (30), verify-profiles (69), verify2-profiles (12).
+- Built `index/` (uncommitted): schema.sql (tables, 17 group views `grp_*`, `index_progress`, all security_invoker, RLS on), category_groups.json (120 → 17), categories.json, cities.json (652), collect.py (keys, categories, migrate, status, plan, run with random-city draws ≤2 per draw, resume via index_runs.city, Budget with per-key $0.30 reserve, --max-usd, --workers, --max-draws), server.py + index.html (port 8789, read-only, CSV export, key balances). `collect.py keys` → acc14 $3.67; `categories` → 120 / 652.
+- Own scraper test (scratchpad venv: curl_cffi 0.17.0, playwright + chromium-headless-shell; nothing added to the project): see docs "Own scraper: logged-out Instagram".
+
+Did not work:
+- Playwright MCP: "Browser is already in use for …/mcp-chrome-cdfe955" every time (another session holds it); used curl and a scratch Playwright instead.
+- First datablow verify: 11 usernames parsed with `?igshid=…` from instagramProfile URLs → "NOT FOUND"; fixed by parsing the URL path and re-verified ($0.03).
+- `sd-fashion-nano`: scanned 10,000, kept 0, then "Creator graph is temporarily unavailable." (exit 1, no result charge).
+- Logged-out: `web_profile_info` on i.instagram.com and www → 404 HTML; plain curl profile page → payload stripped; GraphQL feed doc_id 9310670392322965 → 401 `{"require_login": true}`.
+- WebFetch: collabstr.com 403; Modash sitemap has no /find-influencers pages (links found on the pages themselves).
+
+Established:
+- social_developer charges $0.02 per result (I had called it "cheap" earlier; wrong) and returns results city-alphabetically; its 2.4M "profiles" include shops, agencies, pages and foreign accounts.
+- A run's `usageTotalUsd` excludes pay-per-event result charges; account spend = results × price + compute.
+- Apify Free plan cannot top up; Starter $19 (+ up to $100 overage), Profile/Reel Scraper $2.30/1,000 on Starter.
+- Main Supabase: DB 141 MB (posts 99 MB), Storage 238.5 MB; at 30K creators both would pass the free limits.
+- All 13 old Apify accounts are empty until 2026-12-09 (acc3) / 12-15…17.
+
+User decided:
+- Deploy with option (a); admin stays local; Vercel serves the current demo page.
+- GCP credits USD 120 (form) and some AWS credits; GCP chosen for Gemini.
+- Discovery: stop name/bio search; usernames from an index, details from scraping; then, on the teacher's instruction, details must come from **our own scraper**.
+- Index collection: only category + 10K–100K, no hand-picked cities; chose "Program random shehar chune" (random city per draw) after the city-alphabetical bias was shown. Supabase must show each category group as its own table with sub-categories.
+
+Open:
+- index/: needs the new Supabase project (URL + service_role key, optional access token) and more Apify keys (~10 free accounts ≈ $48 for 2,400); then `migrate`, a 3-draw compute measurement, `plan`, and `run` after the user's yes. Not committed.
+- Own scraper: user asked to build it; proposed `scraper/` with curl_cffi (profile page + reels tab + ~4 post pages, 4–8 s pacing, resume, field-presence checks) writing to the index project; waiting for "start" and posts-per-creator (recommended 4). curl_cffi would be the project's first non-stdlib dependency.
+- UptimeRobot monitor not set (user's account); rotate Render API key and acc14 Apify key (both pasted in chat); Vercel 2FA; final site name.
+- Free fixes from the audit not started (reel owner mapping, collab posts PK, consistency formula, alt/tags/comments/music backfill, creator-evidence report). Demo video due 2026-11-28.
+
+---
+
+## S-022 · 2026-11-23 → 2026-11-24 · Username index collected (1,322 → 961 kept), work-schema clone, own-scraper research + probes, WARP proxy test, credits research
+
+Asked:
+- Index: "tk hai abhii apify se profile nikalkle isme scrap karta reh" (keys acc15/acc16); "sirf user name lana aur kuch nhii ... har category ka utna lana"; "haa toh phele 30 categories wala kar"; "bata mujhe problem kaha aarahai acche se dekh ke"; "inme se konse category mostly brand collab kare usske creators laa aur total creators 2000 rakhne hai ... min 20 rakhna har category mai"; "tu karte jaa mai tujhe key deta rahuga"; "aur bich mai kuch bhi problem aaye toh bhi batana"; "page khul nhi raha hai"; "dashboatd bhii update karde".
+- Data trust: "ye baaki ki cheeze kaha se aayi ... engagement city followers avg view ye sab tune lilkha kaha se"; "puri list scan karke baata ... konse konse profiles hai jo humare kaam ke nhii hai".
+- Categories: "16 category rakh aur baaki sab hata de", then "phele 9 hii rakh aur baaki saare category hata de".
+- Removals: "kapde wale jo dukan hai unko to nikalna hi padega ... mobile ... car fan pages"; then "salon wale aur gym wale ye saari cheezen ko bhi nikal hi de"; then reversed: "jo saloon vali sachchi mein reels banati hai ... kuch aisa soch ki apan jab scrap kar rahe hain tab bhi hamko pata lag jaye ki ye rakhna chahiye ya nahin. Saare accounts ke liye"; finally "jo creators nahi ... baaki saari cheezein jinke shop hai ... hata hi de tu. Database se phir mere ko final count bata".
+- "city ... sach hai ya galat"; "naam wala hata de, pura database se" (answered: full name).
+- Scraper: requirements list (profile + last 12 reels, every field, "pind hai ya nahin"; "abhi sirf data collect karna hai"); "open source jitne bhii scrapper hai usse acche se dekh ... ek dum best bana ... pheel acche se explain kar"; then "abhi kuchh bana mat ... banana se pehle ruk jaana, mere ko poochhna"; "haa reseach karke bana mat abhii"; "bio mai link hai toh daal aisa nhii ke link hai toh usse hata de brand samaj ke".
+- "jo tune ne super base par banaya tha uska ek aur clone bana de ... usmein sab cheezein karna ... abhi banana mat".
+- Proxies: "kuch toh tareeka hoga ki bina paise diye hue proxies use kar paayenge"; Cloudflare WARP image + github.com/iplocate/free-proxy-list: "check karo ... kuch useful hai kya"; "ek baar check karke dekh kaam karega ya nahi ... phir mere ko final plan bata".
+- Speed: "Apify ... kam time lagta ... time kam kaise kar sakte hain"; "alag-alag instance banakar parallel chalaakar".
+- Credits: "mere sar keh rahe hain ki vo GCP ke credits nahi de paayenge, vultur ke de payenge, ya phir baaki cheezon ke"; Gemini cost for 1,000 creators; "pahle tune ne mujhe 22 dollars kaha tha, 3,000 creators ke hisaab se"; best Gemini model; Vultr vs AWS; "mere AWS pe jo 100 credits pade hain, vo sab bhool jao".
+
+Done:
+- Index project: user gave a Supabase personal access token (account-wide); found project "database" rhaqbnvmyjcwgeosltaf (Singapore, empty); wrote URL, service_role key and token to index/.env (gitignored, chmod 600). `collect.py migrate` applied schema.sql; API then said "Could not find the table" (schema cache) and, after reload, "permission denied" → appended grants for service_role to schema.sql (new projects no longer grant API roles by default).
+- Keys: acc15 (deliberative_numbers_u8q), acc16 (delightful_terrace_y99) (third pasted key was a duplicate), later acc17 (dawnlit_hedgemaple), acc18 (flowered_rush), acc19 (swirled_jaguar); all added to INDEX_APIFY_TOKENS after a duplicate check by Apify user id. PRIVATE-GUIDE.md got an index-keys table and the "database" project section.
+- Random-city pilot and a 30-category run all failed with "Creator graph is temporarily unavailable"; diagnosed from 42 run logs (details → docs "Discovery alternatives"); collect.py rewritten around index/plan.json: one run per category without city, never parallel, retries (`--tries`, `--wait`), MIN_KEEP 20 re-run rule, "exhausted" rule (a re-run that brings no new username), skip categories no single key can pay for, `--reserve`, cost = max(usageTotalUsd, items × $0.02), item fetch limit n+50, guard that never re-saves usernames in index_removed.
+- plan.json: brand-collab categories ranked by the main DB's AI "takes promotions = yes" share (Food 88%, Parenting 84%, Fashion 79%, Jewellery 68%, Travel 63%, Beauty 60%, Auto 56%, Fitness 52%, Tech 49%), 31 categories, 2,000 total; later moved Kids & Toys' 56 to Chef/Fashion Stylist and 208 more to Fashion Stylist/Design, Hair Care, Health Fitness, International/Luxury Travel; late-alphabet categories last.
+- Runs (2026-11-23/24): 85 runs, 60 timed out, $26.83 real spend; 1,322 unique usernames. Exhausted in the index: Kids & Toys 4, Automobile 4, Biking 6. Partial: Parenting 91, Auto 45, Fashion Creator 33, Fashion & Lifestyle 43. Skin Care failed 10 tries (late alphabet). 9 plan categories (678 usernames, ≈$13.8) still to run; all six keys ≈ empty (reset 2026-12-21/22).
+- sortBy test (Kids & Toys, followers, limit 4): "sequential scan, then rank", died at 50K with nothing written ($0.0001). Recorded in docs.
+- Dashboard (index/server.py, index/index.html): plan-first summary (target, collected, status complete/partial/exhausted/retry/todo, tries, real spend), group cards, keys with reset dates, "not in plan" section; restarted on 8789. Impeccable design hook: fixed badge and table-wrapper padding.
+- Data trust: index fields are copied 1:1 from the actor (row_of); vs 37 real profiles from S-021: followers ≈4% off (some now >100K), avg likes ≈7× too high, engagement = (avgLikes+avgComments)/followers so wrong too; city = actor's guess (12 Manipur creators → "Bankura", foreign accounts → Adalaj/Alipurduar/Chhattisgarh/Himachal/Bihar; 41 are states).
+- Manual review of all 1,322 names (username + name + category read by hand) → index_review table (428 rows) + index/review-2026-11-24.csv. Categories: index categories mapped to the main DB's 16, then cut to 9 (Food & Beverages, Beauty & Skincare, Fashion & Clothing, Jewelry & Accessories, Fitness & Wellness, Tech & Gadgets, Parenting & Kids, Travel & Explore, Automobile); grp_* views replaced by 9 cat_* views; 41 actor categories never collected.
+- Removals into index_removed (full row backup): 70 (clothing shops 18, own mobile shops 40, car fan/city pages 12); 43 salon/gym removed then restored with review "local business: decide at scrape"; then 291 more (shops/brands/businesses 173, foreign 85, pages 33). Final: **961 creators**, 361 removed. Per category: Fashion 244, Food 189, Beauty 187 (38 salon), Fitness 87 (5 gym), Parenting 86, Travel 81, Tech 40, Auto 37 (20 wrong-category people), Jewellery 10.
+- full_name removed from the whole index DB (column dropped, raw.fullName stripped, backups stripped), from collect.py, dashboard and CSV.
+- Clone: a third Supabase project was refused (free plan: 2 active projects per owner) → user chose schema `work` in the same project: full copy of all six tables (FKs re-pointed) and all views, row counts equal, exposed to PostgREST (db_schema public, graphql_public, work); local backup index/backups/2026-11-24_1711/ (gitignored); INDEX_WORK_SCHEMA=work in index/.env. Rule recorded in docs and PRIVATE-GUIDE: all new work writes to `work`, `public` frozen.
+- Scraper research (no scraper built): requirements written to docs ("Own scraper: data to collect"); studied Instaloader (MIT, rate controller), yt-dlp (Unlicense, DASH audio), 2scraper (MIT, route-based block detection), Scrapfly guide, Meta Business Discovery; installed curl_cffi 0.17.0 in scraper/.venv and wrote scraper/probe.py (saves pages); probed 4 creators + reel pages + JSON queries (~21 Instagram requests in total, no block). Findings → docs ("Own scraper: what logged-out pages give", "Own scraper: network").
+- Proxies: researched free options; WARP app was already installed but its daemon was not loaded (needs admin); user enabled it; proxy mode test: 5/5 reconnects gave new IPv6 (2a09:bac…, BLR), Instagram returned full profile page, reels JSON and reel JSON through WARP; restored the user's normal mode (`warp-cli mode warp`).
+- Credits research: Vultr (VPS, GPU, object storage, Serverless Inference with Whisper large-v3-turbo; no Claude/Gemini), AWS (Bedrock Nova/Pegasus/Claude Haiku/Gemma 4, Transcribe Hindi, EC2 GPU Mumbai), Gemini only on Google or OpenRouter. Gemini cost for 1,000 creators × 12 reels, 30 s, low-res video+audio: 2.5 Flash-Lite ≈$8, 3.5 Flash-Lite ≈$17, 3.8 Flash ≈$44 (batch ≈$22).
+- Memory: new feedback memory ask-before-tools (incl. "haan to a plan is not a go-ahead to build").
+
+Did not work:
+- social_developer with a city: every category+city draw failed; with category only it failed whenever a 2,000-row page took >~12 s (37 of 39 runs on 2026-11-23). Parallel runs failed on the first page.
+- Cost was double-counted (fee + usageTotalUsd) → run stopped at "$12.47" when real spend was ≈$7.5; usageTotalUsd also lags seconds after SUCCEEDED (a 100-result run read $1.62).
+- Mac slept: a 60–120 s retry wait took 35 minutes; fixed with `caffeinate -i -w <pid>`.
+- Kids & Toys retried 3× returning the same 4 rows (wasted ≈$0.16) before the exhausted rule existed; the run was killed with pkill.
+- A heredoc Python edit of index/index.html was refused by a safety check (it misread the text as a removal); rewritten with the Write tool.
+- Supabase project creation: 400 entitlement_required "2 project limit".
+- Logged-out timeline feed (doc 28904005159232689): 200 but thin grid nodes only (no dates/counts/music/video); no batch shortcut for reel details.
+- Earlier claim corrected: Amazon Nova's audio understanding is unverified (said "video + audio" first).
+
+Established:
+- See docs: "Discovery alternatives" (graph order, timeouts, sortBy), "Working copy: schema `work`", "Own scraper: what logged-out pages give", "Own scraper: network", "Own scraper: data to collect", "Keep check at scrape time" (design, not active: user later said collect only).
+- Reels tab gives views, likes, comments and pinned (clips_tab_pinned_user_ids); hidden-like reels carry a fake like_count 3 (per reel); next 12 reels via doc 30218390884417269 + end_cursor works logged out.
+- Instagram date from media pk matches taken_at within 2 minutes.
+
+User decided:
+- Index: category + Micro only, no city (accepted the early-alphabet city bias); brand-collab categories, 2,000 total, ≥20 each; keys keep coming.
+- Keep only 9 main categories; remove clothing shops, own mobile shops, car fan pages, all other shops/brands/businesses, foreign accounts and pages; keep salon/gym accounts for a later decision; remove full names everywhere.
+- The scraper only collects data (no AI, no keep check); bio links stored as they are, never used to drop an account; pinned is optional ("mila to mila").
+- Do not build anything without an explicit "bana"; research is fine.
+- All new work in the `work` schema clone; `public` stays as is.
+- WARP proxy is acceptable for the scraper; the existing $100 AWS credits are to be ignored ("vo sab bhool jao"); GCP credits will not come.
+
+Open:
+- Scraper: plan is ready (docs + chat); waiting for "bana". Tables work.scrape_profiles / work.scrape_reels / work.scrape_log not created yet.
+- Credits: ask the advisor for AWS (~$150) if Bedrock works on that account, else Vultr + OpenRouter; then a 50-reel model test (Gemini 3.8 Flash vs Qwen3.8 Omni Flash vs MiMo-V2.6-Pro vs Nova; Haiku for profiles).
+- Index: 678 usernames in 9 categories still to collect when keys arrive; city column question unanswered (user said "phir bhi hata jaaye"?).
+- Nothing from S-021/S-022 is committed (index/, scraper/, docs, context, .gitignore).

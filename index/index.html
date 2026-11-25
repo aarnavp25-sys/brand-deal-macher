@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creator Index</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#f7f6f3;--panel:#fff;--ink:#1c1b19;--muted:#5f5b54;--line:#e5e1d8;--accent:#c2410c;--accent-soft:#fdeee4;--ok:#2f7d3c;--warn:#a16207;--bad:#b42318;--bar:#ece8e0;--on-accent:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#131211;--panel:#1c1b19;--ink:#efebe4;--muted:#a8a296;--line:#302d29;--accent:#fb8c4a;--accent-soft:#2b1c13;--ok:#5bbf6c;--warn:#e0b04a;--bad:#f07167;--bar:#2a2724;--on-accent:#1c1b19}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}.sub{color:var(--muted);margin:0 0 18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.card span{color:var(--muted);font-size:12px}
+.big{height:10px;background:var(--bar);border-radius:99px;overflow:hidden;margin-top:8px}.big i{display:block;height:100%;background:var(--accent)}
+.keys{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.key{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-variant-numeric:tabular-nums}
+h2{font-size:15px;margin:22px 0 10px}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.grp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;text-transform:capitalize}
+.grp .n{color:var(--muted);font-variant-numeric:tabular-nums;float:right}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px}
+.cat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.cat:hover,.cat.on{border-color:var(--accent);background:var(--accent-soft)}
+.cat .t{display:flex;justify-content:space-between;gap:8px;font-size:13px}.cat .n{font-variant-numeric:tabular-nums;color:var(--muted)}
+.bar{height:5px;background:var(--bar);border-radius:99px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.partial{background:var(--warn)}.bar i.exhausted,.bar i.retry,.bar i.todo{background:var(--muted)}
+.st{font-size:11px;color:var(--muted);margin-top:4px;text-transform:none}
+.badge{display:inline-block;font-size:11px;border-radius:99px;padding:3px 10px;margin-top:6px;border:1px solid var(--line);color:var(--muted)}
+.b-complete{color:var(--ok);border-color:var(--ok)}.b-partial{color:var(--warn);border-color:var(--warn)}.b-retry{color:var(--bad);border-color:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin:0 0 10px}.legend .badge{margin:0}
+details summary{cursor:pointer;color:var(--muted);margin:16px 0 8px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:240px;max-width:100%}
+.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+table{border-collapse:collapse;width:100%;min-width:860px}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel)}td.num{text-align:right;font-variant-numeric:tabular-nums}
+a{color:var(--accent)}.chips{display:flex;flex-wrap:wrap;gap:4px}.chip{font-size:11px;background:var(--bar);border-radius:99px;padding:3px 9px}
+.empty{padding:28px;text-align:center;color:var(--muted)}.err{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Creator Index</h1>
+  <p class="sub">Instagram usernames from the Apify India index, 10K–100K followers, brand-collab categories from <code>index/plan.json</code>. No profile scraping. Collect with <code>python3 index/collect.py run --max-usd X --reserve 0.05 --yes</code>.</p>
+  <div class="cards">
+    <div class="card"><b id="uniq">–</b><span id="planNote">unique creators</span><div class="big"><i id="planBar" style="width:0"></i></div></div>
+    <div class="card"><b id="need">–</b><span id="needNote">still to collect</span></div>
+    <div class="card"><b id="spent">–</b><span id="runsNote">spent on Apify</span></div>
+    <div class="card"><b id="left">–</b><span>Apify balance left</span><div class="keys" id="keys"></div></div>
+  </div>
+  <h2>Groups</h2>
+  <div class="groups" id="groups"></div>
+  <h2>Categories in the plan <span id="catNote" style="color:var(--muted);font-weight:400"></span></h2>
+  <div class="legend"><span class="badge b-complete">complete</span><span class="badge b-partial">partial: backend stopped mid-run</span><span class="badge b-exhausted">index has no more</span><span class="badge b-retry">only timeouts so far: will retry</span><span class="badge b-todo">not run yet</span></div>
+  <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+  <details id="otherWrap" hidden><summary id="otherTitle">Other categories</summary><div class="grid" id="other"></div></details>
+  <h2 id="tableTitle">All creators</h2>
+  <div class="tools">
+    <input id="q" placeholder="Search username or city">
+    <button class="btn" id="clear">Show all</button>
+    <a class="btn primary" id="csv" href="/api/export.csv">Download CSV</a>
+    <span id="count" style="color:var(--muted)"></span>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Username</th><th style="text-align:right">Followers</th><th>City</th><th style="text-align:right">Engagement</th><th style="text-align:right">Avg views</th><th style="text-align:right">Posts</th><th>Categories</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+  </table></div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n == null ? '–' : Number(n).toLocaleString('en-IN');
+const LABEL = {complete:'complete', partial:'partial', exhausted:'index has no more', retry:'will retry', todo:'not run yet', dropped:'not in plan'};
+let current = '';
+async function j(u){ const r = await fetch(u); const d = await r.json(); if(!r.ok) throw new Error(d.error || r.status); return d; }
+function catCard(c){
+  const t = c.target || c.creators || 1, pct = Math.min(100, c.creators / t * 100);
+  const tries = c.tries ? ` · ${c.tries} ${c.tries === 1 ? 'try' : 'tries'}${c.failed_tries ? ` (${c.failed_tries} timed out)` : ''}` : '';
+  const cost = c.spent ? ` · $${c.spent.toFixed(2)}` : '';
+  return `<button class="cat${c.name === current ? ' on' : ''}" data-c="${esc(c.name)}"><div class="t"><span>${esc(c.name)}</span><span class="n">${c.creators}${c.target ? '/' + c.target : ''}</span></div><div class="bar"><i class="${c.status}" style="width:${pct}%"></i></div><span class="badge b-${c.status}">${LABEL[c.status]}</span><div class="st">${esc(c.group.replace(/_/g, ' '))}${tries}${cost}</div></button>`;
+}
+async function loadSummary(){
+  try{
+    const s = await j('/api/summary');
+    const plan = s.categories.filter(c => c.in_plan), other = s.categories.filter(c => !c.in_plan);
+    const got = plan.reduce((a, c) => a + Math.min(c.creators, c.final), 0);
+    const pct = s.plan_total ? got / s.plan_total * 100 : 0;
+    $('#uniq').textContent = fmt(s.unique_creators);
+    $('#planNote').textContent = `unique creators · plan ${fmt(s.plan_total)} (${Math.round(pct)}%)`;
+    $('#planBar').style.width = Math.min(100, pct) + '%';
+    $('#need').textContent = fmt(s.todo_creators);
+    $('#needNote').textContent = s.todo_creators ? `still to collect · ≈ $${s.todo_usd.toFixed(2)} · ≈ ${Math.ceil(s.todo_usd / 4.9)} new $5 keys` : 'plan complete';
+    $('#spent').textContent = '$' + s.spent_usd.toFixed(2);
+    $('#runsNote').textContent = `spent on Apify · ${s.runs} runs, ${s.failed_runs} timed out (~$0.002 each)`;
+    const done = plan.filter(c => ['complete', 'partial', 'exhausted'].includes(c.status)).length;
+    $('#catNote').textContent = `· ${done}/${plan.length} done · ${s.bracket} · min ${s.min_keep} each · $${s.price_per_result} per result`;
+    const g = {};
+    plan.forEach(c => { const x = g[c.group] = g[c.group] || {got: 0, target: 0}; x.got += c.creators; x.target += c.final; });
+    $('#groups').innerHTML = Object.entries(g).sort((a, b) => b[1].target - a[1].target).map(([k, v]) =>
+      `<div class="grp">${esc(k.replace(/_/g, ' '))}<span class="n">${v.got}/${v.target}</span><div class="bar"><i style="width:${Math.min(100, v.got / v.target * 100)}%"></i></div></div>`).join('');
+    $('#grid').innerHTML = plan.map(catCard).join('') || '<div class="empty">No plan. Add <code>index/plan.json</code>.</div>';
+    $('#otherWrap').hidden = !other.length;
+    $('#otherTitle').textContent = `Tried on 2026-11-23, not in the plan (${other.length})`;
+    $('#other').innerHTML = other.map(catCard).join('');
+  }catch(e){ $('#grid').innerHTML = `<div class="empty err">${esc(e.message)}</div>`; }
+}
+async function loadKeys(){
+  try{
+    const k = await j('/api/keys');
+    const total = k.reduce((a, x) => a + (x.left > 0 ? x.left : 0), 0);
+    $('#left').textContent = k.length ? '$' + total.toFixed(2) : 'no keys';
+    $('#keys').innerHTML = k.map(x => `<span class="key" title="resets ${esc(x.cycle_end || '')}">${esc(x.label)}: ${x.error ? esc(x.error) : '$' + x.left.toFixed(2)}</span>`).join('');
+  }catch(e){ $('#left').textContent = 'error'; }
+}
+let timer;
+async function loadRows(){
+  const q = $('#q').value.trim();
+  const params = new URLSearchParams(); if(current) params.set('category', current); if(q) params.set('q', q);
+  $('#csv').href = '/api/export.csv?' + params;
+  $('#tableTitle').textContent = current ? current : 'All creators';
+  try{
+    const rows = await j('/api/creators?' + params);
+    $('#count').textContent = `${rows.length} creators`;
+    $('#rows').innerHTML = rows.map((r, i) => `<tr><td class="num">${i + 1}</td><td><a href="https://www.instagram.com/${encodeURIComponent(r.username)}/" target="_blank" rel="noopener">@${esc(r.username)}</a></td><td class="num">${fmt(r.followers)}</td><td>${esc(r.city)}</td><td class="num">${r.engagement_rate == null ? '–' : (r.engagement_rate * 100).toFixed(2) + '%'}</td><td class="num">${fmt(r.avg_views)}</td><td class="num">${fmt(r.posts_count)}</td><td><div class="chips">${r.categories.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div></td></tr>`).join('')
+      || '<tr><td colspan="8" class="empty">No creators yet.</td></tr>';
+  }catch(e){ $('#rows').innerHTML = `<tr><td colspan="8" class="empty err">${esc(e.message)}</td></tr>`; }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.cat'); if(!b) return;
+  current = b.dataset.c;
+  document.querySelectorAll('.cat').forEach(x => x.classList.toggle('on', x.dataset.c === current));
+  loadRows();
+});
+$('#clear').onclick = () => { current = ''; $('#q').value = ''; document.querySelectorAll('.cat').forEach(x => x.classList.remove('on')); loadRows(); };
+$('#q').oninput = () => { clearTimeout(timer); timer = setTimeout(loadRows, 300); };
+loadSummary(); loadKeys(); loadRows();
+</script>
+</body>
+</html>

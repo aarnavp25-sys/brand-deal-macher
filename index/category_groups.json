@@ -1,0 +1,61 @@
+{
+ "Food & Beverages": [
+  "Food Blogging",
+  "Food Drink",
+  "Chef"
+ ],
+ "Beauty & Skincare": [
+  "Beauty",
+  "Make Up",
+  "Skin Care",
+  "Hair Care",
+  "Nail Art"
+ ],
+ "Fashion & Clothing": [
+  "Fashion",
+  "Fashion & Lifestyle",
+  "Fashion Creator",
+  "Fashion Design",
+  "Fashion Influencer",
+  "Fashion Stylist",
+  "Modeling"
+ ],
+ "Jewelry & Accessories": [
+  "Jewellery"
+ ],
+ "Fitness & Wellness": [
+  "Gym & Fitness",
+  "Gym Training",
+  "Fitness Training",
+  "Fitness Modeling",
+  "Health",
+  "Health Fitness",
+  "Yoga",
+  "Ayurveda",
+  "Nutrition",
+  "Doctor",
+  "Psychotherapy"
+ ],
+ "Tech & Gadgets": [
+  "Technology",
+  "Gadget Review",
+  "Coding"
+ ],
+ "Parenting & Kids": [
+  "Parenting",
+  "Kids & Toys",
+  "Fertility Expert"
+ ],
+ "Travel & Explore": [
+  "Travel",
+  "Budget Travel",
+  "International Travel",
+  "Luxury Travel",
+  "Wildlife Travel"
+ ],
+ "Automobile": [
+  "Auto",
+  "Automobile",
+  "Biking"
+ ]
+}

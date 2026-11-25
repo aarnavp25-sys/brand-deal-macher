@@ -10,3 +10,11 @@ supabase/.temp/
 # LLM batch state (batch id only)
 pipeline/.state/
 pipeline/runs/
+
+# index backups (local JSON copies of the index DB)
+index/backups/
+
+
+# manual review of real accounts (usernames + judgments): local only, the repo is public
+index/review-*.csv
+index/__pycache__/

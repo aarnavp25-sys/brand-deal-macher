@@ -295,6 +295,16 @@ Verified 2026-11-18: no key → 401, foreign origin → 403, bad input → 400, 
 `rpc/api_hit` → permission denied. Deploy: `python3 supabase/deploy.py [migrate|anon|secrets|function]`
 (needs `SUPABASE_ACCESS_TOKEN`; the CLI refuses to deploy in agent mode without `--yes`).
 
+**Deployment (2026-11-22).** Site: https://brand-deal-matcher.vercel.app (Vercel serves `demo/` as static files;
+`demo/config.js` points at the Render API, `demo/vercel.json` sets CSP/headers, `demo/.vercelignore` keeps `server.py`
+out). API: https://brand-deal-matcher-api.onrender.com (Render free web service `srv-dc1bt26c6qcc73ae4vng`, Singapore,
+auto-deploys from GitHub `main`, start `python3 render/server.py`). `render/server.py` is a thin forwarder: `/health`
+(GET/HEAD) for UptimeRobot, `/api/meta` and `/api/match` forwarded to the Edge Function with the anon key added
+server-side (the public page carries no key), its own CORS allow-list (`ALLOWED_ORIGINS` env on Render). Rate limit:
+every request would reach Supabase from Render's IP, so the forwarder sends the visitor IP in `x-client-ip` with
+`x-proxy-key: PROXY_SECRET`; `clientIp()` in index.ts trusts it only when the secret matches (verified: direct and
+proxied calls from one IP land in the same `api_rate_limit` bucket). Names are placeholders until the user picks one.
+
 ## Coverage target
 
 Coverage is planned per category × follower tier × audience, never per city (creators can be anywhere
@@ -436,3 +446,117 @@ all "usable creators").
   city terms return mostly shops.
 - City/niche search yields: round 5 241/636, round 7 350/727 kept; small-city
   terms for thin categories (round 8) returned few results (174 for 19 terms).
+
+## Apify actors: what they return and what we keep (checked on raw files 2026-11-22/23)
+
+- **Search Scraper does not search Instagram.** Each result carries `searchSource`: google 3,360 / threads 1,260 /
+  facebook-ads 305 of 5,065. It matches the term against names and bios found there, then opens the profile. Inputs
+  were `searchType: user`, `searchLimit: 15`, 533 city+niche terms. Of 4,726 unique profiles: 50% outside 1K–100K
+  (paid anyway), 312 inactive, 171 business, ~503 deleted later; 1,072 (23%) shown.
+- **Collab snowball** (Profile Scraper on `coauthorProducers`) brings friends, family, venues and brands: 2,304 of
+  4,487 loaded (51%) were deleted on 2026-11-21 vs 30% for search; shown snowball creators have brand-work "yes"
+  46% vs 68%, bio collab line 24% vs 52%, under 3K followers 39% vs 22%. 66% of shown creators came from it.
+- `latestPosts` = the first page of the grid (12 items; median span 42 days, p90 346 days). **`isPinned` is never
+  true** (0 of 6,093 profiles; Instaloader docs say Instagram stopped exposing it), so the pinned filter does nothing.
+  No views and no `paidPartnership` in profile posts (0 of 36,692 stored). ~14% of posts hide likes (-1).
+- Reel Scraper (`resultsLimit 2`, `onlyPostsNewerThan 90 days`): the only source of `videoPlayCount`; also
+  `paidPartnership` (7 of 612 true), `taggedUsers`, `latestComments` (text, ≤12), `musicInfo`
+  (`uses_original_audio` 57% true), `videoDuration`. **15% of returned reels belong to another account** (collab
+  reels): `process.py` maps reels by `inputUrl`, so their views count toward the input creator's reach (bug).
+- Dropped at load: `alt` (Instagram's own image description, "May be an image of shawl, poncho and text" on ~60% of
+  posts), `taggedUsers`, comments, `musicInfo`, `videoDuration`, carousel children. All still in raw files.
+- Media links (`displayUrl`, `videoUrl`, `audioUrl`, profile pics) are signed CDN URLs with an `oe=` hex expiry
+  1–3 days after the scrape (403 after); anything visual or audio must be processed at scrape time.
+- `posts` has primary key `id`; a collab post shared by two creators is stored under one of them only
+  (e.g. drnoorbutt: 12/week from 1 stored post). `posts_per_week` = posts ÷ weeks since the oldest of the 12: it is
+  frequency, not regularity; 165 creators got full marks with all posts inside 3 days; 1,231 of 3,229 differ from
+  their last-4-weeks rate by >1/week. Only 103 creators have ≥2 snapshots, so growth is empty for 97%.
+
+## Discovery alternatives (researched 2026-11-23; prices read from the Apify API, Free-plan rates)
+
+- No tool lists "all accounts with N followers"; only pre-built indexes filter by followers. India-claimed sizes
+  (vendor claims): Modash 787,425 Indian Instagram (≤500K), Reelax 1M+, Qoruz 0.3–4M, Kofluence 750K, GCC 500K+,
+  Dexfluence 136,421 or 43,000 (two pages disagree); market estimate ~1.99M Indian Instagram influencers. None
+  exports a bulk list for free; copying their data breaks their terms. Modash public pages show top 20 per page.
+- `social_developer` India index (Apify): 2,412,880 "indexed profiles", 120 categories, 652 cities, brackets
+  Nano <10K / Micro 10K–99.9K; $0.02 per result. Returns username, name, category, followers (rounded), city, posts,
+  engagement, avg likes/comments/views; no bio or posts. The graph is ordered **category A→Z, then city A→Z**, and
+  every run scans it from row 0 in 2,000-row pages (no offset/random option). `sortBy` = sequential (default) /
+  followers / views / engagement / likes; tested 2026-11-24 (Kids & Toys, limit 4, followers): the log says "sequential
+  scan, then rank", it did not stop when the 4 known matches were passed ("kept 0" at 50,000) and died at the
+  ~50K wall with nothing written ($0.0001). Ranked modes must read the whole graph and write only at the end, so on
+  this backend they fail and return nothing, while sequential returns what it found before a timeout. Keep sequential.
+  So a category's rows are contiguous (Food Blogging + Micro: first match at row 38,733, 25 matches by row 38,787),
+  later categories need more pages, and the same input always returns the same first rows. Each page fetch has a
+  ~12 s timeout; one slow page ends the run with "Creator graph is temporarily unavailable" (exit 1, rows written so
+  far kept and billed; a 0-row failure costs ~$0.001). Page failure rate 3% on 2026-11-22, 11% on 2026-11-23; parallel
+  runs failed on the first page. City filters scan past the category block when a city has no match → near-certain
+  failure (Food Blogging + Delhi and 3 small cities all failed). Delhi + Micro without category showed ~700 rows per
+  category block, so the real graph is likely ~100K rows, not the claimed 2.4M (estimate). Test 2026-11-23:
+  ~64% real active Indian creators; Delhi + Micro without category ~2–3 of 15; Fashion Influencer + Nano 0 in 10,000,
+  then "Creator graph is temporarily unavailable". `datablow` ($0.01, TheMediaAnt listings with ad rates): 33% inactive,
+  follower counts stale. Index ≠ creators: it holds shops, agencies, pages, foreign accounts.
+- Cheaper discovery: "Suggested for you" — deepmine $0.00089/profile with followers, bio, category, free follower
+  filter, depth ≤11 (Free plan returns only 50 per run); data-slayer $0.0025 (names only); brand-tagged posts —
+  thescrappa $0.000375/post, instagram-scraper $0.001, Apify official $0.0027; keyword content search $0.0025.
+- Paid databases with export: Impulze Solo $29 (200 exports), Pro $199 (5,000/mo), Lifetime Pro $549 (unlimited);
+  CreatorDB API $0.01–0.04 per credit (profile = 2); Bright Data datasets $250 minimum (~$0.0025/record).
+
+## Own scraper (moved 2026-11-25 to its own repo)
+
+The logged-out Instagram scraper is a separate project: `~/Documents/ojt/instagram-scraper/` (GitHub
+`aarnavp25-sys/instagram-scraper`, private). What it collects, its rules and lanes are in that repo's `README.md`; the
+page/JSON fields, network tests (WARP app, 10 Docker WARP exits, hostel IP, phones) and media findings are in its
+`docs/instagram-notes.md`. It writes to schema `work` of the index project. It will be merged back into this project later.
+
+## Keep check at scrape time (design, 2026-11-24; applies to every account)
+
+User, 2026-11-24: a salon aunty who makes reels with tanning tips, home remedies and product advice is worth keeping
+("log unki sunte bhi hai"); one who only shows her makeovers is not; followers, reach and reels count too; decide this
+while scraping, for every account. So no account is removed for its name or type (salon, gym, home baker, boutique):
+the scraper decides from what the account posts. (Exception: 70 accounts the user removed by type on 2026-11-24 —
+clothing shops, own mobile shops, car fan pages — stay in `index_removed`.)
+
+Stage 1, numbers (free, from the scrape; thresholds are first guesses to tune on a hand-checked pilot):
+- live followers 10K–100K (index counts are stale; above 100K is never stored);
+- active: ≥2 posts in the last 30 days;
+- makes reels: ≥4 of the latest 12 grid items are reels;
+- reach: median views of the latest 12 reels ≥ 15% of followers and ≥ 1,000 (low = audience not watching or bought);
+- real engagement: median likes on opened posts ≥ 1% of followers.
+Failing a gate → `drop` with the reason (or `review` when just under a threshold).
+
+Stage 2, content (AI reads bio + 12 captions + alt text + brand tags + music + the stage-1 numbers; one call per account):
+- account: creator / business that makes content / business catalogue / page without a person / personal / foreign;
+- what most reels do: teach, recommend, review, entertain, vlog **vs** sell or show its own service (before/after,
+  price lists, offers, "book now", "DM to order"), or repost others;
+- keep when it is a creator, or a business whose reels mostly teach or recommend to an audience (the salon-aunty case);
+  drop when it is a catalogue, a page with no person, personal, or not in India; `review` when unsure;
+- returns keep / drop / review + a one-line reason + one quoted caption as evidence.
+Results go to the index project (verdict per account, shown in the dashboard; `review` rows get a human pass).
+
+## Working copy: schema `work` (2026-11-24)
+
+User: make a clone and do all new work there, so a mistake can never damage the collected data. A third Supabase
+project was refused (free plan: 2 active projects per owner), so the clone is a second schema in the same index project:
+`work.*` = full copy of every `public.*` table (index_creators, index_creator_categories, index_runs, index_review,
+index_removed, index_category_groups; same columns, keys, RLS, the two FKs re-pointed inside `work`) and every view
+(cat_* and index_progress, reading `work` tables only). Row counts matched exactly (961 creators). `work` is exposed to
+the REST API (PostgREST db_schema = public, graphql_public, work); select it with the header `Accept-Profile: work`
+(reads) / `Content-Profile: work` (writes). **All new code (the scraper, any change) writes to `work` only; `public` is
+the frozen original.** A JSON backup of all six tables + schema.sql is in index/backups/2026-11-24_1711/ (gitignored).
+
+## Creator username index (`index/`, separate Supabase project)
+
+Usernames only (no profile scrape) from the `social_developer` index, Micro bracket, rows kept only when
+10,000 ≤ followers < 100,000. The planned random-city draws were dropped on 2026-11-23 (city filters fail, see
+"Discovery alternatives"): each category gets **one** run without a city, with its final count from `index/plan.json`
+(user: brand-collab categories only, 2,000 total, ≥20 each; 31 categories ranked by the main DB's "takes promotions"
+share: Food 88%, Parenting 84%, Fashion 79%, Jewellery 68%, Travel 63%, Beauty 60%, Auto 56%, Fitness 52%, Tech 49%).
+Results lean to early-alphabet cities (accepted by the user). Runs go one at a time; a 0-row failure is retried
+(`--tries`, `--wait`); a category that returned rows is never run again (same rows would be billed twice), unless it
+holds fewer than 20 (re-running re-buys only those few). Cost per run = max(`usageTotalUsd`, items × $0.02):
+`usageTotalUsd` now includes the result fees but lags a few seconds after the run ends. Keep the Mac awake
+(`caffeinate -i -w <pid>`): sleep pauses the retry waits. Tables `index_creators`, `index_creator_categories`, `index_runs` (with `city`), `index_category_groups`
+(the actor's categories → 9 of the main DB's categories, user's choice on 2026-11-24: Food & Beverages, Beauty & Skincare, Fashion & Clothing, Jewelry & Accessories, Fitness & Wellness, Tech & Gadgets, Parenting & Kids, Travel & Explore, Automobile; every other actor category is never collected), `index_review` (manual review: not_useful / check with kind and reason) and views `cat_<category>` (one per kept category, with the review) + `index_progress`, all `security_invoker` with RLS on and no
+policies. `python3 index/collect.py keys|categories|migrate|status|plan|run [--plan index/plan.json]`; dashboard `python3 index/server.py`
+(127.0.0.1:8789, read-only, CSV export). Keys in `index/.env` (`INDEX_APIFY_TOKENS`, gitignored).
