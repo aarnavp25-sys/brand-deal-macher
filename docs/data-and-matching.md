@@ -504,6 +504,11 @@ all "usable creators").
 
 ## Own scraper (moved 2026-11-25 to its own repo)
 
+**Final creator DB since 2026-11-25 (owner's decision):** the scraper's data in the index project, schema `work`
+(848 creators with per-reel data and `creator_metrics`), dashboard on 127.0.0.1:8791. This project's main DB
+(yqaducvspzrqokcqwlga, 3,229 creators) and the index `public` schema are legacy and no longer the source for new work;
+the admin (8787) and index (8789) dashboards were stopped. The live site still reads the old DB until the merge.
+
 The logged-out Instagram scraper is a separate project: `~/Documents/ojt/instagram-scraper/` (GitHub
 `aarnavp25-sys/instagram-scraper`, private). What it collects, its rules and lanes are in that repo's `README.md`; the
 page/JSON fields, network tests (WARP app, 10 Docker WARP exits, hostel IP, phones) and media findings are in its
