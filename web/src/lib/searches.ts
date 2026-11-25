@@ -1,16 +1,9 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import {
-  BriefSchema,
-  type Draft,
-  INTRO,
-  OUTRO,
-  type StepId,
-  guessCategory,
-  nextStep,
-  parseAnswer,
-} from "@/lib/brief";
-import { type Results, findCreators } from "@/lib/matching";
+import { BriefSchema, type Draft, type StepId, nextStep, parseAnswer } from "@/lib/brief";
+import { type Line, describe, lines, parseTyped } from "@/lib/conversation";
+import { countMatches } from "@/lib/filters";
+import { type Results, facets, findCreators } from "@/lib/matching";
 
 /*
   One row in public.brand_searches per "Find creators" chat.
@@ -34,7 +27,7 @@ export type Search = {
 };
 
 const MAX_SEARCHES_PER_DAY = 25;
-const MAX_MESSAGES = 40;
+const MAX_MESSAGES = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COLS = "id,title,status,messages,brief,results,error,created_at,updated_at";
 
@@ -46,22 +39,9 @@ export class UserError extends Error {
 
 const now = () => new Date().toISOString();
 
-function question(draft: Draft): Msg | null {
-  const step = nextStep(draft);
-  if (!step) return null;
-  if (step.id === "categories") {
-    const guess = guessCategory(draft.product ?? "", draft.about ?? "");
-    if (guess) {
-      return {
-        role: "assistant",
-        step: step.id,
-        suggest: guess,
-        text: `Sounds like ${guess} to me, so I already picked it. Which creators are you vibing with? Add as many categories as you want.`,
-        at: now(),
-      };
-    }
-  }
-  return { role: "assistant", step: step.id, text: step.question, at: now() };
+function toMsgs(ls: Line[]): Msg[] {
+  const at = now();
+  return ls.map((l) => ({ role: "assistant" as const, text: l.text, step: l.step, suggest: l.suggest, at }));
 }
 
 export async function listSearches(userId: string) {
@@ -105,7 +85,7 @@ export async function createSearch(userId: string): Promise<string> {
   if ((count ?? 0) >= MAX_SEARCHES_PER_DAY) {
     throw new UserError("You've started a lot of searches today. Come back tomorrow?", 429);
   }
-  const messages: Msg[] = [{ role: "assistant", text: INTRO, at: now() }, question({})!];
+  const messages: Msg[] = toMsgs(lines(null, {}, {}));
   const { data, error } = await admin().from("brand_searches").insert({ user_id: userId, messages, brief: {} }).select("id").single();
   if (error) throw new Error(error.message);
   return data.id as string;
@@ -124,23 +104,28 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
   const step = nextStep(s.brief ?? {});
   if (!step || step.id !== stepId) throw new UserError("That question was already answered. Refresh the page.", 409);
 
+  // A choice question can also be answered by typing ("mostly girls"); it is read with keywords, no LLM.
+  const typed =
+    step.kind !== "text" && raw && typeof raw === "object" && !Array.isArray(raw) && typeof (raw as { text?: unknown }).text === "string"
+      ? (raw as { text: string }).text.trim().slice(0, 300)
+      : null;
   let parsed;
   try {
-    parsed = parseAnswer(step, raw);
+    parsed = parseAnswer(step, typed !== null ? parseTyped(step, typed) : raw);
   } catch (e) {
     const issues = (e as { issues?: { message: string }[] }).issues;
     throw new UserError(issues?.[0]?.message ?? (e as Error).message ?? "That answer did not look right.");
   }
   const draft: Draft = { ...(s.brief ?? {}), ...parsed.patch };
-  const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: parsed.label, at: now() }];
-  const next = question(draft);
+  const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: typed || parsed.label, at: now() }];
+  const ctx = { typed: typed ?? undefined, label: describe(step.id, draft) };
 
   let update: Record<string, unknown>;
-  if (next) {
-    messages.push(next);
+  if (nextStep(draft)) {
+    const count = step.id === "categories" ? countMatches(await facets(), draft) : undefined;
+    messages.push(...toMsgs(lines(step.id, draft, { ...ctx, count })));
     update = { brief: draft, messages, status: "chatting" };
   } else {
-    messages.push({ role: "assistant", text: OUTRO, at: now() });
     const brief = BriefSchema.parse(draft);
     let results: Results;
     try {
@@ -149,6 +134,7 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
       console.error(e);
       throw new UserError("Couldn't load creators right now. Try that again in a minute.", 503);
     }
+    messages.push(...toMsgs(lines(step.id, draft, { ...ctx, count: results.creators.length })));
     update = { brief, messages, status: "done", results, error: null };
   }
 

@@ -16,6 +16,12 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    5. "Last one. What kind of creator, and any language preference?" Female / Male / Either works + languages
    From question 3 on, every option shows how many creators it leaves, and a live "N creators match so far" line
    uses the same rule as the results (`lib/filters.ts`), so the number always equals what the results page shows.
+   **It must read like a conversation, not a form** (user, 2026-11-26). Without an LLM (`lib/conversation.ts`):
+   Kindred reacts to the brand's own words (a line per category its words point to, the product name echoed back,
+   the live creator count said in a sentence), sends two or three short bubbles with a typing pause before each,
+   shows the brand's message at once, and every choice question can also be answered by typing ("mostly girls in
+   college", "female, hindi ya english"), read with keywords. If a typed answer is not understood, Kindred says so
+   in a bubble and asks the brand to tap instead. No progress bar.
 4. After question 5 the creators are found at once (`/results/<id>`), biggest first, with sort by followers /
    typical reel views / engagement / posting frequency and tabs per category.
 5. "My searches" (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
@@ -70,7 +76,7 @@ Every route handler and page checks the user again with `supabase.auth.getUser()
 - Input: JSON bodies ≤ 8 KB, every answer validated against the question's own options (zod for text), answers must
   come in order, open redirects blocked (`safeNext`).
 - Headers: CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS; no X-Powered-By.
-- `web/db/e2e_test.py` checks all of the above plus four test brands end to end (71 checks, all passing on
+- `web/db/e2e_test.py` checks all of the above plus five test brands end to end (one types every answer) (77 checks, all passing on
   2026-11-26).
 
 ## Design

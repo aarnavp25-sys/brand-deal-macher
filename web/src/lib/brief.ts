@@ -88,9 +88,6 @@ export type Step = {
   anyValue?: string;
 };
 
-export const INTRO = "Hey, I'm Kindred. Five quick questions and I'll find creators who actually fit your brand.";
-export const OUTRO = "Say less. Pulling up your creators now.";
-
 export const STEPS: Step[] = [
   {
     id: "about",
@@ -186,7 +183,7 @@ export function parseAnswer(step: Step, raw: unknown): { patch: Draft; label: st
 }
 
 /* Simple category guess from the brand's own words, pre-selected in question 3. Product words count first. */
-const CATEGORY_WORDS: [Category, RegExp][] = [
+export const CATEGORY_WORDS: [Category, RegExp][] = [
   ["Home Decor & Handmade", /\b(candles?|decor|handmade|pottery|ceramic|macrame|crochet|art prints?|wall art|diya|resin|terracotta)\b/i],
   ["Beauty & Skincare", /\b(skin ?care|serum|face ?wash|moisturi[sz]er|sunscreen|makeup|lipstick|kajal|hair ?(oil|care)|shampoo|soaps?|beauty|nail|perfume|fragrance|attar)\b/i],
   ["Jewelry & Accessories", /\b(jewel(le)?ry|earrings?|necklaces?|rings?|bracelets?|bangles?|anklets?|watch(es)?|handbags?|bags?|sunglasses|accessor(y|ies))\b/i],

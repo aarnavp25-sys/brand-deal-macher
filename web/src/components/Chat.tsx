@@ -1,36 +1,63 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CREATOR_GENDERS, type Draft, STEPS, type Step, answeredCount, nextStep } from "@/lib/brief";
+import { CREATOR_GENDERS, type Draft, LANGUAGES, type Step, nextStep } from "@/lib/brief";
 import { type Facet, countMatches } from "@/lib/filters";
 import type { ChatView } from "@/lib/chat-view";
 
+/*
+  The "Find creators" chat. It should feel like texting, not filling a form (user, 2026-11-26):
+  Kindred's lines arrive one by one after a short typing pause, the brand's own message shows at once,
+  every question can be answered by tapping or by typing, and problems come back as a Kindred line, not a red error.
+*/
+
 type Props = { initial: ChatView; facets: Facet[] };
+type Send = (value: unknown, label: string) => void;
+
+const reduceMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function Chat({ initial, facets }: Props) {
   const router = useRouter();
   const [view, setView] = useState(initial);
+  // A brand-new chat plays Kindred's opening lines; a reopened chat shows its history at once.
+  const [shown, setShown] = useState(initial.messages.some((m) => m.role === "user") ? initial.messages.length : 0);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
-  const step = view.status === "chatting" ? nextStep(view.brief) : null;
+  const revealing = shown < view.messages.length;
+  const step = view.status === "chatting" && !revealing ? nextStep(view.brief) : null;
   const lastAssistant = [...view.messages].reverse().find((m) => m.role === "assistant");
   const suggest = step?.id === "categories" ? lastAssistant?.suggest : undefined;
-  const done = answeredCount(view.brief);
+  const visible = view.messages.slice(0, shown);
+  const typing = busy || revealing || (view.status === "done" && !revealing);
+
+  // Reveal Kindred's new lines one at a time, with a typing pause that grows a little with the line's length.
+  useEffect(() => {
+    if (!revealing) return;
+    const next = view.messages[shown];
+    const delay = next.role === "user" || reduceMotion() ? 0 : Math.min(500 + next.text.length * 11, 1400);
+    const t = setTimeout(() => setShown((n) => n + 1), delay);
+    return () => clearTimeout(t);
+  }, [revealing, shown, view.messages]);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [view.messages.length, busy]);
+    if (view.status === "done" && !revealing) {
+      const t = setTimeout(() => router.push(`/results/${view.id}`), reduceMotion() ? 0 : 700);
+      return () => clearTimeout(t);
+    }
+  }, [view.status, view.id, revealing, router]);
 
   useEffect(() => {
-    if (view.status === "done") router.push(`/results/${view.id}`);
-  }, [view.status, view.id, router]);
+    bottom.current?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "end" });
+  }, [shown, pending, note, step?.id]);
 
-  async function send(value: unknown) {
+  const send: Send = async (value, label) => {
     if (!step || busy) return;
     setBusy(true);
-    setError(null);
+    setNote(null);
+    setPending(label);
     try {
       const r = await fetch(`/api/searches/${view.id}/answer`, {
         method: "POST",
@@ -39,56 +66,37 @@ export function Chat({ initial, facets }: Props) {
       });
       const j = await r.json().catch(() => ({}));
       if (r.status === 401) return router.replace(`/login?next=/find/${view.id}`);
-      if (!r.ok) throw new Error(j.error ?? "Couldn't save that. Try again?");
+      if (!r.ok) throw new Error(j.error ?? "Hmm, that didn't go through. Try again?");
+      const before = view.messages.length;
       setView(j as ChatView);
+      setShown(before + 1); // the brand's own message shows at once; Kindred's lines follow one by one
     } catch (e) {
-      setError((e as Error).message);
+      setNote((e as Error).message);
     } finally {
+      setPending(null);
       setBusy(false);
     }
-  }
+  };
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-6 flex items-center gap-3 text-sm text-muted">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--line)" }}>
-          <div
-            className="h-full rounded-full bg-accent transition-[width] duration-500"
-            style={{ width: `${Math.round((done / STEPS.length) * 100)}%` }}
-          />
-        </div>
-        <span>
-          {done} of {STEPS.length}
-        </span>
-      </div>
-
-      <ol className="grid gap-3" aria-live="polite">
-        {view.messages.map((m, i) =>
-          m.role === "assistant" ? (
-            <li key={i} className="rise flex max-w-[88%] items-end gap-2.5">
-              <span className="story-ring mb-1 inline-block size-7 shrink-0" aria-hidden>
-                <span className="block size-full bg-accent" />
-              </span>
-              <p className="rounded-2xl rounded-bl-md bg-surface px-4 py-3 leading-relaxed" style={{ border: "1px solid var(--line)" }}>
-                <span className="sr-only">Kindred: </span>
-                {m.text}
-              </p>
-            </li>
+      <ol className="grid gap-1.5" aria-live="polite">
+        {visible.map((m, i) => {
+          const nextMsg = visible[i + 1];
+          const lastOfGroup = !nextMsg || nextMsg.role !== m.role;
+          const firstOfGroup = i === 0 || visible[i - 1].role !== m.role;
+          return m.role === "assistant" ? (
+            <Kindred key={i} text={m.text} avatar={lastOfGroup && !(typing && i === visible.length - 1)} gap={firstOfGroup && i > 0} />
           ) : (
-            <li key={i} className="rise max-w-[85%] justify-self-end">
-              <p className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink px-4 py-3 leading-relaxed text-bg">
-                <span className="sr-only">You: </span>
-                {m.text}
-              </p>
-            </li>
-          ),
-        )}
-        {(busy || view.status === "done") && (
-          <li className="flex items-center gap-2.5" aria-label="Kindred is typing">
-            <span className="story-ring inline-block size-7" aria-hidden>
-              <span className="block size-full bg-accent" />
-            </span>
-            <span className="typing flex gap-1 rounded-2xl bg-surface px-4 py-4" style={{ border: "1px solid var(--line)" }}>
+            <Me key={i} text={m.text} gap={firstOfGroup} />
+          );
+        })}
+        {pending && <Me text={pending} gap />}
+        {note && <Kindred text={note} avatar gap />}
+        {typing && !note && (
+          <li className="mt-3 flex items-center gap-2.5" aria-label="Kindred is typing">
+            <Mark />
+            <span className="typing flex gap-1 rounded-2xl rounded-bl-md bg-surface px-4 py-4" style={{ border: "1px solid var(--line)" }}>
               <span className="size-1.5 rounded-full bg-muted" />
               <span className="size-1.5 rounded-full bg-muted" />
               <span className="size-1.5 rounded-full bg-muted" />
@@ -97,56 +105,81 @@ export function Chat({ initial, facets }: Props) {
         )}
       </ol>
 
-      <div className="mt-6">
-        {error && (
-          <p role="alert" className="mb-3 text-sm text-accent-text">
-            {error}
-          </p>
-        )}
-        {step && <Answer key={step.id} step={step} draft={view.brief} facets={facets} busy={busy} suggest={suggest} onSend={send} />}
-      </div>
-      <div ref={bottom} />
+      {step && !busy && (
+        <div className="rise mt-6">
+          <Answer key={step.id} step={step} draft={view.brief} facets={facets} suggest={suggest} onSend={send} />
+        </div>
+      )}
+      <div ref={bottom} className="h-4" />
     </div>
   );
 }
 
-/* ---------------- answering the current question ---------------- */
+function Mark() {
+  return (
+    <span className="story-ring inline-block size-7 shrink-0" aria-hidden>
+      <span className="block size-full bg-accent" />
+    </span>
+  );
+}
 
-type AnswerProps = {
-  step: Step;
-  draft: Draft;
-  facets: Facet[];
-  busy: boolean;
-  suggest?: string;
-  onSend: (v: unknown) => void;
-};
+function Kindred({ text, avatar, gap }: { text: string; avatar: boolean; gap: boolean }) {
+  return (
+    <li className={`rise flex max-w-[88%] items-end gap-2.5 ${gap ? "mt-3" : ""}`}>
+      {avatar ? <Mark /> : <span className="inline-block size-7 shrink-0" aria-hidden />}
+      <p className="rounded-2xl rounded-bl-md bg-surface px-4 py-2.5 leading-relaxed" style={{ border: "1px solid var(--line)" }}>
+        <span className="sr-only">Kindred: </span>
+        {text}
+      </p>
+    </li>
+  );
+}
+
+function Me({ text, gap }: { text: string; gap: boolean }) {
+  return (
+    <li className={`rise max-w-[85%] justify-self-end ${gap ? "mt-3" : ""}`}>
+      <p className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink px-4 py-2.5 leading-relaxed text-bg">
+        <span className="sr-only">You: </span>
+        {text}
+      </p>
+    </li>
+  );
+}
+
+/* ---------------- replying ---------------- */
+
+type AnswerProps = { step: Step; draft: Draft; facets: Facet[]; suggest?: string; onSend: Send };
 
 function Answer(props: AnswerProps) {
-  if (props.step.kind === "text") return <TextAnswer {...props} />;
-  if (props.step.kind === "single") return <SingleAnswer {...props} />;
+  if (props.step.kind === "text") return <Composer step={props.step} onSend={(t) => props.onSend(t, t)} big={props.step.id === "about"} />;
+  if (props.step.kind === "single") return <BuyerAnswer {...props} />;
   if (props.step.kind === "multi") return <CategoryAnswer {...props} />;
   return <CreatorAnswer {...props} />;
 }
 
-function TextAnswer({ step, busy, onSend }: AnswerProps) {
+/** The message box. On choice questions it is the "or just type it" option. */
+function Composer({ step, onSend, big = false, placeholder }: { step: Step; onSend: (t: string) => void; big?: boolean; placeholder?: string }) {
   const [text, setText] = useState("");
-  const max = step.max ?? 160;
-  const submit = () => text.trim() && onSend(text.trim());
+  const max = step.max ?? 300;
+  const submit = () => {
+    const t = text.trim();
+    if (t.length >= 2) onSend(t);
+  };
   return (
     <form
-      className="card p-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
+      className="flex items-end gap-2 rounded-[22px] border border-line bg-surface p-2 pl-4 shadow-[var(--shadow)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <label htmlFor="answer" className="sr-only">
-        {step.question}
+      <label htmlFor={`msg-${step.id}`} className="sr-only">
+        Your reply
       </label>
       <textarea
-        id="answer"
-        autoFocus
-        rows={step.id === "about" ? 4 : 2}
+        id={`msg-${step.id}`}
+        autoFocus={step.kind === "text"}
+        rows={big ? 3 : 1}
         maxLength={max}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -156,50 +189,50 @@ function TextAnswer({ step, busy, onSend }: AnswerProps) {
             submit();
           }
         }}
-        placeholder={step.placeholder}
-        className="w-full resize-none bg-transparent px-2 py-2 text-base text-ink placeholder:text-muted focus:outline-none"
+        placeholder={placeholder ?? step.placeholder ?? "Type a message"}
+        className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-ink placeholder:text-muted focus:outline-none"
       />
-      <div className="flex items-center justify-between gap-3 px-2 pt-1">
-        <span className="text-xs text-muted">
-          {text.length}/{max}. Enter to send, Shift + Enter for a new line.
-        </span>
-        <button type="submit" disabled={busy || text.trim().length < 2} className="btn btn-primary h-10 px-5 text-sm">
-          Send
-        </button>
-      </div>
+      <button type="submit" disabled={text.trim().length < 2} className="btn btn-primary h-10 shrink-0 px-5 text-sm" aria-label="Send">
+        Send
+      </button>
     </form>
   );
 }
 
-function MatchLine({ n }: { n: number }) {
+function Fit({ n }: { n: number }) {
   return (
-    <p className="mt-4 text-sm" aria-live="polite">
-      <span className="font-semibold">{n} creators</span> <span className="text-muted">match so far</span>
-      {n === 0 && <span className="block text-accent-text">Nobody matches this combo yet. Try fewer filters.</span>}
+    <p className="mt-3 text-sm text-muted" aria-live="polite">
+      {n === 0 ? (
+        <span className="text-accent-text">Nobody fits this combo yet. Try loosening something.</span>
+      ) : (
+        <>
+          <span className="font-semibold text-ink">{n} creators</span> fit so far
+        </>
+      )}
     </p>
   );
 }
 
-function SingleAnswer({ step, draft, facets, busy, onSend }: AnswerProps) {
+function BuyerAnswer({ step, draft, facets, onSend }: AnswerProps) {
   return (
-    <div>
+    <div className="grid gap-3">
       <div className="flex flex-wrap gap-2" role="group" aria-label={step.question}>
         {step.options!.map((o) => {
           const n = countMatches(facets, { ...draft, [step.id]: o.value });
           return (
-            <button key={o.value} type="button" disabled={busy || n === 0} onClick={() => onSend(o.value)} className="chip disabled:opacity-40">
+            <button key={o.value} type="button" disabled={n === 0} onClick={() => onSend(o.value, o.label)} className="chip disabled:opacity-40">
               {o.label}
-              <span className="ml-1.5 opacity-70">{n}</span>
+              <span className="ml-1.5 opacity-60">{n}</span>
             </button>
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-muted">Numbers show how many creators you would see with each answer.</p>
+      <Composer step={step} placeholder="Or just type it, like “mostly girls in college”" onSend={(t) => onSend({ text: t }, t)} />
     </div>
   );
 }
 
-function CategoryAnswer({ step, draft, facets, busy, suggest, onSend }: AnswerProps) {
+function CategoryAnswer({ step, draft, facets, suggest, onSend }: AnswerProps) {
   const any = step.anyValue!;
   const [picked, setPicked] = useState<string[]>(suggest ? [suggest] : []);
   const counts = useMemo(
@@ -207,7 +240,7 @@ function CategoryAnswer({ step, draft, facets, busy, suggest, onSend }: AnswerPr
       Object.fromEntries(
         step.options!.map((o) => [
           o.value,
-          o.value === any ? countMatches(facets, { ...draft, categories: [] }) : countMatches(facets, { ...draft, categories: [o.value] as never }),
+          countMatches(facets, { ...draft, categories: o.value === any ? [] : ([o.value] as never) }),
         ]),
       ) as Record<string, number>,
     [step, draft, facets, any],
@@ -223,14 +256,11 @@ function CategoryAnswer({ step, draft, facets, busy, suggest, onSend }: AnswerPr
     const rest = picked.filter((p) => p !== any);
     setPicked(rest.includes(v) ? rest.filter((p) => p !== v) : [...rest, v]);
   };
-  const live = picked.includes(any)
-    ? counts[any]
-    : picked.length
-      ? countMatches(facets, { ...draft, categories: picked as never })
-      : 0;
+  const live = picked.includes(any) ? counts[any] : picked.length ? countMatches(facets, { ...draft, categories: picked as never }) : 0;
+  const label = picked.includes(any) ? "All of them" : picked.join(", ");
 
   return (
-    <div>
+    <div className="grid gap-3">
       <div className="flex flex-wrap gap-2" role="group" aria-label={step.question}>
         {ordered.map((o) => (
           <button
@@ -242,19 +272,22 @@ function CategoryAnswer({ step, draft, facets, busy, suggest, onSend }: AnswerPr
             className="chip disabled:opacity-40"
           >
             {o.label}
-            <span className="ml-1.5 opacity-70">{counts[o.value]}</span>
+            <span className="ml-1.5 opacity-60">{counts[o.value]}</span>
           </button>
         ))}
       </div>
-      <MatchLine n={live} />
-      <button type="button" disabled={busy || live === 0} onClick={() => onSend(picked)} className="btn btn-primary mt-4 h-11 px-6">
-        Continue
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Fit n={live} />
+        <button type="button" disabled={live === 0} onClick={() => onSend(picked, label)} className="btn btn-primary h-10 px-5 text-sm">
+          Lock these in
+        </button>
+      </div>
+      <Composer step={step} placeholder="Or type it, like “food and lifestyle creators”" onSend={(t) => onSend({ text: t }, t)} />
     </div>
   );
 }
 
-function CreatorAnswer({ step, draft, facets, busy, onSend }: AnswerProps) {
+function CreatorAnswer({ step, draft, facets, onSend }: AnswerProps) {
   const any = step.anyValue!;
   const [gender, setGender] = useState<string | null>(null);
   const [langs, setLangs] = useState<string[]>([any]);
@@ -269,42 +302,43 @@ function CreatorAnswer({ step, draft, facets, busy, onSend }: AnswerProps) {
     creator_gender: (gender ?? "any") as Draft["creator_gender"],
     languages: langs.includes(any) ? [] : langs,
   });
+  const label = gender
+    ? `${CREATOR_GENDERS.find((g) => g.value === gender)!.label}, ${langs.includes(any) ? "any language" : langs.map((l) => LANGUAGES.find((x) => x.id === l)!.label).join(", ")}`
+    : "";
 
   return (
-    <div className="card grid gap-6 p-5 md:p-6">
-      <fieldset>
-        <legend className="mb-3 text-sm font-semibold">Creator</legend>
-        <div className="flex flex-wrap gap-2">
+    <div className="grid gap-3">
+      <div className="card grid gap-5 p-5">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Creator">
           {CREATOR_GENDERS.map((o) => (
             <button key={o.value} type="button" aria-pressed={gender === o.value} onClick={() => setGender(o.value)} className="chip">
               {o.label}
             </button>
           ))}
         </div>
-      </fieldset>
-      <fieldset>
-        <legend className="mb-3 text-sm font-semibold">Language</legend>
-        <div className="flex flex-wrap gap-2">
-          {step.options!.map((o) => (
-            <button key={o.value} type="button" aria-pressed={langs.includes(o.value)} onClick={() => toggle(o.value)} className="chip">
-              {o.label}
-            </button>
-          ))}
+        <div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Language">
+            {step.options!.map((o) => (
+              <button key={o.value} type="button" aria-pressed={langs.includes(o.value)} onClick={() => toggle(o.value)} className="chip">
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted">Creators whose reels have no talking (music only) show up for every language.</p>
         </div>
-        <p className="mt-3 text-xs text-muted">Creators whose reels have no talking (music only) show up for every language.</p>
-      </fieldset>
-      <div>
-        <MatchLine n={live} />
-        <button
-          type="button"
-          disabled={busy || !gender || live === 0}
-          onClick={() => onSend({ creator_gender: gender, languages: langs })}
-          className="btn btn-primary mt-4 h-12 px-7 text-base"
-        >
-          Find my creators
-        </button>
-        {!gender && <p className="mt-2 text-xs text-muted">Pick female, male or either first.</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Fit n={live} />
+          <button
+            type="button"
+            disabled={!gender || live === 0}
+            onClick={() => onSend({ creator_gender: gender, languages: langs }, label)}
+            className="btn btn-primary h-11 px-6"
+          >
+            {gender ? "Find my creators" : "Pick female, male or either"}
+          </button>
+        </div>
       </div>
+      <Composer step={step} placeholder="Or type it, like “female, hindi or english”" onSend={(t) => onSend({ text: t }, t)} />
     </div>
   );
 }

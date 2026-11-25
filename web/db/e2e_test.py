@@ -199,6 +199,46 @@ def run_brand(n, name, answers):
     return c, sid, rows[0]["user_id"]
 
 
+def typed_brand():
+    """A brand that types every answer instead of tapping (read with keywords, no LLM)."""
+    print("\n== Brand 6: Chai Chuski (types every answer)")
+    c = Client()
+    c.login(6)
+    _, j = c.json("POST", "/api/searches")
+    sid = j["id"]
+    steps = [("about", "Chai Chuski makes masala chai premixes in Pune, mostly sold to college students and young office folks."),
+             ("product", "Masala chai premix"),
+             ("categories", {"text": "food and lifestyle creators"}),
+             ("customer_gender", {"text": "mostly girls in college"}),
+             ("creator", {"text": "female, hindi ya english"})]
+    for step, value in steps:
+        s, j = c.json("POST", f"/api/searches/{sid}/answer", {"step": step, "value": value})
+        if s != 200:
+            check(f"typed answer to {step} understood", False, f"{s} {j}")
+            return
+    _, rows = rest(f"/rest/v1/brand_searches?select=brief,messages,results&id=eq.{sid}", SECRET)
+    b = rows[0]["brief"]
+    check("typed categories understood (Food + Lifestyle)", sorted(b["categories"]) == ["Food & Beverages", "Lifestyle & Daily Vlog"], str(b["categories"]))
+    check("typed buyers understood (women)", b["customer_gender"] == "women", b["customer_gender"])
+    check("typed creator + languages understood (female; Hindi, English)",
+          b["creator_gender"] == "female" and sorted(b["languages"]) == ["english", "hindi"], f"{b['creator_gender']} {b['languages']}")
+    want, _ = expected(b)
+    check(f"typed search results match the DB ({len(want)})", {x["username"] for x in rows[0]["results"]["creators"]} == want)
+    user_lines = [m["text"] for m in rows[0]["messages"] if m["role"] == "user"]
+    check("the brand's own words are kept in the chat", user_lines[-1] == "female, hindi ya english", user_lines[-1])
+    print("        conversation:")
+    for m in rows[0]["messages"]:
+        print(f"          {'Kindred' if m['role'] == 'assistant' else 'Brand  '}: {m['text'][:110]}")
+
+    _, j = c.json("POST", "/api/searches")
+    sid = j["id"]
+    c.json("POST", f"/api/searches/{sid}/answer", {"step": "about", "value": "A brand that makes things for people."})
+    c.json("POST", f"/api/searches/{sid}/answer", {"step": "product", "value": "A thing"})
+    s, j = c.json("POST", f"/api/searches/{sid}/answer", {"step": "categories", "value": {"text": "qwerty zxcv"}})
+    check("nonsense typed answer gets a friendly reply (400)", s == 400 and "Tap" in j.get("error", ""), f"{s} {j}")
+    c.json("DELETE", f"/api/searches/{sid}")
+
+
 def security(clients):
     print("\n== Security")
     (c2, sid2, uid2), (c3, sid3, _uid3) = clients[0], clients[1]
@@ -310,6 +350,7 @@ def bundle_scan():
 
 if __name__ == "__main__":
     clients = [run_brand(*b) for b in BRANDS]
+    typed_brand()
     security(clients)
     bundle_scan()
     print(f"\n{passed} passed, {len(failed)} failed")
