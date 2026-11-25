@@ -504,7 +504,7 @@ all "usable creators").
 
 ## Own scraper (moved 2026-11-25 to its own repo)
 
-**Final creator DB since 2026-11-25 (owner's decision):** the scraper's data in the index project, schema `work`
+**Final creator DB since 2026-11-25 (owner's decision):** the scraper's data in the index project, schema `public`
 (848 creators with per-reel data and `creator_metrics`), dashboard on 127.0.0.1:8791. This project's main DB
 (yqaducvspzrqokcqwlga, 3,229 creators) and the index `public` schema are legacy and no longer the source for new work;
 the admin (8787) and index (8789) dashboards were stopped. The live site still reads the old DB until the merge.
@@ -512,7 +512,7 @@ the admin (8787) and index (8789) dashboards were stopped. The live site still r
 The logged-out Instagram scraper is a separate project: `~/Documents/ojt/instagram-scraper/` (GitHub
 `aarnavp25-sys/instagram-scraper`, private). What it collects, its rules and lanes are in that repo's `README.md`; the
 page/JSON fields, network tests (WARP app, 10 Docker WARP exits, hostel IP, phones) and media findings are in its
-`docs/instagram-notes.md`. It writes to schema `work` of the index project. It will be merged back into this project later.
+`docs/instagram-notes.md`. It writes to schema `public` of the index project (schema `work` until the 2026-11-25 reorganisation). It will be merged back into this project later.
 
 ## Keep check at scrape time (design, 2026-11-24; applies to every account)
 
@@ -539,7 +539,12 @@ Stage 2, content (AI reads bio + 12 captions + alt text + brand tags + music + t
 - returns keep / drop / review + a one-line reason + one quoted caption as evidence.
 Results go to the index project (verdict per account, shown in the dashboard; `review` rows get a human pass).
 
-## Working copy: schema `work` (2026-11-24)
+## Working copy: schema `work` (2026-11-24; reorganised 2026-11-25)
+
+**2026-11-25:** the index project was reorganised: the old `public` tables and views moved to a read-only schema
+`legacy`, everything in `work` moved to `public` (now the final data), and `work` was dropped. The text below describes
+the 2026-11-24 state.
+
 
 User: make a clone and do all new work there, so a mistake can never damage the collected data. A third Supabase
 project was refused (free plan: 2 active projects per owner), so the clone is a second schema in the same index project:
