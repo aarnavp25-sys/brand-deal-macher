@@ -100,11 +100,11 @@
 <section class="filters">
   <input type="search" id="q" placeholder="Search username or bio">
   <select id="cat"><option value="">All categories</option></select>
-  <select id="act"><option value="">Active + inactive</option><option value="active" selected>Active (685)</option><option value="inactive">Inactive</option></select>
+  <select id="act"><option value="">Active + inactive</option><option value="active" selected>Active</option><option value="inactive">Inactive</option></select>
   <select id="aicat"><option value="">Any AI category</option></select>
   <select id="gen"><option value="">Any gender</option><option value="female">Female</option><option value="male">Male</option><option value="unclear">Unclear</option></select>
   <select id="lang"><option value="">Any language</option></select>
-  <select id="aist"><option value="">Any AI status</option><option value="done">AI done</option><option value="stopped_non_creator">Stopped: not a creator</option><option value="failed">AI failed</option><option value="none">Not analysed yet</option></select>
+  <select id="aist"><option value="">Any AI status</option><option value="done">AI done</option><option value="failed">AI failed</option><option value="none">Not analysed yet</option></select>
   <label><input type="checkbox" id="rev"> Needs review</label>
   <select id="fmt"><option value="">Any content format</option></select>
   <label><input type="checkbox" id="lt12"> Fewer than 12 reels</label>
@@ -174,7 +174,9 @@ async function load() {
   document.getElementById("cat").innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${esc(c)}</option>`).join("");
   document.getElementById("fmt").innerHTML = '<option value="">Any content format</option>' + Object.entries(FMT).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
   const calc = ALL.map(x => x.calc_at).sort().pop();
-  document.getElementById("calc").textContent = calc ? "Metrics calculated " + new Date(calc).toLocaleString("en-IN") : "";
+  const meta = await (await fetch("/api/meta")).json();
+  document.getElementById("calc").textContent = (calc ? "Metrics calculated " + new Date(calc).toLocaleString("en-IN") : "")
+    + (meta.hidden_non_creators ? ` · ${meta.hidden_non_creators} accounts that are not creators (shops, salons, brands, repost pages) are hidden` : "");
   render();
 }
 
@@ -204,7 +206,6 @@ function cards(rows) {
     ["Median of median views", n(med(rows.map(r => r.median_views)))],
     ["Median engagement", pct(med(rows.map(r => r.engagement_rate)))],
     ["AI analysed", rows.filter(r => r.ai && r.ai.status === "done").length],
-    ["AI: not a creator", rows.filter(r => r.ai && r.ai.status === "stopped_non_creator").length],
     ["AI: needs review", rows.filter(r => r.ai && r.ai.needs_review).length],
   ];
   document.getElementById("cards").innerHTML = c.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");

@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_S = 60
 _cache, _lock = {}, threading.Lock()
 store = None
+META = {"hidden_non_creators": 0}
 # flat AI columns from public.creator_ai (written by tools/gemini_run.py)
 AI_COLS = ("status,account_type,category,secondary_category,content_mix,format_mix,creator_gender,languages,main_language,"
            "niche,niche_status,creator_role,secondary_role,show_as_expert,credentials,audience_stated,audience_gender_est,"
@@ -67,8 +68,14 @@ def creators():
             ai = {r["username"]: r for r in store.select("creator_ai", {"select": "username," + AI_COLS})}
         except Exception:  # noqa: BLE001  (table not created yet)
             ai = {}
+        # owner 2026-11-26: accounts the AI found are not creators (shops, salons, brands, repost pages) are not shown;
+        # they stay in creator_ai with status stopped_non_creator
+        hidden = {u for u, r in ai.items() if r.get("status") == "stopped_non_creator"}
+        META["hidden_non_creators"] = len(hidden)
         out = []
         for u, row in m.items():
+            if u in hidden:
+                continue
             row = dict(row, **{k: v for k, v in p.get(u, {}).items() if k != "username"})
             row["categories"] = cats.get(u, [])
             row["ai"] = ai.get(u)
@@ -161,6 +168,9 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, open(os.path.join(HERE, "index.html"), "rb").read(), "text/html; charset=utf-8")
             if p == "/api/creators":
                 return self.send(200, creators())
+            if p == "/api/meta":
+                creators()
+                return self.send(200, META)
             if p.startswith("/api/creator/"):
                 d = creator(p.split("/api/creator/", 1)[1])
                 return self.send(200 if d else 404, d or {"error": "unknown creator"})
