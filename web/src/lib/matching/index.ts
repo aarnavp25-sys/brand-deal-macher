@@ -1,13 +1,13 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import { type Category, LANGUAGES } from "@/lib/brief";
+import { type Brief, LANGUAGES } from "@/lib/brief";
+import { type Facet, passes } from "@/lib/filters";
 
 /*
-  Results for now (user, 2026-11-26): the brand picks a category in the chat and sees EVERY creator whose main
-  category is that one. No score, no LLM, no other filters yet; the other chat answers are saved in the brief for
-  the matching that comes later.
+  Results for now (user, 2026-11-26): the creators that pass the brand's choices in the chat (categories, who buys
+  it, creator gender, languages; rule in lib/filters.ts). No score and no LLM yet; biggest first.
 
-  Who counts as a creator: active, has an AI profile (from 12 reels), account type creator/professional (no shops,
+  Who counts as a creator at all: active, has an AI profile (12 reels), account type creator/professional (no shops,
   brands, personal accounts or repost pages), in India, not weak quality, not flagged brand-unsafe.
 */
 
@@ -20,6 +20,7 @@ export type Creator = {
   about: string | null;
   creator_gender: string | null;
   languages: string[];
+  no_speech: boolean;
   audience_gender: string | null;
   audience_age: string | null;
   median_views: number | null;
@@ -31,9 +32,8 @@ export type Creator = {
 };
 
 export type Results = {
-  version: 2;
+  version: 3;
   generated_at: string;
-  category: Category;
   creators: Creator[];
 };
 
@@ -76,8 +76,8 @@ function isCreator(r: Row): boolean {
   );
 }
 
-/** Spoken languages as display names. Hinglish counts as Hindi and English. */
-function languagesOf(r: Row): string[] {
+/** Spoken languages as ids of LANGUAGES (and other names as found). Hinglish counts as Hindi and English. */
+function languageIds(r: Row): string[] {
   const ids = new Set<string>();
   const add = (raw: string | null | undefined) => {
     if (!raw) return;
@@ -88,53 +88,70 @@ function languagesOf(r: Row): string[] {
   };
   Object.keys(r.languages ?? {}).forEach(add);
   add(r.main_language);
-  return [...ids].map((id) => LANGUAGES.find((l) => l.id === id)?.label ?? id.charAt(0).toUpperCase() + id.slice(1));
+  return [...ids];
 }
 
-export async function creatorsInCategory(category: Category): Promise<Results> {
+type Entry = { facet: Facet; creator: Creator };
+let cache: { entries: Entry[]; at: number } | null = null;
+const CACHE_MS = 5 * 60 * 1000;
+
+async function pool(): Promise<Entry[]> {
+  if (cache && Date.now() - cache.at < CACHE_MS) return cache.entries;
   const { data, error } = await admin()
     .from("creator_overview")
     .select(SELECT)
     .eq("ai_status", "done")
     .eq("activity", "active")
-    .eq("category", category)
     .order("followers", { ascending: false })
-    .limit(2000);
-  if (error) throw new Error(`creator data: ${error.message}`);
-
-  const creators = (data as unknown as Row[]).filter(isCreator).map(
-    (r): Creator => ({
-      username: r.username,
-      followers: r.followers,
-      category: r.category,
-      secondary_category: r.secondary_category,
-      niche: r.niche_status === "niche" || r.niche_status === "near_niche" ? r.niche : null,
-      about: r.what_they_do,
-      creator_gender: r.creator_gender,
-      languages: languagesOf(r),
-      audience_gender: r.audience_gender_est,
-      audience_age: r.audience_age_est,
-      median_views: r.median_views,
-      engagement_rate: r.engagement_rate,
-      engagement_estimated: Boolean(r.engagement_estimated),
-      reels_per_week: r.reels_per_week,
-      brand_collabs: r.brand_collabs,
-      collab_brands: r.collab_brands ?? [],
-    }),
-  );
-  return { version: 2, generated_at: new Date().toISOString(), category, creators };
-}
-
-/** How many creators each category has, for the category question in the chat. */
-export async function categoryCounts(): Promise<Record<string, number>> {
-  const { data, error } = await admin()
-    .from("creator_overview")
-    .select("category,account_type,in_india,quality,flags")
-    .eq("ai_status", "done")
-    .eq("activity", "active")
     .limit(5000);
   if (error) throw new Error(`creator data: ${error.message}`);
+  const entries = (data as unknown as Row[]).filter(isCreator).map((r): Entry => {
+    const ids = languageIds(r);
+    return {
+      facet: { c: r.category, g: r.creator_gender, l: ids, a: r.audience_gender_est },
+      creator: {
+        username: r.username,
+        followers: r.followers,
+        category: r.category,
+        secondary_category: r.secondary_category,
+        niche: r.niche_status === "niche" || r.niche_status === "near_niche" ? r.niche : null,
+        about: r.what_they_do,
+        creator_gender: r.creator_gender,
+        languages: ids.map((id) => LANGUAGES.find((l) => l.id === id)?.label ?? id.charAt(0).toUpperCase() + id.slice(1)),
+        no_speech: ids.length === 0,
+        audience_gender: r.audience_gender_est,
+        audience_age: r.audience_age_est,
+        median_views: r.median_views,
+        engagement_rate: r.engagement_rate,
+        engagement_estimated: Boolean(r.engagement_estimated),
+        reels_per_week: r.reels_per_week,
+        brand_collabs: r.brand_collabs,
+        collab_brands: r.collab_brands ?? [],
+      },
+    };
+  });
+  cache = { entries, at: Date.now() };
+  return entries;
+}
+
+/** Creators that pass the brand's choices, biggest first. */
+export async function findCreators(brief: Brief): Promise<Results> {
+  const entries = await pool();
+  return {
+    version: 3,
+    generated_at: new Date().toISOString(),
+    creators: entries.filter((e) => passes(e.facet, brief)).map((e) => e.creator),
+  };
+}
+
+/** Filter attributes of every creator, for the live count in the chat. No usernames. */
+export async function facets(): Promise<Facet[]> {
+  return (await pool()).map((e) => e.facet);
+}
+
+/** How many creators each category has (landing page, category chips). */
+export async function categoryCounts(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
-  for (const r of data as unknown as Row[]) if (r.category && isCreator(r)) out[r.category] = (out[r.category] ?? 0) + 1;
+  for (const { facet } of await pool()) if (facet.c) out[facet.c] = (out[facet.c] ?? 0) + 1;
   return out;
 }

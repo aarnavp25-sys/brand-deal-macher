@@ -17,19 +17,43 @@ const CREATOR: Record<string, string> = { female: "Female creator", male: "Male 
 
 export function Results({ creators, photos }: { creators: Creator[]; photos: Record<string, string> }) {
   const [sort, setSort] = useState<SortId>("followers");
-  const list = useMemo(() => [...creators].sort((a, b) => SORTS[sort].key(b) - SORTS[sort].key(a)), [creators, sort]);
+  const [cat, setCat] = useState<string>("all");
+  const cats = useMemo(() => {
+    const m = new Map<string, number>();
+    creators.forEach((c) => c.category && m.set(c.category, (m.get(c.category) ?? 0) + 1));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [creators]);
+  const list = useMemo(
+    () =>
+      creators
+        .filter((c) => cat === "all" || c.category === cat)
+        .sort((a, b) => SORTS[sort].key(b) - SORTS[sort].key(a)),
+    [creators, sort, cat],
+  );
 
   if (!creators.length) {
     return (
       <div className="card mt-10 p-8">
-        <p className="display text-2xl font-bold">No creators in this category yet</p>
-        <p className="mt-2 text-muted">We are adding creators every week. Try a nearby category for now.</p>
+        <p className="display text-2xl font-bold">No creators match yet</p>
+        <p className="mt-2 text-muted">We add creators every week. Try more categories or any language for now.</p>
       </div>
     );
   }
 
   return (
     <div className="mt-8">
+      {cats.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Show category">
+          <button type="button" aria-pressed={cat === "all"} onClick={() => setCat("all")} className="chip">
+            All <span className="ml-1 opacity-70">{creators.length}</span>
+          </button>
+          {cats.map(([c, n]) => (
+            <button key={c} type="button" aria-pressed={cat === c} onClick={() => setCat(c)} className="chip">
+              {c} <span className="ml-1 opacity-70">{n}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Sort creators">
         <span className="mr-1 text-sm text-muted">Sort by</span>
         {(Object.keys(SORTS) as SortId[]).map((id) => (
@@ -54,7 +78,7 @@ export function Results({ creators, photos }: { creators: Creator[]; photos: Rec
                   @{c.username}
                 </a>
                 <p className="mt-0.5 text-sm text-muted">
-                  {[CREATOR[c.creator_gender ?? ""], c.secondary_category ? `also ${c.secondary_category.toLowerCase()}` : null]
+                  {[CREATOR[c.creator_gender ?? ""], c.category, c.secondary_category ? `also ${c.secondary_category.toLowerCase()}` : null]
                     .filter(Boolean)
                     .join(", ")}
                 </p>
@@ -74,7 +98,11 @@ export function Results({ creators, photos }: { creators: Creator[]; photos: Rec
             </dl>
 
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
-              {c.languages.length > 0 && <span><span className="text-muted">Speaks</span> {c.languages.join(", ")}</span>}
+              {c.languages.length > 0 ? (
+                <span><span className="text-muted">Speaks</span> {c.languages.join(", ")}</span>
+              ) : (
+                <span className="text-muted">Music only, no talking</span>
+              )}
               {c.audience_gender && (
                 <span>
                   <span className="text-muted">Audience (est.)</span> {GENDER[c.audience_gender] ?? c.audience_gender}

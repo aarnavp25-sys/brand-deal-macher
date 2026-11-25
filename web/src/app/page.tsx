@@ -62,19 +62,18 @@ export default async function Home() {
             <div className="mt-10">
               <p className="text-xl font-semibold">Tell us what you sell and who buys it.</p>
               <p className="mt-2 max-w-[52ch] leading-relaxed text-muted">
-                Kindred asks one thing at a time: your product, your buyers, the languages they watch in, the kind of
-                creator you want. Tap an answer or type your own.
+                Five quick questions, one at a time: your brand, the product, who buys it, the creators and the language you want. Type or tap.
               </p>
             </div>
           </div>
           <div className="card p-7" style={{ background: "var(--accent-soft)" }}>
-            <p className="text-xl font-semibold">Pick a category</p>
+            <p className="text-xl font-semibold">Pick your categories</p>
             <p className="mt-2 leading-relaxed text-muted">
-              Food, beauty, fashion, fitness and more. We suggest one from your answers; you decide.
+              One, a few or all of them. We suggest one from your answers, then you choose the creator and language.
             </p>
           </div>
           <div className="card p-7">
-            <p className="text-xl font-semibold">See every creator in it</p>
+            <p className="text-xl font-semibold">See who fits</p>
             <p className="mt-2 leading-relaxed text-muted">
               Followers, typical reel views, engagement, languages and past brand work, side by side.
             </p>

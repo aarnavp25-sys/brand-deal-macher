@@ -7,21 +7,27 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 
 1. Landing page (`/`) → "Find creators".
 2. Sign in with Google (`/login`). Email/password sign-up is switched off in Supabase, so Google is the only way in.
-3. Chat (`/find/<id>`): ten fixed questions, one at a time: about the brand, the product, its category (suggested from
-   the brand's own words), who buys it, buyer ages, creator gender, languages, creator size, goal, video styles.
-   Each answer is a tap on an option or typed text. At the end a "Your brief" card shows every answer and lets the
-   brand change any of them.
-4. "Show creators" → results (`/results/<id>`): **every creator whose main category is the chosen category**,
-   biggest first, with sort by followers / typical reel views / engagement / posting frequency.
+3. Chat (`/find/<id>`): five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
+   1. "Okay, spill. What's your brand and what do you make?" (typed)
+   2. "Love that. Which product should creators hype first?" (typed)
+   3. "Which creators are you vibing with?" categories, several at once or "All of them"; the category guessed
+      from the brand's words is pre-picked
+   4. "Who's actually buying it?" Mostly men / Mostly women / Everyone
+   5. "Last one. What kind of creator, and any language preference?" Female / Male / Either works + languages
+   From question 3 on, every option shows how many creators it leaves, and a live "N creators match so far" line
+   uses the same rule as the results (`lib/filters.ts`), so the number always equals what the results page shows.
+4. After question 5 the creators are found at once (`/results/<id>`), biggest first, with sort by followers /
+   typical reel views / engagement / posting frequency and tabs per category.
 5. "My searches" (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
 
-**Current rule (user, 2026-11-26):** no LLM anywhere on the site yet, and results = all creators of the category. The
-other answers are stored in `brand_searches.brief` for the matching that comes later. Consequence seen in testing: a
-men's face-wash brand that asked for male creators still sees all 87 beauty creators, mostly women makeup artists.
+**Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
+"Either works"; speaks at least one chosen language, where creators with no speech in their reels (music only)
+pass every language; "Mostly men" hides creators whose audience is mostly women and back, "Everyone" hides nobody.
+No LLM anywhere on the site yet and no score.
 
 Who counts as a creator on the site: `creator_overview` rows with `ai_status = done`, `activity = active`,
 `account_type` creator or professional (shops, brands, personal accounts and repost pages are never shown),
-`in_india` not "no", `quality` not "weak", no "not brand-safe" flag. On 2026-11-26 that was 597 of 662 profiled
+`in_india` not "no", `quality` not "weak", no "not brand-safe" flag. On 2026-11-26 that was 598 of 662 profiled
 creators. Thin categories: Home Decor & Handmade 2, Jewelry 3, Home & Household 5, Parenting & Kids 7.
 
 ## Where things run
@@ -42,8 +48,8 @@ Browser ── every request ──► proxy.ts (Vercel)
                               └─ /dashboard, /find, /results without a login → /login
 Sign in:  /login → Google → Supabase Auth → /auth/callback (code → session cookies) → /find
 Chat:     POST /api/searches                    create a brand_searches row (max 25 per brand per day)
-          POST /api/searches/:id/answer          {step, value} → validated → next question
-          POST /api/searches/:id/run             {brief} → validated (zod) → creators of the category saved in results
+          POST /api/searches/:id/answer          {step, value} → validated → next question; after question 5 the
+                                                 creators that pass the filter are saved in results
 Pages:    /results/:id reads the saved results + signs photo links (1 hour) from the private bucket
 ```
 
@@ -64,7 +70,7 @@ Every route handler and page checks the user again with `supabase.auth.getUser()
 - Input: JSON bodies ≤ 8 KB, every answer validated against the question's own options (zod for text), answers must
   come in order, open redirects blocked (`safeNext`).
 - Headers: CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS; no X-Powered-By.
-- `web/db/e2e_test.py` checks all of the above plus three test brands end to end (63 checks, all passing on
+- `web/db/e2e_test.py` checks all of the above plus four test brands end to end (71 checks, all passing on
   2026-11-26).
 
 ## Design

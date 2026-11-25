@@ -1,7 +1,7 @@
 # Kindred website (`web/`)
 
-The brand-facing site: landing page, Google sign-in, a short question-and-answer chat about the brand, and the
-creators of the category the brand picks. Next.js 16 (App Router) + Supabase ("database" project). How it works and
+The brand-facing site: landing page, Google sign-in, a five-question chat about the brand, and the creators that
+fit its answers. Next.js 16 (App Router) + Supabase ("database" project). How it works and
 why: `../docs/website.md`.
 
 ## Run locally
@@ -28,7 +28,7 @@ python3 web/db/upload_photos.py      # copy creator profile photos into the priv
 ## Tests
 
 ```bash
-python3 web/db/e2e_test.py [base_url]     # 3 test brands end to end + security checks (63 checks)
+python3 web/db/e2e_test.py [base_url]     # 4 test brands end to end + security checks (71 checks)
 python3 web/db/test_login.py 1            # one-time sign-in link for test brand 1 (no Google needed)
 python3 web/db/test_login.py --delete-all # remove all test brands and their searches
 ```

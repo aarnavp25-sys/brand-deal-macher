@@ -1,12 +1,13 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { type Brief, type Draft, type Step, STEPS, STEP_BY_ID, nextStep } from "@/lib/brief";
+import { CREATOR_GENDERS, type Draft, STEPS, type Step, answeredCount, nextStep } from "@/lib/brief";
+import { type Facet, countMatches } from "@/lib/filters";
 import type { ChatView } from "@/lib/chat-view";
 
-type Props = { initial: ChatView; counts: Record<string, number> };
+type Props = { initial: ChatView; facets: Facet[] };
 
-export function Chat({ initial, counts }: Props) {
+export function Chat({ initial, facets }: Props) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -15,12 +16,16 @@ export function Chat({ initial, counts }: Props) {
 
   const step = view.status === "chatting" ? nextStep(view.brief) : null;
   const lastAssistant = [...view.messages].reverse().find((m) => m.role === "assistant");
-  const suggest = step?.id === "category" ? lastAssistant?.suggest : undefined;
-  const answered = STEPS.filter((s) => view.brief[s.id] !== undefined).length;
+  const suggest = step?.id === "categories" ? lastAssistant?.suggest : undefined;
+  const done = answeredCount(view.brief);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [view.messages.length, busy]);
+
+  useEffect(() => {
+    if (view.status === "done") router.push(`/results/${view.id}`);
+  }, [view.status, view.id, router]);
 
   async function send(value: unknown) {
     if (!step || busy) return;
@@ -34,7 +39,7 @@ export function Chat({ initial, counts }: Props) {
       });
       const j = await r.json().catch(() => ({}));
       if (r.status === 401) return router.replace(`/login?next=/find/${view.id}`);
-      if (!r.ok) throw new Error(j.error ?? "Could not save that answer.");
+      if (!r.ok) throw new Error(j.error ?? "Couldn't save that. Try again?");
       setView(j as ChatView);
     } catch (e) {
       setError((e as Error).message);
@@ -49,11 +54,11 @@ export function Chat({ initial, counts }: Props) {
         <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--line)" }}>
           <div
             className="h-full rounded-full bg-accent transition-[width] duration-500"
-            style={{ width: `${Math.round((answered / STEPS.length) * 100)}%` }}
+            style={{ width: `${Math.round((done / STEPS.length) * 100)}%` }}
           />
         </div>
         <span>
-          {answered} of {STEPS.length}
+          {done} of {STEPS.length}
         </span>
       </div>
 
@@ -78,7 +83,7 @@ export function Chat({ initial, counts }: Props) {
             </li>
           ),
         )}
-        {busy && (
+        {(busy || view.status === "done") && (
           <li className="flex items-center gap-2.5" aria-label="Kindred is typing">
             <span className="story-ring inline-block size-7" aria-hidden>
               <span className="block size-full bg-accent" />
@@ -98,10 +103,7 @@ export function Chat({ initial, counts }: Props) {
             {error}
           </p>
         )}
-        {step && <Answer key={step.id} step={step} busy={busy} counts={counts} suggest={suggest} onSend={send} />}
-        {!step && view.status !== "chatting" && view.status !== "done" && (
-          <BriefCard id={view.id} brief={view.brief} counts={counts} />
-        )}
+        {step && <Answer key={step.id} step={step} draft={view.brief} facets={facets} busy={busy} suggest={suggest} onSend={send} />}
       </div>
       <div ref={bottom} />
     </div>
@@ -110,259 +112,199 @@ export function Chat({ initial, counts }: Props) {
 
 /* ---------------- answering the current question ---------------- */
 
-function Answer({
-  step,
-  busy,
-  counts,
-  suggest,
-  onSend,
-}: {
+type AnswerProps = {
   step: Step;
+  draft: Draft;
+  facets: Facet[];
   busy: boolean;
-  counts: Record<string, number>;
   suggest?: string;
   onSend: (v: unknown) => void;
-}) {
+};
+
+function Answer(props: AnswerProps) {
+  if (props.step.kind === "text") return <TextAnswer {...props} />;
+  if (props.step.kind === "single") return <SingleAnswer {...props} />;
+  if (props.step.kind === "multi") return <CategoryAnswer {...props} />;
+  return <CreatorAnswer {...props} />;
+}
+
+function TextAnswer({ step, busy, onSend }: AnswerProps) {
   const [text, setText] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
-  const max = step.id === "about" ? 1500 : 160;
-
-  if (step.kind === "text") {
-    return (
-      <form
-        className="card p-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (text.trim()) onSend(text.trim());
+  const max = step.max ?? 160;
+  const submit = () => text.trim() && onSend(text.trim());
+  return (
+    <form
+      className="card p-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <label htmlFor="answer" className="sr-only">
+        {step.question}
+      </label>
+      <textarea
+        id="answer"
+        autoFocus
+        rows={step.id === "about" ? 4 : 2}
+        maxLength={max}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
         }}
-      >
-        <label htmlFor="answer" className="sr-only">
-          {step.question}
-        </label>
-        <textarea
-          id="answer"
-          autoFocus
-          rows={step.id === "about" ? 4 : 2}
-          maxLength={max}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (text.trim()) onSend(text.trim());
-            }
-          }}
-          placeholder={step.placeholder}
-          className="w-full resize-none bg-transparent px-2 py-2 text-base text-ink placeholder:text-muted focus:outline-none"
-        />
-        <div className="flex items-center justify-between gap-3 px-2 pt-1">
-          <span className="text-xs text-muted">
-            {text.length}/{max}. Enter to send, Shift + Enter for a new line.
-          </span>
-          <button type="submit" disabled={busy || text.trim().length < 2} className="btn btn-primary h-10 px-5 text-sm">
-            Send
-          </button>
-        </div>
-      </form>
-    );
-  }
+        placeholder={step.placeholder}
+        className="w-full resize-none bg-transparent px-2 py-2 text-base text-ink placeholder:text-muted focus:outline-none"
+      />
+      <div className="flex items-center justify-between gap-3 px-2 pt-1">
+        <span className="text-xs text-muted">
+          {text.length}/{max}. Enter to send, Shift + Enter for a new line.
+        </span>
+        <button type="submit" disabled={busy || text.trim().length < 2} className="btn btn-primary h-10 px-5 text-sm">
+          Send
+        </button>
+      </div>
+    </form>
+  );
+}
 
-  const options = step.options ?? [];
-  const ordered =
-    step.id === "category"
-      ? [...options].sort((a, b) => (a.value === suggest ? -1 : b.value === suggest ? 1 : (counts[b.value] ?? 0) - (counts[a.value] ?? 0)))
-      : options;
+function MatchLine({ n }: { n: number }) {
+  return (
+    <p className="mt-4 text-sm" aria-live="polite">
+      <span className="font-semibold">{n} creators</span> <span className="text-muted">match so far</span>
+      {n === 0 && <span className="block text-accent-text">Nobody matches this combo yet. Try fewer filters.</span>}
+    </p>
+  );
+}
 
-  if (step.kind === "single") {
-    return (
+function SingleAnswer({ step, draft, facets, busy, onSend }: AnswerProps) {
+  return (
+    <div>
       <div className="flex flex-wrap gap-2" role="group" aria-label={step.question}>
-        {ordered.map((o) => {
-          const n = step.id === "category" ? counts[o.value] ?? 0 : null;
+        {step.options!.map((o) => {
+          const n = countMatches(facets, { ...draft, [step.id]: o.value });
           return (
-            <button
-              key={o.value}
-              type="button"
-              disabled={busy || n === 0}
-              onClick={() => onSend(o.value)}
-              className="chip disabled:opacity-40"
-              style={o.value === suggest ? { borderColor: "var(--accent)", background: "var(--accent-soft)" } : undefined}
-            >
+            <button key={o.value} type="button" disabled={busy || n === 0} onClick={() => onSend(o.value)} className="chip disabled:opacity-40">
               {o.label}
-              {n != null && <span className="ml-1.5 text-muted">{n}</span>}
-              {o.value === suggest && <span className="ml-1.5 font-semibold text-accent-text">Suggested</span>}
+              <span className="ml-1.5 opacity-70">{n}</span>
             </button>
           );
         })}
       </div>
-    );
-  }
+      <p className="mt-3 text-xs text-muted">Numbers show how many creators you would see with each answer.</p>
+    </div>
+  );
+}
+
+function CategoryAnswer({ step, draft, facets, busy, suggest, onSend }: AnswerProps) {
+  const any = step.anyValue!;
+  const [picked, setPicked] = useState<string[]>(suggest ? [suggest] : []);
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        step.options!.map((o) => [
+          o.value,
+          o.value === any ? countMatches(facets, { ...draft, categories: [] }) : countMatches(facets, { ...draft, categories: [o.value] as never }),
+        ]),
+      ) as Record<string, number>,
+    [step, draft, facets, any],
+  );
+  const ordered = useMemo(() => {
+    const cats = step.options!.filter((o) => o.value !== any);
+    cats.sort((a, b) => (a.value === suggest ? -1 : b.value === suggest ? 1 : counts[b.value] - counts[a.value]));
+    return [...cats, step.options!.find((o) => o.value === any)!];
+  }, [step, suggest, counts, any]);
 
   const toggle = (v: string) => {
-    if (v === step.anyValue) return setPicked(picked.includes(v) ? [] : [v]);
-    const rest = picked.filter((p) => p !== step.anyValue);
+    if (v === any) return setPicked(picked.includes(any) ? [] : [any]);
+    const rest = picked.filter((p) => p !== any);
     setPicked(rest.includes(v) ? rest.filter((p) => p !== v) : [...rest, v]);
   };
+  const live = picked.includes(any)
+    ? counts[any]
+    : picked.length
+      ? countMatches(facets, { ...draft, categories: picked as never })
+      : 0;
+
   return (
     <div>
       <div className="flex flex-wrap gap-2" role="group" aria-label={step.question}>
         {ordered.map((o) => (
-          <button key={o.value} type="button" aria-pressed={picked.includes(o.value)} onClick={() => toggle(o.value)} className="chip">
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={picked.includes(o.value)}
+            disabled={counts[o.value] === 0}
+            onClick={() => toggle(o.value)}
+            className="chip disabled:opacity-40"
+          >
             {o.label}
+            <span className="ml-1.5 opacity-70">{counts[o.value]}</span>
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        disabled={busy || picked.length === 0}
-        onClick={() => onSend(picked)}
-        className="btn btn-primary mt-4 h-11 px-6"
-      >
+      <MatchLine n={live} />
+      <button type="button" disabled={busy || live === 0} onClick={() => onSend(picked)} className="btn btn-primary mt-4 h-11 px-6">
         Continue
       </button>
     </div>
   );
 }
 
-/* ---------------- summary card: edit anything, then search ---------------- */
-
-function BriefCard({ id, brief, counts }: { id: string; brief: Draft; counts: Record<string, number> }) {
-  const router = useRouter();
-  const [b, setB] = useState<Draft>(brief);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const set = <K extends keyof Brief>(k: K, v: Brief[K]) => setB((x) => ({ ...x, [k]: v }));
-
-  async function run() {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await fetch(`/api/searches/${id}/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brief: b }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (r.status === 401) return router.replace(`/login?next=/find/${id}`);
-      if (!r.ok) throw new Error(j.error ?? "Could not load creators.");
-      router.push(`/results/${id}`);
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="card rise p-6 md:p-8" aria-labelledby="brief-title">
-      <h2 id="brief-title" className="display text-2xl font-bold">
-        Your brief
-      </h2>
-      <div className="mt-6 grid gap-5">
-        <TextField label="About your brand" value={b.about ?? ""} rows={3} max={1500} onChange={(v) => set("about", v)} />
-        <TextField label="Product to promote" value={b.product ?? ""} rows={1} max={160} onChange={(v) => set("product", v)} />
-        <SelectField
-          label="Category"
-          help="You will see every creator whose main content is in this category."
-          step={STEP_BY_ID.category}
-          value={b.category ?? ""}
-          counts={counts}
-          onChange={(v) => set("category", v as Brief["category"])}
-        />
-        <div className="grid gap-5 sm:grid-cols-2">
-          <SelectField label="Who buys it" step={STEP_BY_ID.customer_gender} value={b.customer_gender ?? ""} onChange={(v) => set("customer_gender", v as Brief["customer_gender"])} />
-          <SelectField label="Creator" step={STEP_BY_ID.creator_gender} value={b.creator_gender ?? ""} onChange={(v) => set("creator_gender", v as Brief["creator_gender"])} />
-          <SelectField label="Creator size" step={STEP_BY_ID.size} value={b.size ?? ""} onChange={(v) => set("size", v as Brief["size"])} />
-          <SelectField label="Goal" step={STEP_BY_ID.goal} value={b.goal ?? ""} onChange={(v) => set("goal", v as Brief["goal"])} />
-        </div>
-        <MultiField label="Buyer ages" step={STEP_BY_ID.customer_ages} value={b.customer_ages ?? []} onChange={(v) => set("customer_ages", v as Brief["customer_ages"])} />
-        <MultiField label="Languages" step={STEP_BY_ID.languages} value={b.languages ?? []} onChange={(v) => set("languages", v)} />
-        <MultiField label="Video styles" step={STEP_BY_ID.styles} value={b.styles ?? []} onChange={(v) => set("styles", v)} />
-      </div>
-      <p className="mt-6 rounded-[12px] bg-surface-2 p-4 text-sm leading-relaxed text-muted">
-        For now Kindred shows every creator in your category. Your other answers are saved and will be used to rank
-        creators soon.
-      </p>
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-accent-text">
-          {error}
-        </p>
-      )}
-      <button type="button" onClick={run} disabled={busy} className="btn btn-primary mt-6 h-12 px-7 text-base">
-        {busy ? "Loading creators..." : "Show creators"}
-      </button>
-    </section>
-  );
-}
-
-function TextField({ label, value, rows, max, onChange }: { label: string; value: string; rows: number; max: number; onChange: (v: string) => void }) {
-  const id = label.toLowerCase().replace(/\W+/g, "-");
-  return (
-    <div className="grid gap-2">
-      <label htmlFor={id} className="text-sm font-semibold">
-        {label}
-      </label>
-      <textarea id={id} rows={rows} maxLength={max} value={value} onChange={(e) => onChange(e.target.value)} className="field resize-y px-3 py-2.5" />
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  help,
-  step,
-  value,
-  counts,
-  onChange,
-}: {
-  label: string;
-  help?: string;
-  step: Step;
-  value: string;
-  counts?: Record<string, number>;
-  onChange: (v: string) => void;
-}) {
-  const id = `f-${step.id}`;
-  return (
-    <div className="grid min-w-0 gap-2">
-      <label htmlFor={id} className="text-sm font-semibold">
-        {label}
-      </label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="field h-11 w-full min-w-0 px-3">
-        {(step.options ?? []).map((o) => (
-          <option key={o.value} value={o.value} disabled={counts ? (counts[o.value] ?? 0) === 0 : false}>
-            {o.label}
-            {counts ? ` (${counts[o.value] ?? 0})` : ""}
-          </option>
-        ))}
-      </select>
-      {help && <p className="text-xs text-muted">{help}</p>}
-    </div>
-  );
-}
-
-function MultiField({ label, step, value, onChange }: { label: string; step: Step; value: string[]; onChange: (v: string[]) => void }) {
+function CreatorAnswer({ step, draft, facets, busy, onSend }: AnswerProps) {
   const any = step.anyValue!;
-  const isAny = value.length === 0;
+  const [gender, setGender] = useState<string | null>(null);
+  const [langs, setLangs] = useState<string[]>([any]);
   const toggle = (v: string) => {
-    if (v === any) return onChange([]);
-    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+    if (v === any) return setLangs([any]);
+    const rest = langs.filter((p) => p !== any);
+    const next = rest.includes(v) ? rest.filter((p) => p !== v) : [...rest, v];
+    setLangs(next.length ? next : [any]);
   };
+  const live = countMatches(facets, {
+    ...draft,
+    creator_gender: (gender ?? "any") as Draft["creator_gender"],
+    languages: langs.includes(any) ? [] : langs,
+  });
+
   return (
-    <fieldset className="grid gap-2">
-      <legend className="mb-2 text-sm font-semibold">{label}</legend>
-      <div className="flex flex-wrap gap-2">
-        {(step.options ?? []).map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={o.value === any ? isAny : value.includes(o.value)}
-            onClick={() => toggle(o.value)}
-            className="chip"
-          >
-            {o.label}
-          </button>
-        ))}
+    <div className="card grid gap-6 p-5 md:p-6">
+      <fieldset>
+        <legend className="mb-3 text-sm font-semibold">Creator</legend>
+        <div className="flex flex-wrap gap-2">
+          {CREATOR_GENDERS.map((o) => (
+            <button key={o.value} type="button" aria-pressed={gender === o.value} onClick={() => setGender(o.value)} className="chip">
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="mb-3 text-sm font-semibold">Language</legend>
+        <div className="flex flex-wrap gap-2">
+          {step.options!.map((o) => (
+            <button key={o.value} type="button" aria-pressed={langs.includes(o.value)} onClick={() => toggle(o.value)} className="chip">
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted">Creators whose reels have no talking (music only) show up for every language.</p>
+      </fieldset>
+      <div>
+        <MatchLine n={live} />
+        <button
+          type="button"
+          disabled={busy || !gender || live === 0}
+          onClick={() => onSend({ creator_gender: gender, languages: langs })}
+          className="btn btn-primary mt-4 h-12 px-7 text-base"
+        >
+          Find my creators
+        </button>
+        {!gender && <p className="mt-2 text-xs text-muted">Pick female, male or either first.</p>}
       </div>
-    </fieldset>
+    </div>
   );
 }

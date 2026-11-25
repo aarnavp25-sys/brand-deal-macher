@@ -29,7 +29,7 @@ export default async function Dashboard() {
         <div className="card mt-10 flex flex-col items-start gap-5 p-8 md:p-10">
           <p className="display text-2xl font-bold">No searches yet</p>
           <p className="max-w-[50ch] leading-relaxed text-muted">
-            Start a short chat about your brand. At the end you will see every creator in the category you pick.
+            Five quick questions about your brand, then you see the creators that fit.
           </p>
           <Link href="/find" className="btn btn-primary h-11 px-6">
             Find creators
@@ -44,7 +44,7 @@ export default async function Dashboard() {
                 <Link href={href} className="min-w-0 flex-1">
                   <p className="truncate text-lg font-semibold">{s.title || "Untitled search"}</p>
                   <p className="mt-1 text-sm text-muted">
-                    {[s.category, STATUS[s.status], s.count != null ? `${s.count} creators` : null, dateShort(s.created_at)]
+                    {[s.categories, STATUS[s.status], s.count != null ? `${s.count} creators` : null, dateShort(s.created_at)]
                       .filter(Boolean)
                       .join("  /  ")}
                   </p>
