@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kindred Board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232f5d50%22/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f6f3; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e4e3dd;
+    --accent: #2f5d50; --accent-soft: #e3ece8; --warn: #9a5b00; --warn-soft: #fbf0dc;
+    --bad: #9b2c2c; --bad-soft: #f8e3e3; --radius: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; }
+  header { padding: 20px 28px 8px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 8px 28px 4px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .card .k { color: var(--muted); font-size: 12px; }
+  .card .v { font-size: 22px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 28px; }
+  .filters input[type=search], .filters select {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 10px; font: inherit; color: inherit;
+  }
+  .filters input[type=search] { width: 220px; }
+  .filters label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 12px; font: inherit;
+         color: var(--ink); cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: var(--accent); }
+  .count { color: var(--muted); margin-left: auto; }
+  .wrap { margin: 0 28px 28px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+          overflow: auto; max-height: calc(100vh - 230px); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th { position: sticky; top: 0; background: #fbfbf9; font-weight: 600; font-size: 12px; color: var(--muted);
+       cursor: pointer; user-select: none; z-index: 1; }
+  th.l, td.l { text-align: left; }
+  th .arrow { opacity: .8; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f3f5f2; }
+  .who { display: flex; align-items: center; gap: 8px; }
+  .pic { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--line); flex: none; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .b-ok { background: var(--accent-soft); color: var(--accent); }
+  .b-warn { background: var(--warn-soft); color: var(--warn); }
+  .b-bad { background: var(--bad-soft); color: var(--bad); }
+  .b-n { background: #efefeb; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .ver { color: #3b82c4; font-size: 12px; }
+  /* drawer */
+  .shade { position: fixed; inset: 0; background: rgba(20, 20, 18, .35); display: none; z-index: 5; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(920px, 96vw); background: var(--bg);
+            box-shadow: -12px 0 30px rgba(0,0,0,.12); overflow: auto; transform: translateX(100%);
+            transition: transform .22s ease; z-index: 6; }
+  .open .shade { display: block; }
+  .open .drawer { transform: none; }
+  .dh { display: flex; gap: 16px; align-items: flex-start; padding: 22px 24px 8px; }
+  .dh img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
+  .dh h2 { margin: 0 0 4px; font-size: 18px; }
+  .bio { white-space: pre-wrap; color: var(--ink); margin: 6px 0; }
+  .links a { color: var(--accent); margin-right: 10px; font-size: 13px; }
+  .close { margin-left: auto; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; padding: 8px 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+  .stat .k { color: var(--muted); font-size: 11px; }
+  .stat .v { font-weight: 650; font-size: 15px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  h3 { font-size: 14px; margin: 18px 24px 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 0 24px 20px; }
+  .post { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 12px; }
+  .post .cv { position: relative; aspect-ratio: 9 / 16; background: #ddd; cursor: pointer; }
+  .post .cv img, .post .cv video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .post .cv .rk { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,.6); color: #fff; border-radius: 6px;
+                  padding: 1px 6px; font-weight: 600; }
+  .post .cv .play { position: absolute; inset: auto 6px 6px auto; background: rgba(0,0,0,.6); color: #fff;
+                    border-radius: 6px; padding: 1px 6px; }
+  .post .meta { padding: 7px 8px; line-height: 1.45; }
+  .post .cap { color: var(--muted); max-height: 3.1em; overflow: hidden; }
+  .post.square .cv { aspect-ratio: 1 / 1; }
+  .note { color: var(--muted); font-size: 12px; padding: 0 24px 6px; }
+  .err { margin: 40px 28px; color: var(--bad); }
+  .ai { margin: 6px 24px 4px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .ai h4 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
+  .ai .row { display: grid; grid-template-columns: 170px 1fr; gap: 4px 12px; font-size: 13px; line-height: 1.5; }
+  .ai .row .k { color: var(--muted); }
+  .chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin: 1px 3px 1px 0; font-size: 12px; }
+  .chip b { font-weight: 650; }
+  .rn { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 6px; }
+  .rn div { margin: 1px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kindred Board</h1>
+  <span class="sub" id="calc"></span>
+</header>
+<section class="cards" id="cards"></section>
+<section class="filters">
+  <input type="search" id="q" placeholder="Search username or bio">
+  <select id="cat"><option value="">All categories</option></select>
+  <select id="act"><option value="">Active + inactive</option><option value="active" selected>Active (685)</option><option value="inactive">Inactive</option></select>
+  <select id="aicat"><option value="">Any AI category</option></select>
+  <select id="gen"><option value="">Any gender</option><option value="female">Female</option><option value="male">Male</option><option value="unclear">Unclear</option></select>
+  <select id="lang"><option value="">Any language</option></select>
+  <select id="aist"><option value="">Any AI status</option><option value="done">AI done</option><option value="stopped_non_creator">Stopped: not a creator</option><option value="failed">AI failed</option><option value="none">Not analysed yet</option></select>
+  <label><input type="checkbox" id="rev"> Needs review</label>
+  <select id="fmt"><option value="">Any content format</option></select>
+  <label><input type="checkbox" id="lt12"> Fewer than 12 reels</label>
+  <label><input type="checkbox" id="est"> Engagement estimated</label>
+  <span class="count" id="count"></span>
+  <a class="btn" href="/api/export.csv">Export CSV</a>
+  <button class="btn" id="reload">Reload data</button>
+</section>
+<div class="wrap"><table>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+<div id="dr"><div class="shade" id="shade"></div><aside class="drawer" id="drawer"></aside></div>
+
+<script>
+const FMT = { own_audio: "Own audio", music: "Music / trend", mixed: "Mixed", not_enough_data: "Not enough data" };
+const COLS = [
+  { k: "username", t: "Creator", l: true },
+  { k: "categories", t: "Category", l: true, v: r => (r.categories || []).join(", ") },
+  { k: "followers", t: "Followers", f: n },
+  { k: "reels_count", t: "Reels", f: (x, r) => r.fewer_than_12 ? `<span class="badge b-warn" title="Fewer than 12 reels on the account">${x} · &lt;12</span>` : x },
+  { k: "median_views", t: "Median views", f: n },
+  { k: "reach_ratio", t: "Reach", f: pct, tip: "median views ÷ followers" },
+  { k: "engagement_rate", t: "Engagement", f: eng, tip: "median (likes + comments) ÷ views, visible-like reels" },
+  { k: "comment_rate", t: "Comments", f: pct2, tip: "median comments ÷ views" },
+  { k: "reels_per_week", t: "Reels / wk", f: rate },
+  { k: "days_since_last_reel", t: "Last reel", f: (x, r) => x == null ? "—" : `${x} d <span class="muted">· ${d(r.last_reel_at)}</span>` },
+  { k: "activity", t: "Activity", l: true, f: x => x === "active" ? '<span class="badge b-ok">Active</span>' : '<span class="badge b-bad">Inactive</span>' },
+  { k: "content_format", t: "Content format", l: true, f: x => FMT[x] || "—" },
+  { k: "ai_cat", t: "AI category", l: true, v: r => r.ai && r.ai.category ? r.ai.category + (r.ai.secondary_category ? " + " + r.ai.secondary_category : "") : null,
+    f: (x, r) => !r.ai ? '<span class="muted">not yet</span>' : r.ai.status === "failed" ? '<span class="badge b-bad">AI failed</span>'
+      : r.ai.status === "stopped_non_creator" ? `<span class="badge b-bad" title="${esc(r.ai.stop_reason || "")}">not a creator</span>` : esc(x || "—") },
+  { k: "ai_gender", t: "Gender", l: true, v: r => r.ai && r.ai.creator_gender, f: x => x ? esc(x) : "—" },
+  { k: "ai_lang", t: "Language", l: true, v: r => r.ai && r.ai.main_language, f: (x, r) => x ? esc(x.replace("hindi", "Hindi/Hinglish")) : (r.ai && r.ai.status === "done" ? '<span class="muted">no speech</span>' : "—") },
+  { k: "ai_niche", t: "Niche", l: true, v: r => r.ai && r.ai.niche_status, f: (x, r) => x === "niche" ? `<span class="badge b-ok" title="${esc(r.ai.niche || "")}">niche</span>` : x === "near_niche" ? `<span class="badge b-n" title="${esc(r.ai.niche || "")}">almost</span>` : x ? '<span class="muted">mixed</span>' : "—" },
+  { k: "ai_role", t: "Role", l: true, v: r => r.ai && r.ai.creator_role, f: (x, r) => x ? esc(x.replace("expert_educator", "educator")) + (r.ai.show_as_expert ? ' <span class="badge b-ok" title="credential verified">expert</span>' : "") : "—" },
+  { k: "ai_collab", t: "Brand collabs", l: true, v: r => r.ai && r.ai.brand_collabs, f: (x, r) => x === "yes" ? `<span class="badge b-ok" title="${esc((r.ai.collab_brands || []).join(", "))}">yes · ${(r.ai.collab_brands || []).length}</span>` : x ? esc(x) : "—" },
+  { k: "ai_rev", t: "Review", l: true, v: r => r.ai && r.ai.needs_review ? 1 : 0, f: (x, r) => r.ai && r.ai.needs_review ? `<span class="badge b-warn" title="${esc((r.ai.flags || []).join("\n"))}">check</span>` : "" },
+  { k: "collab_share", t: "Collab", f: pct },
+  { k: "viral_reels", t: "Viral", f: x => x || 0, tip: "reels ≥ 3 × median views" },
+];
+let ALL = [], sortK = "followers", sortDir = -1;
+
+function n(x) { if (x == null) return "—"; x = Number(x);
+  return x >= 1e6 ? (x / 1e6).toFixed(1) + "M" : x >= 1e4 ? (x / 1e3).toFixed(0) + "K" : x >= 1e3 ? (x / 1e3).toFixed(1) + "K" : String(Math.round(x)); }
+function pct(x) { return x == null ? "—" : (Number(x) * 100).toFixed(1) + "%"; }
+function rate(x) { return x == null ? "—" : Number(x) < 1 ? Number(x).toFixed(2) : Number(x).toFixed(1); }
+function eng(x, r) { if (x == null) return r.reels_count && r.likes_hidden_share >= 0.999 ? '<span class="muted" title="The creator hides likes on every reel">likes hidden</span>' : "—";
+  return pct(x) + (r.engagement_estimated ? ' <span class="badge b-n" title="Few reels with visible likes">est.</span>' : ""); }
+function pct2(x) { return x == null ? "—" : (Number(x) * 100).toFixed(2) + "%"; }
+function d(s) { return s ? new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"; }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function media(f) { return f ? "/" + f.split("/").map(encodeURIComponent).join("/") : ""; }
+function med(xs) { xs = xs.filter(x => x != null).map(Number).sort((a, b) => a - b); if (!xs.length) return null;
+  const m = xs.length >> 1; return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2; }
+
+async function load() {
+  const r = await fetch("/api/creators");
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  ALL = j;
+  const cats = [...new Set(ALL.flatMap(x => x.categories || []))].sort();
+  const aicats = [...new Set(ALL.flatMap(x => x.ai ? [x.ai.category, x.ai.secondary_category] : []).filter(Boolean))].sort();
+  document.getElementById("aicat").innerHTML = '<option value="">Any AI category</option>' + aicats.map(c => `<option>${esc(c)}</option>`).join("");
+  const langs = [...new Set(ALL.flatMap(x => x.ai && x.ai.languages ? Object.keys(x.ai.languages) : []))].sort();
+  document.getElementById("lang").innerHTML = '<option value="">Any language</option>' + langs.map(c => `<option>${esc(c)}</option>`).join("");
+  document.getElementById("cat").innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${esc(c)}</option>`).join("");
+  document.getElementById("fmt").innerHTML = '<option value="">Any content format</option>' + Object.entries(FMT).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  const calc = ALL.map(x => x.calc_at).sort().pop();
+  document.getElementById("calc").textContent = calc ? "Metrics calculated " + new Date(calc).toLocaleString("en-IN") : "";
+  render();
+}
+
+function filtered() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const cat = document.getElementById("cat").value, act = document.getElementById("act").value;
+  const fmt = document.getElementById("fmt").value;
+  const lt = document.getElementById("lt12").checked, est = document.getElementById("est").checked;
+  const aicat = document.getElementById("aicat").value, gen = document.getElementById("gen").value;
+  const lang = document.getElementById("lang").value, aist = document.getElementById("aist").value;
+  const rev = document.getElementById("rev").checked;
+  return ALL.filter(r => (!q || r.username.includes(q) || (r.bio || "").toLowerCase().includes(q))
+    && (!aicat || (r.ai && (r.ai.category === aicat || r.ai.secondary_category === aicat)))
+    && (!gen || (r.ai && r.ai.creator_gender === gen)) && (!lang || (r.ai && r.ai.languages && lang in r.ai.languages))
+    && (!aist || (aist === "none" ? !r.ai : r.ai && r.ai.status === aist)) && (!rev || (r.ai && r.ai.needs_review))
+    && (!cat || (r.categories || []).includes(cat)) && (!act || r.activity === act)
+    && (!fmt || r.content_format === fmt) && (!lt || r.fewer_than_12) && (!est || r.engagement_estimated));
+}
+
+function cards(rows) {
+  const c = [
+    ["Creators", rows.length],
+    ["Active", rows.filter(r => r.activity === "active").length],
+    ["Inactive (45 days)", rows.filter(r => r.activity === "inactive").length],
+    ["Fewer than 12 reels", rows.filter(r => r.fewer_than_12).length],
+    ["Reels analysed", rows.reduce((a, r) => a + (r.reels_count || 0), 0).toLocaleString("en-IN")],
+    ["Median of median views", n(med(rows.map(r => r.median_views)))],
+    ["Median engagement", pct(med(rows.map(r => r.engagement_rate)))],
+    ["AI analysed", rows.filter(r => r.ai && r.ai.status === "done").length],
+    ["AI: not a creator", rows.filter(r => r.ai && r.ai.status === "stopped_non_creator").length],
+    ["AI: needs review", rows.filter(r => r.ai && r.ai.needs_review).length],
+  ];
+  document.getElementById("cards").innerHTML = c.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function render() {
+  const rows = filtered();
+  const col = COLS.find(c => c.k === sortK);
+  const val = r => col && col.v ? col.v(r) : r[sortK];
+  rows.sort((a, b) => { let x = val(a), y = val(b);
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    if (typeof x === "string" || typeof y === "string") return String(x).localeCompare(String(y)) * sortDir;
+    return (Number(x) - Number(y)) * sortDir; });
+  cards(rows);
+  document.getElementById("count").textContent = `${rows.length} of ${ALL.length}`;
+  document.getElementById("head").innerHTML = COLS.map(c =>
+    `<th class="${c.l ? "l" : ""}" data-k="${c.k}" title="${esc(c.tip || "")}">${c.t} <span class="arrow">${c.k === sortK ? (sortDir > 0 ? "▲" : "▼") : ""}</span></th>`).join("");
+  document.getElementById("rows").innerHTML = rows.map(r => `<tr data-u="${esc(r.username)}">` + COLS.map(c => {
+    let x = c.v ? c.v(r) : r[c.k];
+    if (c.k === "username") x = `<span class="who"><img class="pic" loading="lazy" src="${media(r.profile_pic_file)}" alt="">${esc(r.username)}${r.is_verified ? ' <span class="ver" title="Verified">✔</span>' : ""}</span>`;
+    else x = c.f ? c.f(x, r) : esc(x);
+    return `<td class="${c.l ? "l" : ""}">${x}</td>`; }).join("") + "</tr>").join("");
+}
+
+async function openCreator(u) {
+  const dr = document.getElementById("drawer");
+  dr.innerHTML = '<p class="note" style="padding:24px">Loading…</p>';
+  document.getElementById("dr").classList.add("open");
+  const r = await fetch("/api/creator/" + encodeURIComponent(u));
+  const j = await r.json();
+  if (!r.ok) { dr.innerHTML = `<p class="err">${esc(j.error)}</p>`; return; }
+  const p = j.profile, m = j.metrics || {}, ai = j.ai, notes = j.reel_notes || {};
+  const mix = o => o ? Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="chip">${esc(k)} <b>${v}</b></span>`).join("") : "—";
+  const yn = x => x == null ? "—" : x ? "yes" : "no";
+  const aiBox = !ai ? '<div class="ai"><h4>AI profile</h4><div class="muted">Not analysed yet.</div></div>' : `<div class="ai">
+      <h4>AI profile · ${esc(ai.status)}${ai.stop_reason ? " · " + esc(ai.stop_reason) : ""} · ${ai.reels_noted ?? 0}/${ai.reels_total ?? 0} reels · ${esc(ai.prompt_version || "")}</h4>
+      <div class="row">
+        <div class="k">Summary</div><div>${esc(ai.summary || "—")}</div>
+        <div class="k">What they do</div><div>${esc(ai.what_they_do || "—")}</div>
+        <div class="k">Category</div><div><b>${esc(ai.category || "—")}</b>${ai.secondary_category ? " + <b>" + esc(ai.secondary_category) + "</b>" : ""}</div>
+        <div class="k">Content mix (reels)</div><div>${mix(ai.content_mix)}</div>
+        <div class="k">Format mix</div><div>${mix(ai.format_mix)}</div>
+        <div class="k">Account type</div><div>${esc(ai.account_type || "—")} · own products ${yn(ai.sells_own_products)} · services ${yn(ai.offers_services)}</div>
+        <div class="k">Creator gender</div><div>${esc(ai.creator_gender || "—")}</div>
+        <div class="k">Languages spoken (reels)</div><div>${mix(ai.languages)}</div>
+        <div class="k">Niche</div><div>${esc(ai.niche_status || "—")} · ${esc(ai.niche || "")}</div>
+        <div class="k">Role</div><div>${esc(ai.creator_role || "—")}${ai.secondary_role ? " + " + esc(ai.secondary_role) : ""} · expert shown: ${ai.show_as_expert ? "yes (" + esc(ai.credentials || "") + ")" : "no"}</div>
+        <div class="k">Audience (estimated)</div><div>${esc(ai.audience_gender_est || "—")}, ${esc(ai.audience_age_est || "—")} · bio says: ${esc(ai.audience_stated || "—")}</div>
+        <div class="k">Content made for</div><div>${mix(ai.content_made_for)}</div>
+        <div class="k">Products for</div><div>${mix(ai.products_for)}</div>
+        <div class="k">Brand collabs</div><div>${esc(ai.brand_collabs || "—")} ${(ai.collab_brands || []).map(b => `<span class="chip">${esc(b)}</span>`).join("")}</div>
+        <div class="k">Journeys</div><div>${(ai.journeys || []).map(x => esc(x.what) + ` <span class="muted">(${esc((x.evidence || []).join(", "))})</span>`).join("<br>") || "—"}</div>
+        <div class="k">Quality</div><div>${esc(ai.quality || "—")}</div>
+        <div class="k">Flags</div><div>${(ai.flags || []).map(f => `<div>${ai.needs_review ? "⚠️ " : ""}${esc(f)}</div>`).join("") || "—"}</div>
+        <div class="k">Cost</div><div>$${Number(ai.cost || 0).toFixed(4)}</div>
+      </div></div>`;
+  const noteHtml = x => { const t = notes[x.shortcode]; if (!t) return ""; const nn = t.note || {};
+    const own = (nn.people || []).find(z => z.role === "account_owner");
+    return `<div class="rn"><div><b>AI ${esc(t.reel)}:</b> ${esc(nn.category || "")}${nn.secondary_category ? " + " + esc(nn.secondary_category) : ""} · ${esc(nn.format || "")}</div>
+      <div>${esc(nn.topic || "")}</div><div class="muted">${esc(nn.what_happens || "")}</div>
+      <div class="muted">🗣 ${esc(nn.speech || "")} ${(nn.spoken_languages || []).length ? "· " + esc(nn.spoken_languages.join(", ")) : ""}</div>
+      <div class="muted">for ${esc(nn.made_for || "")} · owner ${own ? esc(own.gender) : "not on screen"}${t.trimmed_to_s ? " · first " + t.trimmed_to_s + "s analysed" : ""}</div>
+      ${(nn.products || []).length ? `<div>🛍 ${nn.products.map(z => esc(z.level + ": " + (z.brand ? z.brand + " " : "") + z.item)).join("; ")}</div>` : ""}
+      ${nn.milestone ? `<div>⭐ ${esc(nn.milestone)}</div>` : ""}</div>`; };
+  const latest = j.posts.filter(x => x.reel_rank).sort((a, b) => a.reel_rank - b.reel_rank);
+  const pinned = j.posts.filter(x => x.is_pinned);
+  const grid = j.posts.filter(x => x.in_grid && !x.reel_rank && !x.is_pinned).sort((a, b) => b.taken_at.localeCompare(a.taken_at));
+  const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const post = (x, square) => `<div class="post ${square ? "square" : ""}">
+      <div class="cv" ${x.video_file ? `data-v="${media(x.video_file)}"` : ""}>
+        ${x.thumbnail_file ? `<img loading="lazy" src="${media(x.thumbnail_file)}" alt="">` : ""}
+        ${x.reel_rank ? `<span class="rk">#${x.reel_rank}</span>` : x.is_pinned ? '<span class="rk">pinned</span>' : ""}
+        ${x.video_file ? '<span class="play">▶ play</span>' : ""}
+      </div>
+      <div class="meta">
+        <div><b>${d(x.taken_at)}</b> · ${esc(x.kind)}${x.duration_s ? " · " + Math.round(x.duration_s) + "s" : ""}</div>
+        ${x.views != null ? `<div>${n(x.views)} views · ${x.likes_hidden ? "likes hidden" : n(x.likes) + " likes"} · ${n(x.comments)} comments</div>` : ""}
+        ${x.music_title ? `<div class="muted">♪ ${esc(x.is_original_audio ? "Original audio" : x.music_title)}${x.is_original_audio ? "" : " — " + esc(x.music_artist || "")}</div>` : ""}
+        ${(x.coauthors || []).filter(c => c.username !== u).length ? `<div>Collab: ${esc(x.coauthors.filter(c => c.username !== u).map(c => "@" + c.username).join(", "))}</div>` : ""}
+        ${x.location_name ? `<div class="muted">📍 ${esc(x.location_name)}</div>` : ""}
+        ${x.caption ? `<div class="cap" title="${esc(x.caption)}">${esc(x.caption)}</div>` : ""}
+        ${noteHtml(x)}
+        <div><a href="https://www.instagram.com/${x.kind === "reel" ? "reel" : "p"}/${esc(x.shortcode)}/" target="_blank" rel="noopener">open on Instagram</a></div>
+      </div></div>`;
+  dr.innerHTML = `
+    <div class="dh">
+      <img src="${media(p.profile_pic_file)}" alt="">
+      <div>
+        <h2>@${esc(p.username)} ${p.is_verified ? '<span class="ver">✔ verified</span>' : ""}</h2>
+        <div class="muted">${n(p.followers)} followers · ${n(p.following)} following · ${esc(p.total_posts_text || p.total_posts)} posts
+          · ${m.activity === "active" ? '<span class="badge b-ok">Active</span>' : '<span class="badge b-bad">Inactive</span>'}
+          ${m.fewer_than_12 ? `<span class="badge b-warn">${m.reels_count} reels · fewer than 12</span>` : ""}</div>
+        <div class="bio">${esc(p.bio || "")}</div>
+        <div class="links">${(p.bio_links || []).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title || l.url)}</a>`).join("")}
+          <a href="https://www.instagram.com/${esc(p.username)}/" target="_blank" rel="noopener">Instagram profile</a></div>
+      </div>
+      <button class="btn close" id="x">Close</button>
+    </div>
+    <div class="stats">
+      ${stat("Median views", n(m.median_views))}${stat("Mean views", n(m.mean_views))}${stat("Max views", n(m.max_views))}
+      ${stat("Reach (median ÷ followers)", pct(m.reach_ratio))}
+      ${stat("Engagement" + (m.engagement_estimated ? " (est.)" : ""), m.engagement_rate == null ? eng(null, m) : pct(m.engagement_rate) + ` <span class="muted" style="font-weight:400">· ${m.engagement_reels ?? 0} reels</span>`)}
+      ${stat("Comment rate", pct2(m.comment_rate))}${stat("Likes hidden", pct(m.likes_hidden_share))}
+      ${stat("Reels / week", rate(m.reels_per_week))}
+      ${stat("Median gap", m.median_gap_days == null ? "—" : m.median_gap_days.toFixed(1) + " d")}
+      ${stat("Longest gap", m.max_gap_days == null ? "—" : m.max_gap_days.toFixed(0) + " d")}
+      ${stat("Last reel", m.days_since_last_reel == null ? "—" : m.days_since_last_reel + " days ago")}
+      ${stat("Viral reels (≥3× median)", m.viral_reels ?? 0)}
+      ${stat("Collab reels", pct(m.collab_share))}${stat("Tags others", pct(m.tagged_share))}
+      ${stat("Content format", FMT[m.content_format] || "—")}
+      ${stat("Own audio share", pct(m.original_audio_share) + ` <span class="muted" style="font-weight:400">· ${m.audio_known_reels ?? 0} known</span>`)}
+      ${stat("Median length", m.median_duration_s == null ? "—" : Math.round(m.median_duration_s) + " s")}
+    </div>
+    ${aiBox}
+    <p class="note">Scraped ${d(p.scraped_at)} · metrics ${m.calc_at ? new Date(m.calc_at).toLocaleString("en-IN") : "—"} · numbers are a snapshot.</p>
+    <h3>Latest ${latest.length} reels (newest first, pinned excluded)</h3>
+    <div class="grid">${latest.map(x => post(x)).join("") || '<p class="note">No reels.</p>'}</div>
+    ${pinned.length ? `<h3>Pinned reels (${pinned.length})</h3><div class="grid">${pinned.map(x => post(x)).join("")}</div>` : ""}
+    ${grid.length ? `<h3>Other profile-grid posts (${grid.length})</h3><div class="grid">${grid.map(x => post(x, true)).join("")}</div>` : ""}`;
+  document.getElementById("x").onclick = closeDrawer;
+  dr.querySelectorAll(".cv[data-v]").forEach(el => el.onclick = () => {
+    el.innerHTML = `<video src="${el.dataset.v}" controls autoplay playsinline></video>`; el.onclick = null; });
+  dr.scrollTop = 0;
+}
+function closeDrawer() { document.getElementById("dr").classList.remove("open"); document.getElementById("drawer").innerHTML = ""; }
+
+document.getElementById("head").addEventListener("click", e => { const th = e.target.closest("th"); if (!th) return;
+  const k = th.dataset.k; if (k === sortK) sortDir = -sortDir; else { sortK = k; sortDir = ["username", "categories", "activity", "content_format", "ai_cat", "ai_gender", "ai_lang", "ai_niche", "ai_role", "ai_collab"].includes(k) ? 1 : -1; } render(); });
+document.getElementById("rows").addEventListener("click", e => { const tr = e.target.closest("tr"); if (tr) openCreator(tr.dataset.u); });
+["q", "cat", "act", "fmt", "lt12", "est", "aicat", "gen", "lang", "aist", "rev"].forEach(id => document.getElementById(id).addEventListener("input", render));
+document.getElementById("shade").onclick = closeDrawer;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+document.getElementById("reload").onclick = async () => { await fetch("/api/refresh"); await load(); };
+load().catch(e => { document.querySelector(".wrap").outerHTML = `<p class="err">Could not load data: ${esc(e.message)}</p>`; });
+</script>
+</body>
+</html>

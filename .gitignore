@@ -18,3 +18,6 @@ index/backups/
 # manual review of real accounts (usernames + judgments): local only, the repo is public
 index/review-*.csv
 index/__pycache__/
+
+# AI profile outputs (raw model answers, logs, cut videos): local only
+ai/state/
