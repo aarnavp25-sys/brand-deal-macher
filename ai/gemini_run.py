@@ -84,7 +84,7 @@ alter table public.creator_ai
   add column if not exists summary text, add column if not exists journeys jsonb,
   add column if not exists quality text, add column if not exists in_india text,
   add column if not exists needs_review boolean;
-create or replace view public.creator_overview as
+create or replace view public.creator_overview with (security_invoker = true) as
   select p.username, p.followers, p.bio, p.activity, p.last_reel_at, m.median_views, m.reach_ratio,
          m.engagement_rate, m.engagement_estimated, m.reels_per_week, m.content_format,
          a.status as ai_status, a.account_type, a.category, a.secondary_category, a.content_mix, a.format_mix,

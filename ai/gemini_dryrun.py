@@ -13,7 +13,7 @@ Writes, under ai/state/ai_dryrun/<run>/:
   <username>.creator_request.json the creator-step body (reel notes shown as a placeholder: they come from step 1)
 
   ../instagram-scraper/.venv/bin/python ai/gemini_dryrun.py --sample 3
-  ../instagram-scraper/.venv/bin/python ai/gemini_dryrun.py --users cookwithsarabjit,its_a_r_b_a_j
+  ../instagram-scraper/.venv/bin/python ai/gemini_dryrun.py --users <username1>,<username2>
   ../instagram-scraper/.venv/bin/python ai/gemini_dryrun.py --selftest      # checks the counting rules on made-up reel notes
 """
 import argparse
