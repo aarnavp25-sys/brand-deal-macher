@@ -72,6 +72,7 @@ def run(n):
     print(f"\n{'=' * 100}\n{name}: {b['product']}  (buyers {b['customer_gender']}, creator {b['creator_gender']}, languages {b['languages']})")
     c = Client()
     sid = c.post("/api/searches", {})["id"]
+    c.post(f"/api/searches/{sid}/answer", {"step": "name", "value": "Kindred Check"})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "about", "value": b["about"]})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "product", "value": b["product"]})
     picks = next((m.get("suggests") for m in reversed(j["messages"]) if m.get("step") == "categories"), None) or ["*"]

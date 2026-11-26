@@ -89,7 +89,7 @@ export async function getSearch(userId: string, id: string): Promise<Search | nu
   return (data as Search | null) ?? null;
 }
 
-export async function createSearch(userId: string): Promise<string> {
+export async function createSearch(userId: string, name = ""): Promise<string> {
   // Total AI budget used up (LLM_TOTAL_CAP_USD): searches stop for everyone (user, 2026-11-26: "searches rok dena").
   if (llmEnabled() && (await budgetReached())) {
     throw new UserError("Kindred's demo search budget is used up, so new searches are paused. Past searches still open.", 503);
@@ -104,8 +104,12 @@ export async function createSearch(userId: string): Promise<string> {
   if ((count ?? 0) >= MAX_SEARCHES_PER_DAY) {
     throw new UserError("You've started a lot of searches today. Come back tomorrow?", 429);
   }
-  const messages: Msg[] = toMsgs(lines(null, {}, {}));
-  const { data, error } = await admin().from("brand_searches").insert({ user_id: userId, messages, brief: {} }).select("id").single();
+  // The name is asked once (first chat) and kept on the session; later chats start with it filled in.
+  // (A name from the account, e.g. Google later, is taken as it is; only a typed name goes through the name rule.)
+  const known = name.trim().slice(0, 40);
+  const draft: StoredBrief = known ? { name: known } : {};
+  const messages: Msg[] = toMsgs(lines(null, draft, {}));
+  const { data, error } = await admin().from("brand_searches").insert({ user_id: userId, messages, brief: draft }).select("id").single();
   if (error) throw new Error(error.message);
   return data.id as string;
 }
@@ -136,6 +140,11 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
     throw new UserError(issues?.[0]?.message ?? (e as Error).message ?? "That answer did not look right.");
   }
   const draft: StoredBrief = { ...(s.brief ?? {}), ...parsed.patch };
+  // Remember the name on the visitor's session, so their next chat does not ask again.
+  if (step.id === "name") {
+    const { error: nErr } = await admin().auth.admin.updateUserById(userId, { user_metadata: { name: draft.name } });
+    if (nErr) console.error(`could not save name: ${nErr.message}`);
+  }
   // After the product answer the AI reads what the product is (lib/product.ts); keywords if AI is off or fails.
   if (step.id === "product") draft.product_info = await understandProduct(draft.about ?? "", draft.product ?? "", { userId, searchId: id });
   const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: typed || parsed.label, at: now() }];

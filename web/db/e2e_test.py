@@ -196,7 +196,9 @@ def run_brand(n, name, answers):
     if answers["creator_gender"] != "any":
         check("every creator has the chosen gender", all(x["creator_gender"] == answers["creator_gender"] for x in top))
     check("no shop / brand / personal accounts", not (set(got) & not_creators))
-    stored = {k: v for k, v in rows[0]["brief"].items() if k != "product_info"}
+    stored = {k: v for k, v in rows[0]["brief"].items() if k not in ("product_info", "name")}
+    check("the brand's name is filled in from its account (not asked again)", rows[0]["brief"].get("name") == f"Test Brand {n}",
+          str(rows[0]["brief"].get("name")))
     check("brief stored exactly as answered", stored == answers, f"{stored}")
     photos = html.count("creator-photos/")
     print(f"        {res.get('considered')} pass the choices, top {len(got)} shown, {photos} signed photo links; top 5:")
@@ -265,11 +267,26 @@ def security(clients):
     s, j = anon.json("POST", "/api/searches")
     check("starting a chat creates a private anonymous session", s == 200 and "id" in j and any("auth-token" in ck.name for ck in anon.jar), f"{s} {j}")
     aid = j.get("id")
+    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{aid}", SECRET)
+    check("a new visitor is asked their name first", rows[0]["messages"][-1].get("step") == "name", str(rows[0]["messages"][-1]))
+    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "name", "value": "Priya 123"})
+    check("a name with numbers is refused (400)", s == 400, f"{s} {j}")
+    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "about", "value": "Skipping the name question."})
+    check("the name question cannot be skipped (409)", s == 409, f"{s} {j}")
+    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "name", "value": "Priya Sharma"})
+    check("the name is accepted and Kindred uses it", s == 200 and any("Priya!" in m["text"] for m in j.get("messages", [])), f"{s}")
     for step, value in answers_for(BRANDS[0][2]):
         s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": step, "value": value})
     check("an anonymous visitor gets creators after 5 answers", j.get("status") == "done", str(j.get("status")))
     s, _, html = anon.req("GET", "/dashboard", origin=None)
     check("the anonymous visitor sees that search in My searches", s == 200 and aid in html, str(s))
+    check("My searches greets the visitor by name", "Hi Priya!" in html)
+    s, j = anon.json("POST", "/api/searches")
+    _, rows = rest(f"/rest/v1/brand_searches?select=messages,brief&id=eq.{j.get('id')}", SECRET)
+    check("the next chat remembers the name (no name question)",
+          rows[0]["brief"].get("name") == "Priya Sharma" and rows[0]["messages"][-1].get("step") == "about"
+          and "Priya" in rows[0]["messages"][0]["text"], str(rows[0]["messages"][:1]))
+    anon.json("DELETE", f"/api/searches/{j.get('id')}")
     other = Client()
     other.json("POST", "/api/searches")
     s, _, _ = other.req("GET", f"/results/{aid}", origin=None)

@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 /*
-  The brand brief, asked one question at a time in the chat (user, 2026-11-26). Five questions:
+  The brand brief, asked one question at a time in the chat (user, 2026-11-26). First the visitor's name (asked once:
+  it is kept on their session and pre-filled in later chats; user, 2026-11-26: "find creators click karne ke baad user
+  ka naam puchna hai"), then five questions:
     1. about the brand            2. product to promote          3. creator categories (several, or all)
     4. who buys it mostly         5. creator gender + language preference (one screen)
   Then the brand sees the creators. Tone: casual, fun, Gen Z (user's ask). Values match creator_overview.
@@ -59,6 +61,8 @@ export const CREATOR_GENDERS: Option[] = [
 ];
 
 export const BriefSchema = z.object({
+  /** What Kindred calls the visitor (typed, or from their account). Never sent to the AI. */
+  name: z.string().trim().min(1).max(40),
   about: z.string().trim().min(10, "Tell us a bit more, a sentence or two is perfect.").max(1500),
   product: z.string().trim().min(2, "Drop the product name.").max(160),
   /** Empty = all categories. */
@@ -70,12 +74,20 @@ export const BriefSchema = z.object({
 });
 export type Brief = z.infer<typeof BriefSchema>;
 
+/** The rule for a name the visitor TYPES in the chat (letters, spaces, . ' -). Names from an account skip it. */
+export const TypedName = z
+  .string()
+  .trim()
+  .min(1, "What should I call you?")
+  .max(40, "Just your first name is fine.")
+  .regex(/^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u, "Just your name is fine, no numbers or symbols.");
+
 /* ------------------------------------------------------------------------------------------------------------
    Questions. Fixed for now (no LLM).
 ------------------------------------------------------------------------------------------------------------ */
 
 export type Option = { value: string; label: string };
-export type StepId = "about" | "product" | "categories" | "customer_gender" | "creator";
+export type StepId = "name" | "about" | "product" | "categories" | "customer_gender" | "creator";
 export type Step = {
   id: StepId;
   /** text = type an answer; single = tap one; multi = tap several; creator = gender + languages on one screen */
@@ -89,6 +101,13 @@ export type Step = {
 };
 
 export const STEPS: Step[] = [
+  {
+    id: "name",
+    kind: "text",
+    question: "First things first, what should I call you?",
+    placeholder: "e.g. Priya",
+    max: 40,
+  },
   {
     id: "about",
     kind: "text",
@@ -158,7 +177,7 @@ function parseMulti(step: Step, raw: unknown): { values: string[]; text: string 
 /** Validates one answer. Returns the fields to store and the text for the brand's chat bubble. */
 export function parseAnswer(step: Step, raw: unknown): { patch: Draft; label: string } {
   if (step.kind === "text") {
-    const field = BriefSchema.shape[step.id as "about" | "product"];
+    const field = step.id === "name" ? TypedName : BriefSchema.shape[step.id as "about" | "product"];
     const value = field.parse(typeof raw === "string" ? raw : "");
     return { patch: { [step.id]: value }, label: value };
   }

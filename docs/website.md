@@ -14,7 +14,12 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    Supabase: anonymous sign-ins on, limit 100 new anonymous users per hour per IP (a class on one Wi-Fi shares an IP);
    email sign-up off; Google provider off. Google sign-in comes later: Supabase can link a Google identity to the
    same anonymous user, so a visitor's searches carry over. `/login` redirects home.
-3. Chat (`/find/<id>`): five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
+3. Chat (`/find/<id>`). **First the visitor's name** (user, 2026-11-26: "find creators click karne ke baad user ka naam
+   puchna hai"): asked once, in the first chat ("First things first, what should I call you?"; letters, spaces and
+   . ' - only, max 40). It is saved on the visitor's Supabase user (`user_metadata.name`), so every later chat in that
+   browser starts "Hey <name>, good to see you again." and skips the question; a name from an account (Google later)
+   is used as it is. It is stored in the search's brief, shown on My searches ("Hi <name>!") and in the last line,
+   and never sent to the AI. Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
    1. "Okay, spill. What's your brand and what do you make?" (typed)
    2. "Love that. Which product should creators hype first?" (typed)
    3. "Which creators are you vibing with?" categories, several at once or "All of them"; the category guessed

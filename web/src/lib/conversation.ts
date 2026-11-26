@@ -40,6 +40,11 @@ const REACTION: Partial<Record<Category, string>> = {
   "Music & Dance": "Music brands always have a vibe.",
 };
 
+/** The visitor's first name, for friendly lines ("" when not given). */
+function firstName(d: Draft): string {
+  return (d.name ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
 /** The brand's product name as typed, kept short enough to fit in a sentence. */
 function productName(d: Draft): string {
   const p = (d.product ?? "").trim().replace(/[.!]+$/, "");
@@ -54,8 +59,18 @@ export function lines(answered: StepId | null, d: Draft & { product_info?: Info 
   const out: Line[] = [];
   switch (answered) {
     case null:
+      if (firstName(d)) {
+        // a returning visitor: their name is already known
+        out.push({ text: `Hey ${firstName(d)}, good to see you again.` });
+        out.push({ text: "So tell me, what's your brand and what do you make?", step: "about" });
+        break;
+      }
       out.push({ text: "Hey, I'm Kindred." });
       out.push({ text: "I help brands find Instagram creators who actually fit. Not just big follower counts." });
+      out.push({ text: "First things first, what should I call you?", step: "name" });
+      break;
+    case "name":
+      out.push({ text: `Nice to meet you, ${firstName(d)}!` });
       out.push({ text: "So tell me, what's your brand and what do you make?", step: "about" });
       break;
     case "about": {
@@ -117,7 +132,11 @@ export function lines(answered: StepId | null, d: Draft & { product_info?: Info 
     case "creator":
       if (ctx.typed) out.push({ text: `Got it: ${ctx.label}.` });
       out.push({ text: "Say less. Ranking the creators that fit your picks..." });
-      out.push({ text: ctx.count ? `Here are your top ${ctx.count}.` : "Hmm, nobody fits this combo yet." });
+      out.push({
+        text: ctx.count
+          ? `Here are your top ${ctx.count}${firstName(d) ? `, ${firstName(d)}` : ""}.`
+          : "Hmm, nobody fits this combo yet.",
+      });
       break;
   }
   return out;
