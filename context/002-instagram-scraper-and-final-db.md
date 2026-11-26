@@ -288,3 +288,103 @@ Open:
 - Decide: music-only creators pass every language filter (currently yes). Old Render API still serves the old DB.
 - Diagram artifact does not show the top-20 ranking. Test users on kindred-test.example.com exist
   (python3 web/db/test_login.py --delete-all). Scraper repo still 2 commits ahead of origin (not pushed).
+
+---
+
+## S-026 · 2026-11-26 · Kindred live on Vercel (kindred-eta-black.vercel.app) with AI on and a $1 total cap; name question; Singapore region; deck and viva explanations
+
+Asked:
+- Deploy: "aap isko Vercel pe deploy karte ho. Mere ko final link de, jo main share kar paaun, to meri mam iska demo le
+  paaye ... aur us pe $1 ka cap rakhna. Agar searches ki costing $1 se zyada ho rahi hai, to searches rok dena apne aap
+  hi." Picked "AI ON + $1 cap (Recommended)" in a question. Then: "Git pe sab push karne ke baad Vercel pe deploy
+  karna, samjha?"
+- Presentation: "mujhebye project ka pos banake de abhii presentation hai"; "jaldi bana"; later "pos kya hota hai".
+- Viva prep, each answered in chat only (no files): "apna scrapper kaise kaam kara raha hu ekdum details mai bata" →
+  "english mai bata sab" → "short nhii ekdum detail"; "ye Instagram block kaise nahi kar raha hai?"; "wrap jo hai, wo
+  IPv4 dete hain, aur uska IPv6 kaise ho raha hai?"; curl_cffi / "each request looks like real Chrome ... hinglish mai";
+  "apne ko apna kuch ka scraper banane ki need kya padi?"; "website mein jo bhi buttons hain ... uska backend kya hai";
+  "problem statement achhe se bata"; "how homegrown startups are there and how many creators are there"; "ai back and
+  forth question kaise kar raha hai aur ai ye scroe kaise bana raha hai"; "mujhe apne database ka link de".
+- "ek baar dekh aur bata ki website barbar kaam kar rahi hai na"; "find creators likhta hu tab itna time kyu lag raha
+  hai load hone mai"; "isme google auth daalne mai kitna time lagega".
+- "find creators click karne ke baad user ka naam puchna hai woh daal aur ye bata past hiostory kaise save ho rahi
+  hai"; then "haa xhange karde" (push + Singapore region + deploy).
+
+Done:
+- /context-read: INDEX matched the code; noted CLAUDE.md said e2e "63 checks" while INDEX said 92.
+- Spend cap (commit f520d1e): `web/src/lib/llm.ts` daily cap `LLM_DAILY_CAP_USD` replaced by a TOTAL cap
+  `LLM_TOTAL_CAP_USD` (default 1) summed over all `llm_calls` rows, `budgetReached()` stops $0.01 early;
+  `createSearch()` in `lib/searches.ts` refuses new chats with 503 when reached. Tested locally with cap 0.005 →
+  POST /api/searches answered 503 with no AI call. e2e with AI off: 92/92.
+- AI check (paid, approved ~$0.03): `python3 web/db/ai_check.py 1 2 3` with LLM on → 3/3 brands passed the rules,
+  $0.0054–0.0055 per brand; the product_seen fix held (watch brand: 1 strong creator, real watch-unboxing reels; outfit
+  reels no longer counted). Candle brand had 2–3 stretched picks (bridal makeup artists). One more search driven
+  through the API with the rendered results page checked (charcoal face wash): page shows groups, score, why, idea.
+- Pushed both repos (brand deal matcher; instagram-scraper's 2 pending commits). Vercel: `vercel project add kindred`
+  (team dragon-44d8); root directory `web`, framework nextjs, node 22 set via the REST API (token read from
+  ~/Library/Application Support/com.vercel.cli/auth.json, never printed); env vars set via API from web/.env.local:
+  Supabase URL / publishable (plain), SUPABASE_SECRET_KEY (sensitive), OPENROUTER_API_KEY (sensitive, production only),
+  LLM_ENABLED=true and LLM_REVIEW=true (production only), LLM_TOTAL_CAP_USD=1. Deployed with `vercel deploy --prod` from
+  a `git archive HEAD` export in the scratchpad (so only committed files upload). Live:
+  https://kindred-eta-black.vercel.app (public, 200, security headers present). Supabase Auth site_url set to it and
+  `https://kindred-eta-black.vercel.app/**` added to the redirect list (localhost kept) via the Management API.
+  One live AI search (pickle brand) worked. Memory `deploy-via-github` updated (deploy only when asked; push first).
+- Deck: Slides artifact https://claude.ai/artifact/Wses6ZjK7eCxJSCZrtoKuV (private; 12 slides: cover, problem, idea,
+  4-step flow, data, AI profiles, chat, score formula, real watch result, stack/security/cost, next, live demo;
+  Hinglish speaker notes; no creator usernames). Not rendered or previewed by Claude. Slide 7's "212 creators" is a
+  made-up example number (said so in its notes). "pos" was taken to mean PPT; the user later asked what POS means.
+- Market research for the viva (web search, 2026-11-26): DPIIT-recognised startups ~1.98 lakh (Oct 2025), ~2.23 lakh
+  (Mar 2026); ~800 funded D2C brands vs 50,000+ consumer brands (broad, Inc42); ~7.3 crore Udyam MSMEs; Indian
+  Instagram creators 18–23 lakh (Kofluence 2025), ~18.9 lakh (HypeAuditor 2026). Vendor numbers are estimates.
+- Live health check: pages 200, CSRF 403 for no/foreign Origin, one full live search 22 creators in ~47 s, 40 AI calls
+  so far with 0 failures, total spend $0.0433 (≈$0.96 of the cap left); no Vercel error logs in the last 30 min.
+- Slow "Find creators" diagnosed: Vercel functions ran in `iad1` (Washington, the default) while Supabase is
+  ap-southeast-1 (Singapore); start chat 2.8–4.5 s + chat page 1.7–2.1 s (5–7 s total). Fixed later (below).
+- Name question (commit 8b98edb): `lib/brief.ts` new first step `name` (text, max 40) with `TypedName` rule (letters,
+  spaces, . ' - only) and `name` in `BriefSchema` (lenient); `lib/conversation.ts` asks it ("First things first, what
+  should I call you?"), answers "Nice to meet you, <first name>!", greets a returning visitor "Hey <name>, good to see
+  you again." and ends "Here are your top N, <name>."; `answer()` saves it to the Supabase user's
+  `user_metadata.name`; `createSearch(userId, brand.name)` pre-fills it (account names, e.g. Google later, taken as
+  they are); dashboard says "Hi <name>!". The name is never sent to the AI. e2e gained 7 name checks → 102/102 with
+  LLM_ENABLED=false (env override on `npm run start`); `ai_check.py` answers the name first. docs/website.md updated.
+- "haa xhange karde": pushed; Vercel `resourceConfig.functionDefaultRegions = ["sin1"]`; redeployed from a fresh
+  `git archive` export. Live after: start chat 0.55–0.84 s, chat page 0.50–0.68 s (first request after idle ~2–3 s);
+  name flow and "good to see you again" verified live. README (ba03ef4) and docs/website.md (d2bd5e9) record the
+  region rule and the AI-on/$1-cap state.
+
+Did not work:
+- `vercel git connect` → "You need to add a Login Connection to your GitHub account first. (400)". The Vercel account
+  has no GitHub login connection, so pushes do not auto-deploy; deploys are CLI from a git export until the user adds it.
+- `vercel link` silently created `.env.local` (a VERCEL_OIDC_TOKEN) at the repo root and appended `.vercel` / `.env*`
+  to the root .gitignore; both reverted, the `.vercel` link folder kept only in the scratchpad export.
+- Playwright MCP: "Browser is already in use for .../mcp-chrome-..." (another session held it); UI checked by fetching
+  the rendered HTML with the API-driven script instead.
+- Vercel PATCH with both `serverlessFunctionRegion` and `resourceConfig.functionDefaultRegions` → 400 "Cannot specify
+  both"; only `resourceConfig.functionDefaultRegions` worked.
+- `vercel logs --since 6h` → Hobby plan keeps runtime logs only ~30 min.
+- First e2e after the name step: 9 fails (409) because the test brands' account name "Test Brand 1" has a digit and
+  failed the typed-name regex, so they were asked the name; after taking account names as they are: 5 fails (500,
+  ZodError at the final `BriefSchema.parse`) because the regex was still in BriefSchema. Fixed by moving the strict rule
+  to `TypedName` (typed answers only).
+
+Established:
+- Vercel creates new projects in `iad1`; with Supabase in Singapore each DB round trip cost ~250 ms. Region must be
+  `sin1` (Project Settings → Functions).
+- One AI search = 5 Haiku calls, ~$0.0055, ~45–47 s live; OpenRouter credits 18.5 total, 13.85 used (~$4.65 left) on
+  2026-11-26 before the demo searches.
+- Live search history is per browser (anonymous Supabase user in a cookie); clearing cookies / another device = a new
+  user and the name is asked again. Google sign-in (linkIdentity) is the fix; estimate ~2.5–3 h incl. ~20–30 min of
+  the user's Google Cloud Console work; `/auth/callback`, `/auth/signout`, `safeNext` already exist.
+
+User decided:
+- AI ON for the demo with a $1 TOTAL cap; searches must stop by themselves when it is reached.
+- This time Claude deploys, but only after pushing everything to GitHub first.
+- Ask the visitor's name after "Find creators"; move functions to Singapore.
+
+Open:
+- Vercel GitHub Login Connection (user, in Vercel → Account Settings → Authentication) to get auto-deploys on push.
+- Google sign-in: not started; recommended after the 2026-11-28 demo.
+- Deck: the user should page through it (not previewed), share it from the page's Share menu if others need it.
+- Tell the demo audience a search takes ~45 s. Anonymous test users and abandoned chats accumulate in the
+  "database" project (test_login.py --delete-all removes only the test brands).
+- Personalisation of the AI still to be explained by the user. Old Render API still up. Earlier reminders unchanged.
