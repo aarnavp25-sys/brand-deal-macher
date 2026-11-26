@@ -18,9 +18,10 @@ export function RankedResults({ results, photos }: { results: ResultsV5; photos:
   return (
     <div className="mt-8">
       <p className="text-sm text-muted">
-        {results.considered} creators match your picks. These are the top {results.top.length} by Kindred Score: how much of their content
-        is in your categories, whether products like yours show up in their reels, how well their audience matches your buyers, and their
-        engagement, reach and consistency.
+        {results.considered} creators match your picks
+        {results.relevant < results.considered && results.relevant >= 5 ? `, and ${results.relevant} of them make content close to your product` : ""}.
+        These are the top {results.top.length} by Kindred Score: how close their content is to your product, how well their audience matches
+        your buyers, whether they show up on camera, and their engagement and reach.
       </p>
       <ol className="mt-6 grid gap-4 md:grid-cols-2">
         {results.top.map((c, i) => (
@@ -45,6 +46,9 @@ export function RankedResults({ results, photos }: { results: ResultsV5; photos:
               </div>
             </div>
 
+            {c.label && (
+              <p className="mt-4 rounded-[12px] bg-surface-2 px-3 py-2 text-sm text-muted">{c.label}</p>
+            )}
             {c.niche && <p className="mt-4 text-sm font-semibold capitalize">{c.niche}</p>}
             {c.about && <p className="mt-2 line-clamp-2 text-[15px] leading-relaxed text-muted">{c.about}</p>}
             {c.reasons.length > 0 && (

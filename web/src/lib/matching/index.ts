@@ -13,7 +13,7 @@ import type { ProductInfo } from "@/lib/product";
   That evidence picks the shortlist the AI reviews (lib/review.ts) and feeds the score.
 */
 
-export type ReelNote = { reel: string; topic: string; format: string; products: { item: string; type: string }[]; sponsored: boolean };
+export type ReelNote = { reel: string; topic: string; format: string; products: { item: string; type: string }[]; sponsored: boolean; on_camera: boolean; speaks: boolean };
 
 export type Creator = {
   username: string;
@@ -48,6 +48,8 @@ export type Entry = {
   niche_status: string | null;
   quality: string | null;
   main_language: string | null;
+  sells_own_products: boolean;
+  offers_services: boolean;
 };
 
 /** Results without AI (LLM off or unavailable): every creator that passes the choices, biggest first. */
@@ -79,12 +81,14 @@ type Row = {
   in_india: string | null;
   flags: string[] | null;
   reels_noted: number | null;
+  sells_own_products: boolean | null;
+  offers_services: boolean | null;
 };
 
 const SELECT =
   "username,followers,median_views,reach_ratio,engagement_rate,engagement_estimated,reels_per_week,account_type,category," +
   "secondary_category,content_mix,creator_gender,languages,main_language,niche,niche_status,audience_gender_est," +
-  "audience_age_est,brand_collabs,collab_brands,what_they_do,quality,in_india,flags,reels_noted";
+  "audience_age_est,brand_collabs,collab_brands,what_they_do,quality,in_india,flags,reels_noted,sells_own_products,offers_services";
 
 function isCreator(r: Row): boolean {
   return (
@@ -122,17 +126,17 @@ async function loadReelNotes(): Promise<Map<string, ReelNote[]>> {
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await admin()
       .from("reel_ai")
-      .select("username,reel,topic:note->>topic,format:note->>format,products:note->products,sponsored:note->>sponsored_signs")
+      .select("username,reel,topic:note->>topic,format:note->>format,products:note->products,sponsored:note->>sponsored_signs,on:note->>owner_on_screen,sp:note->>owner_speaks")
       .order("username")
       .order("reel")
       .range(offset, offset + 999);
     if (error) throw new Error(`reel notes: ${error.message}`);
-    for (const r of (data ?? []) as unknown as { username: string; reel: string; topic: string | null; format: string | null; products: unknown; sponsored: string | null }[]) {
+    for (const r of (data ?? []) as unknown as { username: string; reel: string; topic: string | null; format: string | null; products: unknown; sponsored: string | null; on: string | null; sp: string | null }[]) {
       const products = (Array.isArray(r.products) ? r.products : [])
         .map((p) => ({ item: String((p as { item?: unknown }).item ?? ""), type: String((p as { type?: unknown }).type ?? "") }))
         .filter((p) => p.item || p.type);
       const list = out.get(r.username) ?? [];
-      list.push({ reel: r.reel, topic: r.topic ?? "", format: r.format ?? "", products, sponsored: Boolean(r.sponsored && r.sponsored.trim()) });
+      list.push({ reel: r.reel, topic: r.topic ?? "", format: r.format ?? "", products, sponsored: Boolean(r.sponsored && r.sponsored.trim()), on_camera: r.on === "yes", speaks: r.sp === "yes" });
       out.set(r.username, list);
     }
     if (!data || data.length < 1000) break;
@@ -184,6 +188,8 @@ export async function pool(): Promise<Entry[]> {
       niche_status: r.niche_status,
       quality: r.quality,
       main_language: r.main_language,
+      sells_own_products: Boolean(r.sells_own_products),
+      offers_services: Boolean(r.offers_services),
     };
   });
   cache = { entries, at: Date.now() };

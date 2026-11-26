@@ -37,6 +37,13 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    products/topic name the product's own words, filler words like "starter", "500g" removed), audience fit 15,
    engagement 15 and reach 10 (percentiles on Kindred), language 5, regularity 5, brand-collab ready 5, content
    quality 5. Every card shows the score and up to four reasons taken from the data.
+   **Fixed the same day after the user's check of a watch search** (two wrong creators): (1) a nail-art studio got in
+   because the brand had ticked Beauty and the score rewarded the category label; now product relevance leads (35:
+   the product's own category x1, a fixed close category x0.8, Lifestyle x0.5, other categories 0) and creators with
+   no link to the product never reach the top 20; (2) a fashion designer's showcase page (owner on camera in 5 of 12
+   reels, never speaks, clients wearing his designs) got in; now "on camera" is 10 points and portfolio pages (owner
+   on camera in under half the reels + sells own work/services + 3+ work-showcase reels; 30 such accounts, 26 of them
+   makeup/beauty studios) are never in the top 20. Studios that are on camera keep a "Runs their own studio" label.
    **AI matching is built but switched off** (`LLM_ENABLED=false`, `LLM_REVIEW=false`): `lib/product.ts` (Haiku reads
    what the product is, its words and its shopping world) and `lib/review.ts` (Haiku judges, from each creator's 12
    reel notes, whether they can sell it, citing reels; code checks every cited reel really names the product; weak
