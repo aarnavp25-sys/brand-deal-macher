@@ -31,6 +31,18 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    in a bubble and asks the brand to tap instead. No progress bar.
 4. After question 5 the creators are found at once (`/results/<id>`), biggest first, with sort by followers /
    typical reel views / engagement / posting frequency and tabs per category.
+4b. **Results for the demo (user, 2026-11-26): the top 20 by a candidate score, no LLM** (`lib/rank.ts`). From the
+   creators that pass the brand's choices: category fit 25 (share of the last 12 reels in the chosen categories; with
+   "All categories", in the product's own category guessed from the brand's words), product seen 15 (reels whose
+   products/topic name the product's own words, filler words like "starter", "500g" removed), audience fit 15,
+   engagement 15 and reach 10 (percentiles on Kindred), language 5, regularity 5, brand-collab ready 5, content
+   quality 5. Every card shows the score and up to four reasons taken from the data.
+   **AI matching is built but switched off** (`LLM_ENABLED=false`, `LLM_REVIEW=false`): `lib/product.ts` (Haiku reads
+   what the product is, its words and its shopping world) and `lib/review.ts` (Haiku judges, from each creator's 12
+   reel notes, whether they can sell it, citing reels; code checks every cited reel really names the product; weak
+   and non-creators hidden; Kindred Score; specialists / category / lifestyle groups). One pilot on a men's watch
+   brand on 2026-11-26: $0.0055, 9 s, rules passed; it showed the AI counted outfit reels as "watch seen", fixed in
+   the prompt and by the code check. Personalisation will be designed with the user before it is switched on.
 5. "My searches" (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
 
 **Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
@@ -83,7 +95,7 @@ Every route handler and page checks the user again with `supabase.auth.getUser()
 - Input: JSON bodies ≤ 8 KB, every answer validated against the question's own options (zod for text), answers must
   come in order, open redirects blocked (`safeNext`).
 - Headers: CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS; no X-Powered-By.
-- `web/db/e2e_test.py` checks all of the above plus five test brands end to end (one types every answer) (84 checks, all passing on
+- `web/db/e2e_test.py` checks all of the above plus five test brands end to end (one types every answer) (92 checks, all passing on
   2026-11-26).
 
 ## Design

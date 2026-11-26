@@ -30,6 +30,7 @@ export function Chat({ initial, facets }: Props) {
   const step = view.status === "chatting" && !revealing ? nextStep(view.brief) : null;
   const lastAssistant = [...view.messages].reverse().find((m) => m.role === "assistant");
   const suggest = step?.id === "categories" ? lastAssistant?.suggest : undefined;
+  const suggests = step?.id === "categories" ? (lastAssistant?.suggests ?? (suggest ? [suggest] : [])) : [];
   const visible = view.messages.slice(0, shown);
   const typing = busy || revealing || (view.status === "done" && !revealing);
 
@@ -107,7 +108,7 @@ export function Chat({ initial, facets }: Props) {
 
       {step && !busy && (
         <div className="rise mt-6">
-          <Answer key={step.id} step={step} draft={view.brief} facets={facets} suggest={suggest} onSend={send} />
+          <Answer key={step.id} step={step} draft={view.brief} facets={facets} suggest={suggest} suggests={suggests} onSend={send} />
         </div>
       )}
       <div ref={bottom} className="h-4" />
@@ -148,7 +149,7 @@ function Me({ text, gap }: { text: string; gap: boolean }) {
 
 /* ---------------- replying ---------------- */
 
-type AnswerProps = { step: Step; draft: Draft; facets: Facet[]; suggest?: string; onSend: Send };
+type AnswerProps = { step: Step; draft: Draft; facets: Facet[]; suggest?: string; suggests?: string[]; onSend: Send };
 
 function Answer(props: AnswerProps) {
   if (props.step.kind === "text") return <Composer step={props.step} onSend={(t) => props.onSend(t, t)} big={props.step.id === "about"} />;
@@ -232,9 +233,9 @@ function BuyerAnswer({ step, draft, facets, onSend }: AnswerProps) {
   );
 }
 
-function CategoryAnswer({ step, draft, facets, suggest, onSend }: AnswerProps) {
+function CategoryAnswer({ step, draft, facets, suggest, suggests = [], onSend }: AnswerProps) {
   const any = step.anyValue!;
-  const [picked, setPicked] = useState<string[]>(suggest ? [suggest] : []);
+  const [picked, setPicked] = useState<string[]>(suggests.length ? suggests : suggest ? [suggest] : []);
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -247,9 +248,10 @@ function CategoryAnswer({ step, draft, facets, suggest, onSend }: AnswerProps) {
   );
   const ordered = useMemo(() => {
     const cats = step.options!.filter((o) => o.value !== any);
-    cats.sort((a, b) => (a.value === suggest ? -1 : b.value === suggest ? 1 : counts[b.value] - counts[a.value]));
+    const rank = (v: string) => (suggests.includes(v) ? suggests.indexOf(v) : v === suggest ? 0 : 99);
+    cats.sort((a, b) => rank(a.value) - rank(b.value) || counts[b.value] - counts[a.value]);
     return [...cats, step.options!.find((o) => o.value === any)!];
-  }, [step, suggest, counts, any]);
+  }, [step, suggest, suggests, counts, any]);
 
   const toggle = (v: string) => {
     if (v === any) return setPicked(picked.includes(any) ? [] : [any]);

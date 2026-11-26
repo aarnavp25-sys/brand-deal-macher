@@ -5,7 +5,9 @@ import { requireBrand } from "@/lib/auth";
 import { getSearch } from "@/lib/searches";
 import { admin } from "@/lib/supabase/admin";
 import { Results } from "@/components/Results";
-import type { Results as ResultsData } from "@/lib/matching";
+import { type Results as ResultsData, resultCount } from "@/lib/searches";
+import { MatchResults } from "@/components/MatchResults";
+import { RankedResults } from "@/components/RankedResults";
 import { BUYERS, CREATOR_GENDERS, type Draft, LANGUAGES } from "@/lib/brief";
 
 export const metadata: Metadata = { title: "Creators" };
@@ -40,7 +42,13 @@ export default async function ResultsPage({ params }: PageProps<"/results/[id]">
   if (search.status !== "done" || !search.results) redirect(`/find/${id}`);
 
   const results = search.results as ResultsData;
-  const photos = await photoLinks(results.creators.map((c) => c.username));
+  const names =
+    results.version === 4
+      ? Object.values(results.groups).flat().map((c) => c.username)
+      : results.version === 5
+        ? results.top.map((c) => c.username)
+        : results.creators.map((c) => c.username);
+  const photos = await photoLinks(names);
   const brief = (search.brief ?? {}) as Draft;
 
   return (
@@ -49,7 +57,7 @@ export default async function ResultsPage({ params }: PageProps<"/results/[id]">
         My searches
       </Link>
       <h1 className="display mt-3 text-3xl font-extrabold md:text-4xl">
-        {results.creators.length} creators for {search.title}
+        {results.version === 5 ? `Top ${resultCount(results)} creators` : `${resultCount(results)} creators`} for {search.title}
       </h1>
       <ul className="mt-4 flex flex-wrap gap-2" aria-label="Your choices">
         {choices(brief).map((c) => (
@@ -64,7 +72,20 @@ export default async function ResultsPage({ params }: PageProps<"/results/[id]">
           Start a new search
         </Link>
       </p>
-      <Results creators={results.creators} photos={photos} />
+      {results.version === 5 ? (
+        <RankedResults results={results} photos={photos} />
+      ) : results.version === 4 ? (
+        <MatchResults results={results} photos={photos} />
+      ) : (
+        <>
+          {results.notice && (
+            <p role="status" className="mt-6 rounded-[12px] bg-surface-2 p-4 text-sm leading-relaxed text-muted">
+              {results.notice}
+            </p>
+          )}
+          <Results creators={results.creators} photos={photos} />
+        </>
+      )}
     </div>
   );
 }

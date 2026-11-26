@@ -178,24 +178,29 @@ def run_brand(n, name, answers):
     guess = next((m.get("suggest") for m in j["messages"] if m.get("step") == "categories"), None)
     print(f"        category pre-picked from the brand's words: {guess}")
     s, _, html = c.req("GET", f"/results/{sid}", origin=None)
-    check("results page renders (200)", s == 200 and "Sort by" in html, str(s))
+    check("results page renders (200)", s == 200 and "Kindred Score" in html, str(s))
 
     _, rows = rest(f"/rest/v1/brand_searches?select=results,brief,user_id&id=eq.{sid}", SECRET)
     res = rows[0]["results"]
-    got = [x["username"] for x in res["creators"]]
+    top = res.get("top", [])
+    got = [x["username"] for x in top]
     want, not_creators = expected(answers)
-    check(f"results match an independent DB query ({len(want)})", set(got) == want and len(got) == len(want),
-          f"got {len(got)}; missing {sorted(want - set(got))[:3]}; extra {sorted(set(got) - want)[:3]}")
+    check(f"considered = every creator passing the choices ({len(want)}, independent DB query)", res.get("considered") == len(want), str(res.get("considered")))
+    check(f"top {min(20, len(want))} shown, all from that set", len(got) == min(20, len(want)) and set(got) <= want,
+          f"got {len(got)}; extra {sorted(set(got) - want)[:3]}")
+    scores = [x["score"] for x in top]
+    check("sorted by Kindred Score, scores 0-100", scores == sorted(scores, reverse=True) and all(0 <= v <= 100 for v in scores), str(scores[:5]))
     if answers["categories"]:
-        check("every creator is in a chosen category", all(x["category"] in answers["categories"] for x in res["creators"]))
+        check("every creator is in a chosen category", all(x["category"] in answers["categories"] for x in top))
     if answers["creator_gender"] != "any":
-        check("every creator has the chosen gender", all(x["creator_gender"] == answers["creator_gender"] for x in res["creators"]))
+        check("every creator has the chosen gender", all(x["creator_gender"] == answers["creator_gender"] for x in top))
     check("no shop / brand / personal accounts", not (set(got) & not_creators))
-    check("brief stored exactly as answered", rows[0]["brief"] == answers, f"{rows[0]['brief']}")
+    stored = {k: v for k, v in rows[0]["brief"].items() if k != "product_info"}
+    check("brief stored exactly as answered", stored == answers, f"{stored}")
     photos = html.count("creator-photos/")
-    print(f"        {len(got)} creators, {photos} signed photo links on the page; top 5 by followers:")
-    for x in res["creators"][:5]:
-        print(f"          @{x['username']:<28} {x['followers']:>6}  {x['creator_gender'] or '-':<7} {x['category'] or '-':<24} {', '.join(x['languages']) or 'no talking'}")
+    print(f"        {res.get('considered')} pass the choices, top {len(got)} shown, {photos} signed photo links; top 5:")
+    for x in top[:5]:
+        print(f"          {x['score']:3}  @{x['username']:<28} {x['followers']:>6}  {x['creator_gender'] or '-':<7} {x['category'] or '-':<24} {' | '.join(x['reasons'][:2])}")
     return c, sid, rows[0]["user_id"]
 
 
@@ -223,7 +228,8 @@ def typed_brand():
     check("typed creator + languages understood (female; Hindi, English)",
           b["creator_gender"] == "female" and sorted(b["languages"]) == ["english", "hindi"], f"{b['creator_gender']} {b['languages']}")
     want, _ = expected(b)
-    check(f"typed search results match the DB ({len(want)})", {x["username"] for x in rows[0]["results"]["creators"]} == want)
+    r = rows[0]["results"]
+    check(f"typed search ranks the right creators ({len(want)} pass)", r.get("considered") == len(want) and {x["username"] for x in r["top"]} <= want)
     user_lines = [m["text"] for m in rows[0]["messages"] if m["role"] == "user"]
     check("the brand's own words are kept in the chat", user_lines[-1] == "female, hindi ya english", user_lines[-1])
     print("        conversation:")

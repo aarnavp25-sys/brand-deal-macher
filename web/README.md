@@ -28,7 +28,7 @@ python3 web/db/upload_photos.py      # copy creator profile photos into the priv
 ## Tests
 
 ```bash
-python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (84 checks)
+python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (92 checks)
 python3 web/db/test_login.py 1            # one-time sign-in link for test brand 1 (no Google needed)
 python3 web/db/test_login.py --delete-all # remove all test brands and their searches
 ```
@@ -47,7 +47,9 @@ Test sign-in uses the Supabase admin API (secret key), so only the project owner
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the `sb_publishable_...` key |
    | `SUPABASE_SECRET_KEY` | the `sb_secret_...` key (server only, never `NEXT_PUBLIC_`) |
 
-   `SUPABASE_ACCESS_TOKEN` is for the local scripts only. Never add it to Vercel.
+   `SUPABASE_ACCESS_TOKEN` is for the local scripts only. Never add it to Vercel. The AI is off for the demo, so
+   `OPENROUTER_API_KEY` is not needed; to switch it on later add it plus `LLM_ENABLED=true` (and `LLM_REVIEW=true`
+   for the creator review, `LLM_DAILY_CAP_USD` for the daily spend cap).
 4. Deploy, then put the production URL into Supabase (Authentication -> URL Configuration): Site URL =
    `https://<your-domain>`, Redirect URLs = `https://<your-domain>/**`.
 

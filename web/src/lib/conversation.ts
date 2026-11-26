@@ -18,7 +18,7 @@ import {
   in short chat bubbles. Also reads typed answers ("mostly girls", "female, hindi ya english") with keywords.
 */
 
-export type Line = { text: string; step?: StepId; suggest?: string };
+export type Line = { text: string; step?: StepId; suggest?: string; suggests?: string[] };
 
 /** Short reaction to what the brand makes, chosen from the category its words point to. */
 const REACTION: Partial<Record<Category, string>> = {
@@ -47,7 +47,9 @@ function productName(d: Draft): string {
 }
 
 /** Lines Kindred sends after an answer (or at the start when `answered` is null). */
-export function lines(answered: StepId | null, d: Draft, ctx: { typed?: string; label?: string; count?: number }): Line[] {
+type Info = { product_type: string; made_for: string; category: string; close_categories: string[]; source: string };
+
+export function lines(answered: StepId | null, d: Draft & { product_info?: Info }, ctx: { typed?: string; label?: string; count?: number }): Line[] {
   const product = productName(d);
   const out: Line[] = [];
   switch (answered) {
@@ -63,8 +65,21 @@ export function lines(answered: StepId | null, d: Draft, ctx: { typed?: string; 
       break;
     }
     case "product": {
-      const guess = guessCategory(d.product ?? "", d.about ?? "");
+      const info = d.product_info;
       out.push({ text: product === "it" ? "Nice pick." : `${product}, nice pick.` });
+      if (info && info.source === "ai") {
+        const picks = [...new Set([info.category, ...info.close_categories, "Lifestyle & Daily Vlog"])];
+        const forWho = info.made_for === "everyone" ? "for everyone" : `made for ${info.made_for}`;
+        out.push({ text: `So it's a ${info.product_type}, ${forWho}. I'll pull creators who already show stuff like this on camera, plus a few kinds that can sell it.` });
+        out.push({
+          text: `I'd start with ${picks.join(", ")}. Picked those for you, change anything you like.`,
+          step: "categories",
+          suggest: picks[0],
+          suggests: picks,
+        });
+        break;
+      }
+      const guess = guessCategory(d.product ?? "", d.about ?? "");
       if (guess) {
         out.push({ text: `Sounds like ${guess} creators to me, so I picked them already.` });
         out.push({
@@ -101,7 +116,8 @@ export function lines(answered: StepId | null, d: Draft, ctx: { typed?: string; 
       break;
     case "creator":
       if (ctx.typed) out.push({ text: `Got it: ${ctx.label}.` });
-      out.push({ text: `Say less. Pulling up your ${ctx.count ?? ""} creators now.`.replace("  ", " ") });
+      out.push({ text: "Say less. Ranking the creators that fit your picks..." });
+      out.push({ text: ctx.count ? `Here are your top ${ctx.count}.` : "Hmm, nobody fits this combo yet." });
       break;
   }
   return out;
