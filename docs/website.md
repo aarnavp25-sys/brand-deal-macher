@@ -49,19 +49,26 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    reels, never speaks, clients wearing his designs) got in; now "on camera" is 10 points and portfolio pages (owner
    on camera in under half the reels + sells own work/services + 3+ work-showcase reels; 30 such accounts, 26 of them
    makeup/beauty studios) are never in the top 20. Studios that are on camera keep a "Runs their own studio" label.
-   **AI matching is built but switched off** (`LLM_ENABLED=false`, `LLM_REVIEW=false`): `lib/product.ts` (Haiku reads
+   **AI matching is ON on the live site since 2026-11-26** (user chose "AI ON + $1 cap" for the teachers' demo;
+   `LLM_ENABLED=true`, `LLM_REVIEW=true` on Vercel production only; local `.env.local` has them too): `lib/product.ts` (Haiku reads
    what the product is, its words and its shopping world) and `lib/review.ts` (Haiku judges, from each creator's 12
    reel notes, whether they can sell it, citing reels; code checks every cited reel really names the product; weak
    and non-creators hidden; Kindred Score; specialists / category / lifestyle groups). One pilot on a men's watch
    brand on 2026-11-26: $0.0055, 9 s, rules passed; it showed the AI counted outfit reels as "watch seen", fixed in
-   the prompt and by the code check. Personalisation will be designed with the user before it is switched on.
+   the prompt and by the code check; a re-check on 3 brands (watch, pickle, candle) the same day passed the rules
+   (only real watch-unboxing reels counted as "watch seen"). One search = 5 calls (1 product + 4 review batches of 10),
+   about $0.0055 and ~45 s end to end on the live site. If the AI fails or the budget is used up, the code-only top 20
+   (`lib/rank.ts`) is shown instead. Personalisation (how the user wants AI to tailor results) is still to be designed.
+   **Spend cap (user, 2026-11-26: "us pe $1 ka cap rakhna ... searches rok dena apne aap hi"):** `LLM_TOTAL_CAP_USD`
+   (default 1) is a TOTAL cap over every row ever logged in `llm_calls` (tests included), checked before every AI call
+   and before a new chat starts (`budgetReached()` in `lib/llm.ts`, stopping $0.01 early). When reached, new chats get
+   503 "demo search budget is used up"; chats already open finish with the code-only ranking. It replaced the old
+   per-day cap `LLM_DAILY_CAP_USD`.
 5. "My searches" (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
 
 **Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
 "Either works"; speaks at least one chosen language, where creators with no speech in their reels (music only)
 pass every language; "Mostly men" hides creators whose audience is mostly women and back, "Everyone" hides nobody.
-No LLM anywhere on the site yet and no score.
-
 Who counts as a creator on the site: `creator_overview` rows with `ai_status = done`, `activity = active`,
 `account_type` creator or professional (shops, brands, personal accounts and repost pages are never shown),
 `in_india` not "no", `quality` not "weak", no "not brand-safe" flag. On 2026-11-26 that was 598 of 662 profiled
@@ -70,6 +77,12 @@ creators. Thin categories: Home Decor & Handmade 2, Jewelry 3, Home & Household 
 ## Where things run
 
 Everything runs in one Next.js app on Vercel: pages and the API (route handlers) live on the same domain. No Render.
+Live: Vercel project `kindred` (team dragon-44d8), https://kindred-eta-black.vercel.app, Root Directory `web`.
+
+- **Functions must run in Singapore (`sin1`)**, next to the Supabase project (ap-southeast-1). The project was first
+  created with Vercel's default Washington (`iad1`): every database call then crossed the Pacific (~250 ms each) and
+  "Find creators" took 5–7 s to show the chat (start chat 2.8–4.5 s + chat page 1.7–2.1 s, measured 2026-11-26).
+  After moving to `sin1`: start chat 0.55–0.84 s, chat page 0.50–0.68 s (first request after idle ~2–3 s).
 
 - Render was needed only for the old static `demo/` page, which could not hide a key; Next.js server code hides keys
   itself. Render's free plan also sleeps after 15 minutes (about a minute for the first request), and a split
