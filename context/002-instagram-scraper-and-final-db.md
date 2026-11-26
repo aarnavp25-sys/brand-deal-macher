@@ -171,3 +171,120 @@ Open:
 - Matching on the new data (score per brand, adjacency "never promoted but fits", embeddings, Haiku review; persona idea) is designed, not built; live site still reads the old DB.
 - Push both repos (this one is PUBLIC; asked, not answered). Review the 139 flagged and 23 stopped creators (salons: creator or business?). 163 inactive not analysed. @trivago_expedition_ missing reel. User's language check of the 5 pilot creators pending. Fix the PROGRESS denominator.
 - Set an OpenRouter key limit again; workspace budget now $12/day.
+
+---
+
+## S-025 · 2026-11-26 · Kindred website built in web/ (Next.js 16 + Supabase): conversational 5-question chat, no sign-in, top 20 by Kindred Score; AI matching built but off
+
+Asked:
+- "ab user dashboard banate hain, jahan pe user aaye, login kare, and then usko apne need ke hisaab se creators dekh paaye";
+  "backend ka kya ha kuch"; "pheal muje stucture sama complete repo ha kha kya reha ga and request kha sa kasha".
+- Wanted (pasted): landing → sign in → chatbot that asks questions → "model ke through database dekh ke ... sahi creators";
+  "Purple color bilkul nahi ... AI-generated bilkul nahi"; full end-to-end test with 3-4 brands + security audit + "Ekdum
+  complete visual diagram ... anpadh-champda aadmi bhi dekhe"; "Vercel pe frontend ho jaye, Render pe backend ... pehle mere
+  ko bata hi de ki kya approach apne hisaab se sahi rahegi".
+- "Git pe push karna. Vercel pe abhi deploy mat karna. main wahan se use deploy kar dunga"; "versal pe ek tha. Pehle se maine
+  wo delete kar diya. Project naya project banana hai, kyunki purane wale creators nahi lene."
+- "Abhi OpenRouter se kuch bhi credits use mat karna"; "abhi tu sirf pehle bana ke de mere ko ek website app ... LLM ko kya
+  batana hai, kya nahi karna hai, wo saari cheezein apan baad mein main batata hoon".
+- "category select karein ... to wo categories ke saare creators dikh jaayen. Abhi sirf wahi rakh."
+- Questions: 1. "Tell me about your brand: What do you make? ... cool way mein", 2. product, 3. "Which creative would you
+  like? ... category ke saare", 4. "Who buys it mostly?", 5. female/male creator "with 'Do you have any language
+  preferences?'"; "Thoda cool way mein, fun Gen Z likho"; "yeh question-answer type nahi lagna chahiye. yeh conversation
+  type lagna chahiye".
+- "ek harness bhi daal dena" → "harness ki zarurat hai ya nahi hai?" → "Chal harness jaane de, wo baad mein dekhte hain."
+- "Google se sign in ... wo poora option abhi hata de ... Abhi demo ke liye sign in mat rakh."
+- LLM: "LLM ko kaise train karna hai"; "pehle bhi chats jab kiye the, tab kya decide kiya tha ... kaun sa model";
+  "ye saari cheezein nahi dekhni ... kis umar ka hai ... faltu ka bigaad mat"; "Kaun kharid sakta hai, wo probably brand
+  bata dega ... apne paas jo creators ki list hai, unmein se kaun bech sakta hai ... lifestyle creator ... fashion ki cheez
+  bech sakta hai ya nahi"; "mere ko ek LLM dhoondh ke aur is pe daal, aur phir mere ko test karke bata".
+- Then: "Abhi ke liye ... options se jo last ke creators bach rahe hain, un creators mein se best creators, top 20 ... LLM se
+  ekdum hi zyada personalized mat karwa ... brand ke hisaab se candidate score banana hai ... sirf demo ke liye".
+- Checks on localhost: a designer's showcase page "creator kam lag raha hai"; a nail-art account "isme yeh aana hi nahi
+  chahiye"; "ye dono hi galtiyan thi. baaki saare creators sahi the ... jaldi theek kar de".
+
+Done:
+- Architecture (recommended, accepted): one Next.js 16 app on Vercel holds pages + API route handlers; Supabase "database"
+  holds creators, website tables and sessions; Render not used (it only hid a key for the static demo/, and its free plan
+  sleeps). Choices via AskUserQuestion: Next.js + Supabase, Google-only sign-in (later removed), paywall later, website first.
+- web/ created (create-next-app 16.4.6, React 19.3, Tailwind 4); libraries approved by the user: @supabase/ssr,
+  @supabase/supabase-js, zod. Read the bundled Next 16 docs first: middleware is now src/proxy.ts; cookies()/params are
+  async; the starter's cacheComponents/partialPrefetching were removed (every page reads the session).
+- DB (web/db/migrations/001_website.sql, 002_llm_kinds.sql, applied with web/db/migrate.py via the Management API):
+  brand_searches (chat, brief, results; RLS: select own), llm_calls (no browser access), explicit service_role grants,
+  creator_overview set security_invoker, stray anon TRUNCATE/TRIGGER grants on creator_ai/reel_ai revoked; private bucket
+  creator-photos with 662 profile photos (web/db/upload_photos.py). ai/gemini_run.py now creates the view security_invoker.
+- Design: Archivo (wide cut for headings), one coral accent #ff5a36 with dark ink text on it, no purple, Instagram
+  story-ring around photos, light + dark; landing numbers come live from the DB (598 creators, 18 categories).
+- Chat evolved in four steps on the user's orders: 10 fixed questions + brief card + "all creators of one category" →
+  5 questions (casual Gen Z copy) with filters (lib/filters.ts, shared by results and a live "N creators fit" count) →
+  conversation (lib/conversation.ts: reactions per category, product name echoed, 2-3 short bubbles with typing pauses,
+  typed answers to choice questions read with keywords, errors as a Kindred bubble, no progress bar) → results = top 20 by
+  Kindred Score (lib/rank.ts).
+- No sign-in: login page, Google button and account menu removed; a private anonymous Supabase session is created when a
+  chat starts (POST /api/searches in lib/api.ts), never on a page view; Supabase anonymous sign-ins on, 100 new anonymous
+  users/hour/IP, email sign-up off, Google off.
+- Explained the LLM plan several times; looked up the 2026-11-20 decisions (memory + docs/data-and-matching.md): Haiku 5.5
+  via OpenRouter for text, Gemini only for video, embeddings never decided. Fetched OpenRouter prices (free call): Haiku
+  5.5 $0.10/$0.50 per M, Gemini 3.1 Flash Lite $0.25/$1.50, GPT-5 mini $0.25/$2.00, Sonnet 5.5 $2/$10.
+- AI matching built and left OFF (LLM_ENABLED=false, LLM_REVIEW=false): lib/llm.ts (Haiku 5.5, strict JSON, daily cap,
+  every call logged), lib/product.ts (product type, words, same-shopping-world words, made_for, categories), lib/review.ts
+  (40-creator shortlist, Haiku reads 12 reel notes per creator: strong/good/weak + why + idea + cited reels; code checks the
+  citations; specialists/category/lifestyle groups), web/db/ai_check.py. One paid pilot (men's watch): 5 calls, $0.0055,
+  9 s, automatic rules passed.
+- Demo ranking lib/rank.ts (no LLM): product relevance 35 (product's own category x1, fixed close category x0.8, Lifestyle
+  x0.5, + reels naming the product), audience 15, engagement 15, reach 10, on camera 10, language 5, regularity 4, brand
+  ready 3, quality 3; no-relevance creators and portfolio pages never in the top 20. Durable description: docs/website.md.
+- Tests: web/db/e2e_test.py (6 test brands incl. one typing every answer, anonymous visitors, security, bundle scan),
+  92/92 passing at the end; web/db/test_login.py (one-time sign-in links via admin API for test users on
+  kindred-test.example.com). Browser checks with Playwright (light/dark, mobile, console 0 errors).
+- Visual diagram published as a private artifact (https://claude.ai/artifact/FNjYEvRJMr9BPb7fq5gvwL, version 3: big
+  picture, 21 request steps, security locks, tests); it predates the top-20 ranking.
+- Commits pushed to GitHub (public repo): 7e04453 (website; also pushed the S-024 commits 0f67cc3, 0a5f6a3, 54c4707),
+  78b57c4 (5 questions), b20f712 (conversation), 1fdb0a2 (no sign-in), 9cf88f8 (top 20 + AI off), 8be9d22 (relevance fix).
+  Memory added: deploy-via-github. CLAUDE.md (gitignored) build/run lines updated.
+
+Did not work:
+- PostgREST "permission denied for table brand_searches" for the secret key: this project does not grant new tables to
+  service_role by default; fixed with explicit grants in the migration.
+- Playwright profile locked by a stale Chrome from 2026-11-25 16:27; killed it.
+- supabase-js client typed as never (ReturnType<typeof createClient>); fixed with SupabaseClient.
+- Plain CSS component classes overrode Tailwind utilities (textarea border); moved them into @layer components.
+- Bundle scan "secret key in browser JS" was a false alarm: supabase-js contains the literal prefix "sb_secret_".
+- Build failed on stale .next/dev types for a deleted route; rm -rf .next.
+- Anonymous session in proxy.ts created accounts on link prefetches: Next 16 strips next-router-prefetch and similar
+  headers before the proxy (docs: skipProxyUrlNormalize); moved session creation to POST /api/searches.
+- Playwright cannot open file:// pages, so the diagram was published without a local preview.
+- Pre-push scan found 4 creator handles in pushed content from S-024 (journal 002, INDEX, ai/gemini_dryrun.py help text);
+  the help text was changed to placeholders, the append-only journal was left (2 handles were already on GitHub from S-023).
+- AI pilot: the review put outfit reels into "product seen" for a watch (two accounts with no watch in any reel note);
+  prompt narrowed and code now verifies cited reels name the product. Not re-run after the fix.
+- Ranking v1 rewarded the category label: "All categories" put automobile/dance creators first for a coffee brand, and
+  product words like "starter"/"500g" counted; then a nail-art studio and a fashion designer's showcase page reached a
+  watch brand's top 20 (user's check). Fixed with product relevance + portfolio exclusion (docs/website.md).
+- In one LLM-plan answer I left out the 2026-11-20 decisions (field/account questions, three columns, "no AI = no unchecked
+  results"); the user had to ask what was decided before.
+
+Established:
+- Supabase "database" project ref rhaqbnvmyjcwgeosltaf: keys default publishable/secret (sb_*) available via
+  /api-keys?reveal=true; auth site_url http://localhost:3000, redirect list http://localhost:3000/**.
+- Reel notes (reel_ai.note) carry products with item/type/for/brand/level, owner_on_screen, owner_speaks, format,
+  sponsored_signs; e.g. "watch" appears in 14 creators' notes, "candle" 17, "protein" 29.
+- 30 of 598 creators are portfolio pages (26 beauty/makeup studios).
+- OpenRouter: $18.50 credits, $13.85 used before this session's $0.0055 pilot; key has no limit.
+
+User decided:
+- Next.js + Supabase on Vercel only; user deploys from GitHub (never CLI); old Vercel project deleted, old creators unused.
+- No LLM and no credits until the user explains personalisation; demo = top 20 by candidate score from the chat choices.
+- Five questions, casual Gen Z tone, must feel like a conversation; who buys comes from the brand; do not judge age,
+  persona or mood; the AI's job later is "who among our creators can sell this product".
+- No sign-in for the demo (Google later); harness later.
+- A showcase/portfolio page and an unrelated nail-art studio are wrong results; the rest of that watch search was right.
+
+Open:
+- User to deploy web/ on Vercel (Root Directory web; NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_SECRET_KEY); then set Supabase site URL to the live domain.
+- Personalisation/AI: user will explain; before switching on, re-run web/db/ai_check.py (the product_seen fix is untested).
+- Decide: music-only creators pass every language filter (currently yes). Old Render API still serves the old DB.
+- Diagram artifact does not show the top-20 ranking. Test users on kindred-test.example.com exist
+  (python3 web/db/test_login.py --delete-all). Scraper repo still 2 commits ahead of origin (not pushed).
