@@ -7,7 +7,9 @@ import { admin } from "@/lib/supabase/admin";
 
   Guards (lessons from 2026-11-20, when an exhausted budget silently produced wrong results):
   - LLM_ENABLED=false turns every AI step off at once; callers then fall back and say so on the page.
-  - A site-wide spend cap per UTC day (LLM_DAILY_CAP_USD), checked in llm_calls before every call.
+  - A site-wide TOTAL spend cap (LLM_TOTAL_CAP_USD, default $1; user, 2026-11-26: "us pe $1 ka cap rakhna"), summed
+    from llm_calls (every call ever, tests included) before every call and before a new search starts. A search costs
+    about $0.0055, so it stops one search's worth (CAP_MARGIN) early instead of overshooting.
   - Strict JSON schema answers only; one retry on network/5xx; 30 s timeout; every call logged with its real cost.
 */
 
@@ -21,12 +23,27 @@ export function llmEnabled(): boolean {
   return process.env.LLM_ENABLED !== "false" && Boolean(process.env.OPENROUTER_API_KEY);
 }
 
-async function spentToday(): Promise<number> {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  const { data, error } = await admin().from("llm_calls").select("cost").gte("created_at", start.toISOString()).limit(10000);
+const CAP_MARGIN = 0.01;
+
+export function totalCap(): number {
+  const n = Number(process.env.LLM_TOTAL_CAP_USD ?? "1");
+  return Number.isFinite(n) && n >= 0 ? n : 1;
+}
+
+/** Everything the site's AI has ever spent, USD (real costs from OpenRouter, logged in llm_calls). */
+export async function spentTotal(): Promise<number> {
+  const { data, error } = await admin().from("llm_calls").select("cost").limit(100000);
   if (error) throw new LLMUnavailable(`spend check failed: ${error.message}`);
   return (data ?? []).reduce((a, r) => a + Number(r.cost ?? 0), 0);
+}
+
+/** True when the total AI budget is used up (or cannot be checked): new searches must not start. */
+export async function budgetReached(): Promise<boolean> {
+  try {
+    return (await spentTotal()) >= totalCap() - CAP_MARGIN;
+  } catch {
+    return true;
+  }
 }
 
 type Call = {
@@ -49,8 +66,7 @@ async function log(c: Call, ok: boolean, cost: number, tin?: number, tout?: numb
 /** One structured call. Returns the parsed JSON object, or throws LLMUnavailable. */
 export async function callJSON<T>(c: Call): Promise<T> {
   if (!llmEnabled()) throw new LLMUnavailable("AI is switched off");
-  const cap = Number(process.env.LLM_DAILY_CAP_USD ?? "0.5");
-  if ((await spentToday()) >= cap) throw new LLMUnavailable("daily AI budget reached");
+  if (await budgetReached()) throw new LLMUnavailable("AI budget used up");
 
   const body = {
     model: MODEL,

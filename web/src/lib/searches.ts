@@ -6,7 +6,7 @@ import { countMatches } from "@/lib/filters";
 import { type ResultsV3, facets } from "@/lib/matching";
 import { type ProductInfo, understandProduct } from "@/lib/product";
 import { type ResultsV4, reviewCreators } from "@/lib/review";
-import { LLMUnavailable, llmEnabled } from "@/lib/llm";
+import { LLMUnavailable, budgetReached, llmEnabled } from "@/lib/llm";
 import { type ResultsV5, rankCreators } from "@/lib/rank";
 
 export type Results = ResultsV3 | ResultsV4 | ResultsV5;
@@ -90,6 +90,10 @@ export async function getSearch(userId: string, id: string): Promise<Search | nu
 }
 
 export async function createSearch(userId: string): Promise<string> {
+  // Total AI budget used up (LLM_TOTAL_CAP_USD): searches stop for everyone (user, 2026-11-26: "searches rok dena").
+  if (llmEnabled() && (await budgetReached())) {
+    throw new UserError("Kindred's demo search budget is used up, so new searches are paused. Past searches still open.", 503);
+  }
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count, error: cErr } = await admin()
     .from("brand_searches")
