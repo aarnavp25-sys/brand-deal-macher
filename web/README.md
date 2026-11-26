@@ -39,6 +39,9 @@ Test sign-in uses the Supabase admin API (secret key), so only the project owner
 
 1. Vercel -> Add New -> Project -> import this GitHub repository.
 2. **Root Directory: `web`**. Framework preset: Next.js (detected). Build and output settings: leave the defaults.
+   **Function region: Singapore (`sin1`)**, the same region as the Supabase project (ap-southeast-1): Project Settings
+   -> Functions -> Function Region. Vercel's default is Washington (`iad1`); there every database call crossed the
+   Pacific (~250 ms each) and starting a chat took 5-7 s instead of ~1 s (measured 2026-11-26).
 3. Environment Variables (Production and Preview):
 
    | Name | Value |
