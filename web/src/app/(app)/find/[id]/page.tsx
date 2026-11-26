@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Find creators" };
 
 export default async function ChatPage({ params }: PageProps<"/find/[id]">) {
   const { id } = await params;
-  const brand = await requireBrand(`/find/${id}`);
+  const brand = await requireBrand();
   const search = await getSearch(brand.id, id);
   if (!search) notFound();
   if (search.status === "done") redirect(`/results/${id}`);

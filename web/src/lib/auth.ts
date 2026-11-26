@@ -1,5 +1,5 @@
 import "server-only";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createAuthClient } from "./supabase/server";
 
 export type Brand = { id: string; email: string; name: string; avatar: string | null };
@@ -11,14 +11,14 @@ export async function currentBrand(): Promise<Brand | null> {
   if (error || !data.user) return null;
   const u = data.user;
   const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-  const name = (meta.full_name as string) || (meta.name as string) || (u.email ?? "").split("@")[0];
+  const name = (meta.full_name as string) || (meta.name as string) || (u.email ?? "").split("@")[0] || "";
   return { id: u.id, email: u.email ?? "", name, avatar: (meta.avatar_url as string) ?? null };
 }
 
-/** For pages: the signed-in brand, or a redirect to /login. */
-export async function requireBrand(next = "/dashboard"): Promise<Brand> {
+/** For a chat or results page: the visitor's session, or "page not found" (a link from someone else). */
+export async function requireBrand(): Promise<Brand> {
   const brand = await currentBrand();
-  if (!brand) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (!brand) notFound();
   return brand;
 }
 

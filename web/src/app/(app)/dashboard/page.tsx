@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireBrand } from "@/lib/auth";
+import { currentBrand } from "@/lib/auth";
 import { listSearches } from "@/lib/searches";
 import { dateShort } from "@/lib/format";
 import { DeleteSearch } from "@/components/DeleteSearch";
@@ -16,14 +16,13 @@ const STATUS: Record<string, string> = {
 };
 
 export default async function Dashboard() {
-  const brand = await requireBrand("/dashboard");
-  const searches = await listSearches(brand.id);
-  const first = brand.name.split(" ")[0];
+  const brand = await currentBrand();
+  const searches = brand ? await listSearches(brand.id) : [];
 
   return (
     <div>
-      <h1 className="display text-3xl font-extrabold md:text-4xl">Hi {first}</h1>
-      <p className="mt-2 text-muted">Your searches are private to your account.</p>
+      <h1 className="display text-3xl font-extrabold md:text-4xl">Your searches</h1>
+      <p className="mt-2 text-muted">Saved in this browser. Nobody else can see them.</p>
 
       {searches.length === 0 ? (
         <div className="card mt-10 flex flex-col items-start gap-5 p-8 md:p-10">

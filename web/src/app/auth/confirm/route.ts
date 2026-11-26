@@ -20,5 +20,5 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (!error) return NextResponse.redirect(new URL(next, url.origin));
   }
-  return NextResponse.redirect(new URL("/login?error=link", url.origin));
+  return NextResponse.redirect(new URL("/", url.origin));
 }

@@ -26,8 +26,8 @@ export default async function Home() {
     <div className="min-h-[100dvh]">
       <header className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
         <Logo />
-        <Link href="/login" className="btn btn-ghost h-10 px-5 text-sm">
-          Sign in
+        <Link href="/find" prefetch={false} className="btn btn-ghost h-10 px-5 text-sm">
+          Find creators
         </Link>
       </header>
 
@@ -41,7 +41,7 @@ export default async function Home() {
             Answer a few questions about your brand. See creators with 10K to 100K followers who post in your category.
           </p>
           <div className="rise mt-9 flex flex-wrap items-center gap-3" style={{ ["--i" as string]: 2 }}>
-            <Link href="/find" className="btn btn-primary h-12 px-7 text-base">
+            <Link href="/find" prefetch={false} className="btn btn-primary h-12 px-7 text-base">
               Find creators
             </Link>
             <a href="#how" className="btn btn-ghost h-12 px-6 text-base">
@@ -112,7 +112,7 @@ export default async function Home() {
           <p className="display max-w-[22ch] text-2xl font-bold md:text-3xl">
             Start with one product. See who already makes content for it.
           </p>
-          <Link href="/find" className="btn btn-primary h-12 px-7 text-base">
+          <Link href="/find" prefetch={false} className="btn btn-primary h-12 px-7 text-base">
             Find creators
           </Link>
         </div>

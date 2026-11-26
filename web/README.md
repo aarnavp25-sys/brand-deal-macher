@@ -1,6 +1,6 @@
 # Kindred website (`web/`)
 
-The brand-facing site: landing page, Google sign-in, a five-question chat about the brand, and the creators that
+The brand-facing site: landing page, a five-question chat (no sign-in for now: anonymous sessions) about the brand, and the creators that
 fit its answers. Next.js 16 (App Router) + Supabase ("database" project). How it works and
 why: `../docs/website.md`.
 
@@ -28,7 +28,7 @@ python3 web/db/upload_photos.py      # copy creator profile photos into the priv
 ## Tests
 
 ```bash
-python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (77 checks)
+python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (84 checks)
 python3 web/db/test_login.py 1            # one-time sign-in link for test brand 1 (no Google needed)
 python3 web/db/test_login.py --delete-all # remove all test brands and their searches
 ```
@@ -51,7 +51,11 @@ Test sign-in uses the Supabase admin API (secret key), so only the project owner
 4. Deploy, then put the production URL into Supabase (Authentication -> URL Configuration): Site URL =
    `https://<your-domain>`, Redirect URLs = `https://<your-domain>/**`.
 
-## Google sign-in
+## Google sign-in (later; switched off for the demo)
+
+Today every visitor gets an anonymous session when they start a chat (Supabase: Anonymous sign-ins on). To add
+Google later:
+
 
 Google Cloud Console -> APIs & Services -> Credentials -> Create OAuth client ID -> Web application:
 

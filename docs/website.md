@@ -6,7 +6,14 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 ## What a brand does
 
 1. Landing page (`/`) → "Find creators".
-2. Sign in with Google (`/login`). Email/password sign-up is switched off in Supabase, so Google is the only way in.
+2. **No sign-in for now** (user, 2026-11-26: "Google se sign in baad mein rakhenge. Abhi demo ke liye sign in mat
+   rakh"). When a visitor starts a chat, the server creates a private **anonymous Supabase session** (cookie). Their
+   searches belong to that session with the same RLS and ownership checks as a signed-in user, so one visitor never
+   sees another's; "My searches" works per browser. Page views, link prefetches and bots create no account (Next.js 16
+   strips its prefetch headers before `proxy.ts`, so the session is made in `POST /api/searches`, not in the proxy).
+   Supabase: anonymous sign-ins on, limit 100 new anonymous users per hour per IP (a class on one Wi-Fi shares an IP);
+   email sign-up off; Google provider off. Google sign-in comes later: Supabase can link a Google identity to the
+   same anonymous user, so a visitor's searches carry over. `/login` redirects home.
 3. Chat (`/find/<id>`): five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
    1. "Okay, spill. What's your brand and what do you make?" (typed)
    2. "Love that. Which product should creators hype first?" (typed)
@@ -43,17 +50,17 @@ Everything runs in one Next.js app on Vercel: pages and the API (route handlers)
 - Render was needed only for the old static `demo/` page, which could not hide a key; Next.js server code hides keys
   itself. Render's free plan also sleeps after 15 minutes (about a minute for the first request), and a split
   frontend/backend would need cross-domain login cookies and CORS.
-- Supabase project "database" holds the creator data, the website tables and the logins (Supabase Auth, Google).
+- Supabase project "database" holds the creator data, the website tables and the sessions (Supabase Auth, anonymous for now).
 
 ## Request flow
 
 ```
 Browser ── every request ──► proxy.ts (Vercel)
                               ├─ POST/PUT/DELETE without our own Origin header → 403 (CSRF)
-                              ├─ refreshes the Supabase login cookies
-                              └─ /dashboard, /find, /results without a login → /login
-Sign in:  /login → Google → Supabase Auth → /auth/callback (code → session cookies) → /find
-Chat:     POST /api/searches                    create a brand_searches row (max 25 per brand per day)
+                              ├─ refreshes the Supabase session cookies
+                              └─ /login → / (no sign-in screen for now)
+Chat:     POST /api/searches                    no session yet → anonymous session created (cookie);
+                                                then a brand_searches row (max 25 per visitor per day)
           POST /api/searches/:id/answer          {step, value} → validated → next question; after question 5 the
                                                  creators that pass the filter are saved in results
 Pages:    /results/:id reads the saved results + signs photo links (1 hour) from the private bucket
@@ -76,7 +83,7 @@ Every route handler and page checks the user again with `supabase.auth.getUser()
 - Input: JSON bodies ≤ 8 KB, every answer validated against the question's own options (zod for text), answers must
   come in order, open redirects blocked (`safeNext`).
 - Headers: CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS; no X-Powered-By.
-- `web/db/e2e_test.py` checks all of the above plus five test brands end to end (one types every answer) (77 checks, all passing on
+- `web/db/e2e_test.py` checks all of the above plus five test brands end to end (one types every answer) (84 checks, all passing on
   2026-11-26).
 
 ## Design
