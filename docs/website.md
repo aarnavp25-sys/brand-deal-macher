@@ -20,7 +20,7 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 3. **After sign-in: the dashboard** (`/dashboard`), never a chat (user, 2026-11-27: "Sign in karne ke baad jo ek
    chatbot aata hai, wo chatbot khulna nahi chahiye ... Sign in ke baad ek user dashboard type bana de"). Signing in
    from "Find creators" or `/login` lands there; a link to a saved chat or results page still returns to that page.
-   **First visit: a pop-up "What is your name?"** (`components/NamePopup.tsx`, shown by `(app)/layout.tsx` while
+   **First visit: a pop-up "Hey there! What should we call you?"** (user's wording request 2026-11-27: "thoda cool way mein"; placeholder "e.g. Aarnav") (`components/NamePopup.tsx`, shown by `(app)/layout.tsx` while
    `user_metadata.kindred_name` is empty; cannot be skipped; letters, spaces and . ' - only, max 40; saved by
    `POST /api/profile/name` → `saveName()`). It is asked even though Google already gives a name ("Naam phir bhi
    poochho") and kept apart from `name` / `full_name`, which Google rewrites on every sign-in. Until it is given,

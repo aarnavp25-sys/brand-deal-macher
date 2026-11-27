@@ -52,9 +52,9 @@ export function NamePopup() {
         className="card name-pop w-full max-w-md p-7 md:p-8"
       >
         <h2 id="name-title" className="display text-2xl font-extrabold md:text-3xl">
-          What is your name?
+          Hey there! What should we call you?
         </h2>
-        <p className="mt-2 text-muted">So Kindred knows what to call you.</p>
+        <p className="mt-2 text-muted">First name works. We&rsquo;ll use it to keep things friendly.</p>
         <input
           ref={input}
           value={name}
@@ -62,7 +62,7 @@ export function NamePopup() {
           maxLength={40}
           autoComplete="given-name"
           aria-label="Your name"
-          placeholder="e.g. Priya"
+          placeholder="e.g. Aarnav"
           className="field mt-6 h-12 w-full px-4 text-base"
         />
         {error && (

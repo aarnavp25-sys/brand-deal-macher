@@ -295,7 +295,7 @@ def security(clients):
     for old in rest(f"/rest/v1/brand_searches?select=id&user_id=eq.{u['id']}", SECRET)[1]:
         nb.json("DELETE", f"/api/searches/{old['id']}")
     s, _, html = nb.req("GET", "/dashboard", origin=None)
-    check("after sign-in the dashboard asks the name in a pop-up", s == 200 and "What is your name?" in html, str(s))
+    check("after sign-in the dashboard asks the name in a pop-up", s == 200 and "What should we call you?" in html, str(s))
     s, j = nb.json("POST", "/api/searches")
     check("no chat starts before the name is given (409)", s == 409, f"{s} {j}")
     s, j = nb.json("POST", "/api/profile/name", {"name": "Priya 123"})
@@ -309,7 +309,7 @@ def security(clients):
           meta.get("kindred_name") == "Priya Sharma" and meta.get("full_name") == "Test Brand 7", str(meta))
     s, _, html = nb.req("GET", "/dashboard", origin=None)
     check("the dashboard greets by name and the pop-up is gone",
-          s == 200 and "Hi Priya!" in html and "What is your name?" not in html and "Start a new search" in html, str(s))
+          s == 200 and "Hi Priya!" in html and "What should we call you?" not in html and "Start a new search" in html, str(s))
     s, j = nb.json("POST", "/api/searches")
     _, rows = rest(f"/rest/v1/brand_searches?select=messages,brief&id=eq.{j.get('id')}", SECRET)
     check("a new chat greets by name and starts with the brand question (no name question)",
