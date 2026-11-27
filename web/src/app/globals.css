@@ -143,6 +143,9 @@ body {
 }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The chat box draws its own ring around the whole composer (focus-within), so the text area inside needs none:
+   a second box inside it looked broken (user, 2026-11-27). */
+.composer-input:focus, .composer-input:focus-visible { outline: none; }
 
 /* Entry motion: content rises in once. Disabled for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {

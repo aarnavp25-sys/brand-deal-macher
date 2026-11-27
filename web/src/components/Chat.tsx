@@ -191,7 +191,7 @@ function Composer({ step, onSend, big = false, placeholder }: { step: Step; onSe
           }
         }}
         placeholder={placeholder ?? step.placeholder ?? "Type a message"}
-        className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-ink placeholder:text-muted focus:outline-none"
+        className="composer-input max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-ink placeholder:text-muted"
       />
       <button type="submit" disabled={text.trim().length < 2} className="btn btn-primary h-10 shrink-0 px-5 text-sm" aria-label="Send">
         Send
