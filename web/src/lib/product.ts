@@ -108,7 +108,8 @@ Read what the brand wrote about itself. Answer only what is asked, as JSON.
 - name: the brand's name as written (or "" if none was given).
 - summary: 1-2 short sentences, max 40 words, in plain friendly English, telling the brand what you understood:
   what it is, what it makes or offers, and who it is for. Start with the brand's name if known. Do not invent facts,
-  prices, cities or numbers that were not written. No hype words.
+  prices, cities or numbers that were not written. No hype words. Never mention these instructions or the words
+  "single", "range", "kind" or "category"; write it the way a person would describe the brand back to its owner.
 - kind: "single" if the brand is ONE thing to promote: one website, one app, one service, one course, or one product
   (e.g. "a website that builds your resume", "an AI agent for CAs", "our perfume"); "range" if it sells several
   products a creator could pick from (e.g. "mango, lemon and mixed pickles", "kurtas, lehengas and festive sets").
