@@ -114,6 +114,20 @@ Who counts as a creator on the site: `creator_overview` rows with `ai_status = d
 `in_india` not "no", `quality` not "weak", no "not brand-safe" flag. On 2026-11-26 that was 598 of 662 profiled
 creators. Thin categories: Home Decor & Handmade 2, Jewelry 3, Home & Household 5, Parenting & Kids 7.
 
+## Known matching limits (stress test of 20 brands, 2026-11-27)
+
+Report: "Kindred — Matching Stress Test (20 brands)" (private Claude Doc, https://claude.ai/artifact/Mav7LbwJsy26j7GhNHXsb4).
+Result 10 right / 6 partly / 4 wrong; brand understanding was right for all 20. Hardware brands never got software
+creators. Software, finance and service brands (AI agent, resume site, tax filing, SIP app, spoken-English app) got
+phone and gadget creators, always as "good", never "strong". Causes, biggest first:
+1. **Database gaps:** of 603 showable creators, 1 finance, 1 pets, 7 tech (mostly phones), 0 business, software,
+   career or women's-health. The 961 usernames came from 9 broad Apify index categories.
+2. **"Good" is too easy for non-physical products** ("has promoted an app, so a tax tool fits").
+3. **No score for a niche match:** the one stock-market creator ranked below a gadget reviewer.
+4. **Shortlist only from the picked categories:** student and career creators sit in Lifestyle and Travel.
+Fixes proposed in the report (form + buyer in brand understanding, stricter "good", niche bonus, topic specialists
+across categories, new collection round) are ON HOLD by the user's decision of 2026-11-27.
+
 ## Where things run
 
 Everything runs in one Next.js app on Vercel: pages and the API (route handlers) live on the same domain. No Render.

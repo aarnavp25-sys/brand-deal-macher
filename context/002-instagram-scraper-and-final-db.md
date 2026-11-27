@@ -388,3 +388,107 @@ Open:
 - Tell the demo audience a search takes ~45 s. Anonymous test users and abandoned chats accumulate in the
   "database" project (test_login.py --delete-all removes only the test brands).
 - Personalisation of the AI still to be explained by the user. Old Render API still up. Earlier reminders unchanged.
+
+---
+
+## S-027 · 2026-11-27 · Google sign-in, dashboard + name pop-up, AI brand summary, follower slider, Let Kindred decide, richer creator cards; 20-brand stress test (fixes on hold); all live
+
+Asked:
+- Data questions: "apne pass kya koi niche creator hai jaise koi sirf watch pe bat karta ho"; "how many creators do we
+  have more than 50k"; "apne db mai apne pass user ka kya kya hai".
+- "google auth dalna hai google se sign in ke baad hi kuch bhii search kar sakta hai" (home page public; name still
+  asked: "Naam phir bhi poochho").
+- "Sign in karne ke baad jo ek chatbot aata hai, wo chatbot khulna nahi chahiye ... sirf 'What is your name?'
+  poochega ... ek pop-up type ... Sign in ke baad ek user dashboard type bana de"; wording "thoda cool way mein",
+  example "Aarnav".
+- Account menu: "maine is pe click kara ... ye abhi hat nahi raha". Chat box: "jo chatbot pe box sa aa raha hai na,
+  wo hata dein".
+- First question: "what's your brand, what is its spirit" → then "What's your brand? What do you make? Spill it" →
+  later "What's your vibe hata de question mein se".
+- AI summary flow: "apna AI jo samajh raha hai, wo dikhna chahiye ... Is this what you mean?"; one re-explain only:
+  "No dega to 'Could you explain it again?' ... pehli baar yahan pe hi samajh jaani hai"; product question only for a
+  brand with several products ("resume bana ke deti hai ... usko thodi pooch sakta hai ... which product").
+- Followers: "ek range dena hai ... dono side se scroll"; "Slider mein 5K mat rakh, 1K rakh".
+- Categories: "hamesha tick hata de ... tu kuch bhi select mat karo ... ek aur option 'let Kindred decide'".
+- AI agent search: "tech creators aa rahe the ... phone promote karte hain ya hardware ... check kar ki wo kyun ho raha
+  tha" and "kuch bhi change karne se pehle poochna"; then a 20-question stress test and "ek proper report".
+- Cards: "followers, average views, reach, engagement, comment ... brand collabs ... bio mein collab email ya number".
+- "isko deploy kar de ... jo tu teen suggestions keh raha tha na, wo abhi hold pe rakh ... sakht banana ... ruk".
+
+Done:
+- Read-only answers: 167 of 611 active creators are "niche" (topics, not single products; no watch-only creator);
+  247 of 848 creators have ≥50K followers (199 showable); auth users 50 (45 anonymous, 5 test), 80 searches, two real
+  outside visitors who typed ideas/services rather than products.
+- Google sign-in (12bdcbd): restored /login, GoogleButton, browser client from 1fdb0a2^; proxy protects /find,
+  /dashboard, /results; anonymous sessions count as signed out; API 401 without Google. The user created the Google
+  Cloud project "kindred" (OAuth consent External, published) and the Web client (origins live + localhost, redirect
+  https://<ref>.supabase.co/auth/v1/callback) and pasted the id/secret in Supabase; Claude verified the provider via the
+  Management API (enabled, id format ok). Deployed, then Supabase `external_anonymous_users_enabled=false`.
+- Dashboard + name pop-up (4001473, 1f7a983): sign-in lands on /dashboard (from "Find creators" too); `NamePopup`
+  ("Hey there! What should we call you?", placeholder "e.g. Aarnav") until `user_metadata.kindred_name` is set (kept
+  apart from Google's `name`); `POST /api/profile/name`; `createSearch` refuses 409 without a name; the chat no longer
+  asks it. Dashboard: "Hi <name>!", Start a new search card, 3 numbers, saved searches.
+- Fixes: account menu became `AccountMenu` (closes on outside click / Escape / page change) (f05aab4); inner focus
+  outline in the chat composer removed (`.composer-input`) (26772b8).
+- Brand understanding (27fd584, f2044dc, 3eb1b32): `understandBrand()` in lib/product.ts (one Haiku call: summary,
+  kind single|range, product words); steps confirm / more / focus in lib/brief.ts with a branching `nextStep`;
+  `MAX_EXPLAINS` = 1 ("Could you explain it again?" then "Got it. This is what we have understood now:" and straight
+  on); range brands get "Are you planning to promote a particular product, or your brand in general?"; prompt forbids
+  internal words ("single"/"range") in the summary. First question: "What's your brand? What do you make? Spill it all."
+- Follower range (4b413bc): step `followers` after buyers; `RangeAnswer` two-handle slider 10K–100K, 1K steps, live
+  count; typed ranges ("20k to 50k", "under 30k", "50k+"); `followers_min/max` in `passes()`; ends = no limit.
+- Categories (38da2bd): nothing pre-ticked (Lifestyle was always forced before); "Let Kindred decide" below the chips
+  (AI main + close categories, said back as "Kindred picked … for you").
+- AI agent investigation: both "AI agent" searches were understood correctly; only 7 showable Tech creators (mostly
+  phones) and 1 finance creator exist; the localhost search had 10K–50K + Hindi/English, leaving 2 creators.
+- Stress test: `scratchpad/hard.py` ran 20 brands through the local chat with AI (cost $0.068) → report doc
+  "Kindred — Matching Stress Test (20 brands)" https://claude.ai/artifact/Mav7LbwJsy26j7GhNHXsb4 (verdict, table of 20,
+  causes, coverage chart, 5 suggestions). Findings and the hold → docs/website.md "Known matching limits".
+- Demo: headless Chrome screenshots of every screen (name pop-up → results) opened in Preview; found the categories
+  screen heavy, a red "Nobody fits this combo yet" when nothing is ticked (bug from the no-pre-tick change), and a
+  results header line contradicting the cards. Proposed 3 UX fixes — on hold.
+- Creator cards (02dc661): migration 003 view `creator_card_stats` (mean_views, avg_comments over reel_rank 1–12,
+  bio, bio_links; service_role only, ends with `notify pgrst, 'reload schema'`); `lib/contact.ts` (email, Indian
+  mobile, wa.me link from the bio); `components/CreatorStats.tsx` on all three result layouts: Followers · Avg views ·
+  Reach · Engagement (est.) · Avg comments · Speaks · Audience · all brand collabs · Contact (from their bio).
+- e2e now 125 checks (AI off). Pushed and deployed four times; last deploy = 02dc661, verified live (cards, AI summary
+  + Yes/No buttons). Spend: total ~$0.15 of the $1 cap.
+
+Did not work:
+- Google login first attempt → Supabase `{"code":400,"msg":"Unsupported provider: provider is not enabled"}`: the user
+  had not yet enabled Google in Supabase (first opened the Email provider panel by mistake).
+- e2e after Google: 9 then 5 failures — test brands' names "Test Brand 1" have digits (typed-name regex), and the
+  regex sat in BriefSchema (500 ZodError at the final parse). Fixed with `TypedName` for typed names only and
+  letter-only test names.
+- `npx tsc` after restoring /login: TS2344 '"/login"' not in AppRoutes → `npx next typegen` regenerated route types.
+- React lint `set-state-in-effect` on the account menu's close-on-route effect → keyed open state by pathname instead.
+- Migration 003 applied but PostgREST answered 404 until `notify pgrst, 'reload schema'`.
+- Demo run: final step 500 — Mac network blip ("LLM review failed: fetch failed" ×4, then Supabase fetch failed);
+  retry succeeded. Not a code bug.
+- Playwright MCP stayed locked by another session all day; screenshots via headless Chrome instead.
+- A test brand ("brand1") showed the name pop-up live: it simply never had a name saved (e2e uses brands 2–7).
+
+Established:
+- Supabase Google provider and anonymous sign-ins are set in the dashboard / Management API; anon-off needs ~10 s to
+  apply (one anonymous user slipped in and was deleted).
+- Results are a snapshot: searches saved before 02dc661 show "-" for avg views, reach, avg comments, contact.
+- Bios: 116 of 848 have an email, 91 an Indian mobile number, 42 a WhatsApp link.
+- Showable creators by category (603): Lifestyle 126, Food 92, Beauty 87, Fashion 67, Comedy 58, Travel 58, Fitness
+  41, Music 23, Automobile 17, Tech 7, Parenting 7, Gaming 6, Home & Household 5, Jewelry 3, Decor 2, Finance 1,
+  Sports 1, Pets 1.
+
+User decided:
+- Google sign-in required for everything but the home page; the name is still asked once, in a pop-up after sign-in,
+  never in the chat; after sign-in the dashboard, never the chat.
+- AI summary + confirm, one re-explain only; product question only for brands with several products; nothing
+  pre-ticked in categories, "Let Kindred decide" offered; follower slider in 1K steps.
+- Cards show followers, avg views, reach, engagement, avg comments, languages, brand collabs and bio contact.
+- ON HOLD (2026-11-27, "abhi hold pe rakh ... baad mein discuss"): the 3 UX fixes (categories screen, merging buyers +
+  followers + gender/language, results header line) and making the AI stricter (stress-test suggestions).
+- Ask before changing anything in matching ("kuch bhi change karne se pehle poochna").
+
+Open:
+- The hold list above; ask before starting any of it.
+- Optional: overlay live card numbers on old saved searches (offered, not answered).
+- Contact is free for every signed-in brand until a paywall exists.
+- Old Render API, key rotations, scraper backups: unchanged reminders.
