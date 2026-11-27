@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { Avatar } from "@/components/Avatar";
+import { AccountMenu } from "@/components/AccountMenu";
 import { NamePopup } from "@/components/NamePopup";
 import { requireBrand } from "@/lib/auth";
 
@@ -19,18 +19,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <Link href="/find" className="btn btn-primary h-9 px-4 text-sm">
               New search
             </Link>
-            <details className="relative">
-              <summary className="flex cursor-pointer list-none items-center rounded-full p-0.5" aria-label="Account">
-                <Avatar src={brand.avatar} name={brand.name || brand.email} size={36} />
-              </summary>
-              <div className="card absolute right-0 mt-2 w-60 p-3 text-sm">
-                <p className="truncate font-semibold">{brand.name}</p>
-                <p className="truncate text-muted">{brand.email}</p>
-                <form action="/auth/signout" method="post" className="mt-3">
-                  <button className="btn btn-ghost h-9 w-full text-sm">Sign out</button>
-                </form>
-              </div>
-            </details>
+            <AccountMenu name={brand.name} email={brand.email} avatar={brand.avatar} />
           </nav>
         </div>
       </header>
