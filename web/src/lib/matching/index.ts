@@ -160,7 +160,7 @@ export async function pool(): Promise<Entry[]> {
   const entries = rows.map((r): Entry => {
     const ids = languageIds(r);
     return {
-      facet: { c: r.category, g: r.creator_gender, l: ids, a: r.audience_gender_est },
+      facet: { c: r.category, g: r.creator_gender, l: ids, a: r.audience_gender_est, f: r.followers ?? 0 },
       creator: {
         username: r.username,
         followers: r.followers,

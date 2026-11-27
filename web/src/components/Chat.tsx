@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CREATOR_GENDERS, type Draft, LANGUAGES, type Step, nextStep } from "@/lib/brief";
-import { type Facet, countMatches } from "@/lib/filters";
+import { CREATOR_GENDERS, type Draft, LANGUAGES, type Step, followersLabel, kFormat, nextStep } from "@/lib/brief";
+import { FOLLOWERS_MAX, FOLLOWERS_MIN, FOLLOWERS_STEP, type Facet, countMatches } from "@/lib/filters";
 import type { ChatView } from "@/lib/chat-view";
 
 /*
@@ -156,6 +156,7 @@ function Answer(props: AnswerProps) {
   if (props.step.kind === "choice") return <ChoiceAnswer {...props} />;
   if (props.step.kind === "single") return <BuyerAnswer {...props} />;
   if (props.step.kind === "multi") return <CategoryAnswer {...props} />;
+  if (props.step.kind === "range") return <RangeAnswer {...props} />;
   return <CreatorAnswer {...props} />;
 }
 
@@ -229,6 +230,74 @@ function ChoiceAnswer({ step, onSend }: AnswerProps) {
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Follower range with two handles, like a shop filter (user, 2026-11-27: "dono side se ... scroll karke kam-jyada").
+ * Two native range inputs on one track, so both handles work with mouse, touch and arrow keys. The live count uses
+ * the same filter as the results.
+ */
+function RangeAnswer({ step, draft, facets, onSend }: AnswerProps) {
+  const [min, setMin] = useState(draft.followers_min ?? FOLLOWERS_MIN);
+  const [max, setMax] = useState(draft.followers_max ?? FOLLOWERS_MAX);
+  const n = useMemo(() => countMatches(facets, { ...draft, followers_min: min, followers_max: max }), [facets, draft, min, max]);
+  const pct = (v: number) => ((v - FOLLOWERS_MIN) / (FOLLOWERS_MAX - FOLLOWERS_MIN)) * 100;
+  return (
+    <div className="grid gap-3">
+      <div className="rounded-[22px] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="display text-2xl font-extrabold tabular-nums" aria-live="polite">
+            {kFormat(min)} – {kFormat(max)}
+          </p>
+          <p className="text-sm text-muted">{followersLabel(min, max)}</p>
+        </div>
+        <div className="range2 relative mt-5 h-8" role="group" aria-label={step.question}>
+          <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-surface-2" />
+          <div
+            className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-accent"
+            style={{ left: `${pct(min)}%`, width: `${pct(max) - pct(min)}%` }}
+          />
+          <input
+            type="range"
+            aria-label="Minimum followers"
+            aria-valuetext={`${kFormat(min)} followers`}
+            min={FOLLOWERS_MIN}
+            max={FOLLOWERS_MAX}
+            step={FOLLOWERS_STEP}
+            value={min}
+            onChange={(e) => setMin(Math.min(Number(e.target.value), max - FOLLOWERS_STEP))}
+            style={{ zIndex: min > FOLLOWERS_MAX - 2 * FOLLOWERS_STEP ? 4 : 3 }}
+          />
+          <input
+            type="range"
+            aria-label="Maximum followers"
+            aria-valuetext={`${kFormat(max)} followers`}
+            min={FOLLOWERS_MIN}
+            max={FOLLOWERS_MAX}
+            step={FOLLOWERS_STEP}
+            value={max}
+            onChange={(e) => setMax(Math.max(Number(e.target.value), min + FOLLOWERS_STEP))}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-xs text-muted">
+          <span>10K</span>
+          <span>100K</span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <Fit n={n} />
+          <button
+            type="button"
+            disabled={n === 0}
+            onClick={() => onSend({ min, max }, followersLabel(min, max))}
+            className="btn btn-primary h-11 px-6 text-sm"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+      <Composer step={step} placeholder="Or type it, like “20k to 50k”" onSend={(t) => onSend({ text: t }, t)} />
     </div>
   );
 }

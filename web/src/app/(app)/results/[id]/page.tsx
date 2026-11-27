@@ -8,7 +8,7 @@ import { Results } from "@/components/Results";
 import { type Results as ResultsData, resultCount } from "@/lib/searches";
 import { MatchResults } from "@/components/MatchResults";
 import { RankedResults } from "@/components/RankedResults";
-import { BUYERS, CREATOR_GENDERS, type Draft, LANGUAGES } from "@/lib/brief";
+import { BUYERS, CREATOR_GENDERS, type Draft, LANGUAGES, followersLabel } from "@/lib/brief";
 
 export const metadata: Metadata = { title: "Creators" };
 
@@ -29,6 +29,7 @@ function choices(b: Draft): string[] {
   const out: string[] = [];
   out.push(b.categories?.length ? b.categories.join(", ") : "All categories");
   if (b.customer_gender) out.push(`Buyers: ${BUYERS.find((x) => x.value === b.customer_gender)?.label.toLowerCase()}`);
+  if (b.followers_min != null && b.followers_max != null) out.push(followersLabel(b.followers_min, b.followers_max));
   if (b.creator_gender) out.push(CREATOR_GENDERS.find((x) => x.value === b.creator_gender)!.label);
   if (b.languages) out.push(b.languages.length ? b.languages.map((l) => LANGUAGES.find((x) => x.id === l)?.label ?? l).join(", ") : "Any language");
   return out;

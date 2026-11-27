@@ -72,6 +72,9 @@ export const BriefSchema = z.object({
   creator_gender: z.enum(["female", "male", "any"]),
   /** Empty = any language. */
   languages: z.array(z.enum(LANG_IDS)).max(LANGUAGES.length),
+  /** Follower range from the two-handle slider; 10_000 / 100_000 = no limit on that side (lib/filters.ts). */
+  followers_min: z.number().int().min(10_000).max(100_000),
+  followers_max: z.number().int().min(10_000).max(100_000),
 });
 export type Brief = z.infer<typeof BriefSchema>;
 
@@ -88,12 +91,12 @@ export const TypedName = z
 ------------------------------------------------------------------------------------------------------------ */
 
 export type Option = { value: string; label: string };
-export type StepId = "about" | "confirm" | "more" | "focus" | "product" | "categories" | "customer_gender" | "creator";
+export type StepId = "about" | "confirm" | "more" | "focus" | "product" | "categories" | "customer_gender" | "followers" | "creator";
 export type Step = {
   id: StepId;
   /** text = type an answer; single = tap one (with creator counts); choice = tap one (no counts, no typing);
-   *  multi = tap several; creator = gender + languages on one screen */
-  kind: "text" | "single" | "choice" | "multi" | "creator";
+   *  multi = tap several; range = two-handle follower slider; creator = gender + languages on one screen */
+  kind: "text" | "single" | "choice" | "multi" | "range" | "creator";
   question: string;
   placeholder?: string;
   max?: number;
@@ -156,6 +159,11 @@ export const STEPS: Step[] = [
     options: BUYERS,
   },
   {
+    id: "followers",
+    kind: "range",
+    question: "How big should the creators be? Drag both ends to set the follower range.",
+  },
+  {
     id: "creator",
     kind: "creator",
     question: "Last one. What kind of creator, and any language preference?",
@@ -198,6 +206,7 @@ export function nextStep(d: Draft): Step | null {
   if (wantsProduct && d.product === undefined) return STEP_BY_ID.product;
   if (d.categories === undefined) return STEP_BY_ID.categories;
   if (d.customer_gender === undefined) return STEP_BY_ID.customer_gender;
+  if (d.followers_min === undefined || d.followers_max === undefined) return STEP_BY_ID.followers;
   if (d.creator_gender === undefined || d.languages === undefined) return STEP_BY_ID.creator;
   return null;
 }
@@ -220,6 +229,12 @@ export function parseAnswer(step: Step, raw: unknown): { patch: Draft; label: st
   if (step.id === "more") {
     const value = z.string().trim().min(5, "Tell me a little more, a sentence is enough.").max(1000).parse(typeof raw === "string" ? raw : "");
     return { patch: { about: value }, label: value }; // the caller appends it to the first description
+  }
+  if (step.kind === "range") {
+    const r = (raw ?? {}) as { min?: unknown; max?: unknown };
+    const ok = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 10_000 && v <= 100_000;
+    if (!ok(r.min) || !ok(r.max) || r.min >= r.max) throw new Error("Pick a follower range between 10K and 100K.");
+    return { patch: { followers_min: r.min, followers_max: r.max }, label: followersLabel(r.min, r.max) };
   }
   if (step.kind === "choice") {
     if (typeof raw !== "string" || !step.options!.some((o) => o.value === raw)) throw new Error("Tap one of the options.");
@@ -281,4 +296,18 @@ export function guessCategory(product: string, about = ""): Category | null {
 
 export function shortCategory(c: string | null | undefined): string {
   return (c ?? "").split(" & ")[0];
+}
+
+/** "10K", "45K", "100K" */
+export function kFormat(n: number): string {
+  return `${Math.round(n / 1000)}K`;
+}
+
+/** The chosen range in words: "20K–60K followers", "Up to 50K followers", "50K+ followers", "Any size (10K–100K)". */
+export function followersLabel(min: number, max: number): string {
+  const lo = min > 10_000, hi = max < 100_000;
+  if (lo && hi) return `${kFormat(min)}–${kFormat(max)} followers`;
+  if (hi) return `Up to ${kFormat(max)} followers`;
+  if (lo) return `${kFormat(min)}+ followers`;
+  return "Any size (10K–100K followers)";
 }

@@ -107,7 +107,7 @@ def lang_ids(r):
 def expected(b):
     """Independent re-implementation of the site's rules on the raw view (not shared code)."""
     q = urllib.parse.urlencode({"select": "username,account_type,in_india,quality,flags,category,creator_gender,"
-                                          "languages,main_language,audience_gender_est",
+                                          "languages,main_language,audience_gender_est,followers",
                                 "ai_status": "eq.done", "activity": "eq.active", "limit": "5000"})
     _, rows = rest(f"/rest/v1/creator_overview?{q}", SECRET)
     keep, not_creators = set(), set()
@@ -128,6 +128,11 @@ def expected(b):
             continue
         if b["customer_gender"] == "women" and r["audience_gender_est"] == "men":
             continue
+        f = r["followers"] or 0
+        if b.get("followers_min", 10000) > 10000 and f < b["followers_min"]:
+            continue
+        if b.get("followers_max", 100000) < 100000 and f > b["followers_max"]:
+            continue
         keep.add(r["username"])
     return keep, not_creators
 
@@ -137,21 +142,21 @@ BRANDS = [
         "about": "Achaar Ghar is a family kitchen in Indore. My mother makes mango, lemon and mixed vegetable pickles in "
                  "mustard oil, the way her mother did, and we ship them across India.",
         "product": "Mango pickle 500g jar", "categories": ["Food & Beverages"], "customer_gender": "all",
-        "creator_gender": "any", "languages": ["hindi"]}),
+        "creator_gender": "any", "languages": ["hindi"], "followers_min": 10000, "followers_max": 100000}),
     (3, "Veda Roots", {
         "about": "Veda Roots makes ayurvedic grooming for men in Kochi: beard oil, charcoal face wash and a hair serum "
                  "with bhringraj. We sell online to young men.",
         "product": "Charcoal face wash for men", "categories": ["Beauty & Skincare", "Fashion & Clothing"],
-        "customer_gender": "men", "creator_gender": "male", "languages": ["hindi", "english", "malayalam"]}),
+        "customer_gender": "men", "creator_gender": "male", "languages": ["hindi", "english", "malayalam"], "followers_min": 20000, "followers_max": 60000}),
     (4, "Chhota Kurta", {
         "about": "Chhota Kurta is a small label in Ahmedabad stitching cotton ethnic wear for kids aged 1 to 8: kurtas, "
                  "lehengas and festive sets. Parents buy them for festivals and weddings.",
         "product": "Festive cotton kurta set for kids", "categories": ["Parenting & Kids", "Lifestyle & Daily Vlog"],
-        "customer_gender": "women", "creator_gender": "female", "languages": []}),
+        "customer_gender": "women", "creator_gender": "female", "languages": [], "followers_min": 10000, "followers_max": 45000}),
     (5, "Filter Kaapi Co", {
         "about": "Filter Kaapi Co roasts South Indian filter coffee in Coimbatore and sells decoction kits online.",
         "product": "Filter coffee starter kit", "categories": [], "customer_gender": "all",
-        "creator_gender": "any", "languages": ["tamil", "telugu", "kannada", "malayalam"]}),
+        "creator_gender": "any", "languages": ["tamil", "telugu", "kannada", "malayalam"], "followers_min": 37000, "followers_max": 100000}),
 ]
 
 
@@ -159,6 +164,7 @@ def answers_for(b):
     star = lambda v: v if v else ["*"]
     return [("about", b["about"]), ("product", b["product"]), ("categories", star(b["categories"])),
             ("customer_gender", b["customer_gender"]),
+            ("followers", {"min": b["followers_min"], "max": b["followers_max"]}),
             ("creator", {"creator_gender": b["creator_gender"], "languages": star(b["languages"])})]
 
 
@@ -236,6 +242,7 @@ def typed_brand():
              ("product", "Masala chai premix"),
              ("categories", {"text": "food and lifestyle creators"}),
              ("customer_gender", {"text": "mostly girls in college"}),
+             ("followers", {"text": "20k to 80k"}),
              ("creator", {"text": "female, hindi ya english"})]
     for step, value in steps:
         s, j = c.json("POST", f"/api/searches/{sid}/answer", {"step": step, "value": value})
@@ -246,6 +253,8 @@ def typed_brand():
     b = rows[0]["brief"]
     check("typed categories understood (Food + Lifestyle)", sorted(b["categories"]) == ["Food & Beverages", "Lifestyle & Daily Vlog"], str(b["categories"]))
     check("typed buyers understood (women)", b["customer_gender"] == "women", b["customer_gender"])
+    check("typed follower range understood (20K-80K)", (b.get("followers_min"), b.get("followers_max")) == (20000, 80000),
+          f"{b.get('followers_min')} {b.get('followers_max')}")
     check("typed creator + languages understood (female; Hindi, English)",
           b["creator_gender"] == "female" and sorted(b["languages"]) == ["english", "hindi"], f"{b['creator_gender']} {b['languages']}")
     want, _ = expected(b)
@@ -354,6 +363,12 @@ def security(clients):
     check("unknown category is refused (400)", s == 400, f"{s} {j}")
     c2.json("POST", f"/api/searches/{new}/answer", {"step": "categories", "value": ["Food & Beverages"]})
     c2.json("POST", f"/api/searches/{new}/answer", {"step": "customer_gender", "value": "all"})
+    for bad, why in [({"min": 60000, "max": 20000}, "min above max"), ({"min": 5000, "max": 50000}, "below 10K"),
+                     ({"min": 10000, "max": 250000}, "above 100K"), ({"min": "10k", "max": 50000}, "not a number")]:
+        s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "followers", "value": bad})
+        check(f"bad follower range refused: {why} (400)", s == 400, f"{s} {j}")
+    s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "followers", "value": {"min": 25000, "max": 70000}})
+    check("follower range accepted and said back", s == 200 and any("25K–70K followers" in m["text"] for m in j.get("messages", [])), f"{s}")
     s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "creator", "value": {"creator_gender": "robot", "languages": ["*"]}})
     check("unknown creator gender is refused (400)", s == 400, f"{s} {j}")
     s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "creator", "value": {"creator_gender": "any", "languages": ["klingon"]}})

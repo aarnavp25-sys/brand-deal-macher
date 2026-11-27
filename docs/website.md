@@ -75,6 +75,22 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    per-day cap `LLM_DAILY_CAP_USD`.
 6. The dashboard (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
 
+**Brand understanding (user, 2026-11-27; `lib/product.ts` `understandBrand`, one Haiku call):** after the first
+answer the AI writes a 1–2 sentence summary of the brand and decides `kind`: "single" (one website, app, service or
+product, e.g. a resume-builder site) or "range" (several products). Kindred shows "Here's what I understood: …" and
+asks "Is this what you mean?" (Yes / No). "No, not quite" → "Please help me understand a bit more" → the extra text is
+appended to the description and understood again, at most `MAX_EXPLAINS` = 2 times, then Kindred goes on with the
+latest summary. Range brands are asked "Are you planning to promote a particular product, or your brand in general?"
+(product → the product question; brand → no product question); single brands get no product question. Without AI
+(off, budget used up) the old flow runs: product question right after the brand. The first question no longer asks
+for the vibe ("What's your brand? What do you make? Spill it all.").
+
+**Follower range (user, 2026-11-27):** after "who buys it", a two-handle slider from 10K to 100K in 1K steps
+(`RangeAnswer` in `components/Chat.tsx`: two native range inputs on one track, keyboard and touch work), with the
+live creator count; it can also be typed ("20k to 50k", "under 30k", "50k+"). The ends mean "no limit on that side",
+so creators who dropped just under 10K still show when the lower handle stays at 10K. Stored as `followers_min` /
+`followers_max`; the same `passes()` rule filters the results.
+
 **Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
 "Either works"; speaks at least one chosen language, where creators with no speech in their reels (music only)
 pass every language; "Mostly men" hides creators whose audience is mostly women and back, "Everyone" hides nobody.

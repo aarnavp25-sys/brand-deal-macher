@@ -8,6 +8,7 @@ import {
   LANGUAGES,
   type Step,
   type StepId,
+  followersLabel,
   guessCategory,
 } from "@/lib/brief";
 
@@ -160,6 +161,10 @@ export function lines(answered: StepId | null, d: D, ctx: { typed?: string; labe
               ? "Mostly men, noted."
               : "Something for everyone, love that.",
       });
+      out.push({ text: "How big should the creators be? Drag both ends to set the follower range.", step: "followers" });
+      break;
+    case "followers":
+      out.push({ text: `${followersLabel(d.followers_min ?? 10_000, d.followers_max ?? 100_000)}, got it.` });
       out.push({ text: "Last one. Female or male creator? And which language do your buyers scroll in?", step: "creator" });
       break;
     case "creator":
@@ -232,8 +237,28 @@ function parseCreator(text: string): { creator_gender: string; languages: string
   return { creator_gender: gender, languages: langs.size ? [...langs] : ["*"] };
 }
 
+/** "20k to 50k", "20-50k", "under 30k", "above 50k", "between 15000 and 40000" → { min, max } on the slider's grid. */
+function parseFollowers(text: string): { min: number; max: number } {
+  const nums = [...text.toLowerCase().matchAll(/(\d+(?:\.\d+)?)\s*(k|thousand|lakh|l)?/g)]
+    .map((m) => Number(m[1]) * (m[2] === "lakh" || m[2] === "l" ? 100_000 : m[2] ? 1000 : Number(m[1]) < 1000 ? 1000 : 1))
+    .map((n) => Math.min(100_000, Math.max(10_000, Math.round(n / 1000) * 1000)));
+  if (/\b(any|all|no preference|koi bhi|doesn'?t matter)\b/i.test(text)) return { min: 10_000, max: 100_000 };
+  if (nums.length >= 2) {
+    const [a, b] = [Math.min(nums[0], nums[1]), Math.max(nums[0], nums[1])];
+    if (a < b) return { min: a, max: b };
+  }
+  if (nums.length === 1) {
+    if (/\b(under|below|less than|upto|up to|max|tak)\b/i.test(text) && nums[0] > 10_000) return { min: 10_000, max: nums[0] };
+    if (/\b(over|above|more than|min|at least|\+|se zyada|plus)\b/i.test(text) || /\+/.test(text)) {
+      if (nums[0] < 100_000) return { min: nums[0], max: 100_000 };
+    }
+  }
+  throw new Error("Didn't catch that range. Drag the slider, or type it like “20k to 50k”.");
+}
+
 /** Turns a typed answer to a choice question into the same value a tap would send. Throws a friendly line. */
 export function parseTyped(step: Step, text: string): unknown {
+  if (step.id === "followers") return parseFollowers(text);
   if (step.id === "categories") return parseCategories(text);
   if (step.id === "customer_gender") return parseBuyers(text);
   if (step.id === "creator") return parseCreator(text);
@@ -244,6 +269,7 @@ export function parseTyped(step: Step, text: string): unknown {
 export function describe(step: StepId, d: Draft): string {
   if (step === "categories") return d.categories?.length ? d.categories.join(", ") : "all kinds of creators";
   if (step === "customer_gender") return BUYERS.find((b) => b.value === d.customer_gender)?.label ?? "";
+  if (step === "followers") return followersLabel(d.followers_min ?? 10_000, d.followers_max ?? 100_000);
   if (step === "creator") {
     const g = CREATOR_GENDERS.find((x) => x.value === d.creator_gender)?.label ?? "";
     const l = d.languages?.length ? d.languages.map((x) => LANGUAGES.find((y) => y.id === x)?.label ?? x).join(", ") : "any language";

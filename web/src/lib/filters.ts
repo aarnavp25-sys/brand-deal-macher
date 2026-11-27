@@ -11,10 +11,17 @@ import type { Draft } from "@/lib/brief";
                        pass every language choice, since their videos have no language
     - who buys it:     "Mostly men" hides creators whose audience is mostly women, and the other way round;
                        "Everyone" hides nobody
+    - followers:       between the brand's min and max (user, 2026-11-27: a two-handle slider). The slider's ends
+                       (10K, 100K) mean "no limit on this side", so the few creators who dropped just under 10K
+                       since they were collected still show when the brand leaves the lower handle at 10K.
 */
 
+export const FOLLOWERS_MIN = 10_000;
+export const FOLLOWERS_MAX = 100_000;
+export const FOLLOWERS_STEP = 1_000;
+
 /** The few attributes the filter needs. Sent to the browser for the live count (no usernames). */
-export type Facet = { c: string | null; g: string | null; l: string[]; a: string | null };
+export type Facet = { c: string | null; g: string | null; l: string[]; a: string | null; f: number };
 
 export function passes(f: Facet, b: Draft): boolean {
   if (b.categories?.length && !(b.categories as string[]).includes(f.c ?? "")) return false;
@@ -22,6 +29,8 @@ export function passes(f: Facet, b: Draft): boolean {
   if (b.languages?.length && f.l.length && !b.languages.some((x) => f.l.includes(x))) return false;
   if (b.customer_gender === "men" && f.a === "women") return false;
   if (b.customer_gender === "women" && f.a === "men") return false;
+  if (b.followers_min != null && b.followers_min > FOLLOWERS_MIN && f.f < b.followers_min) return false;
+  if (b.followers_max != null && b.followers_max < FOLLOWERS_MAX && f.f > b.followers_max) return false;
   return true;
 }
 
