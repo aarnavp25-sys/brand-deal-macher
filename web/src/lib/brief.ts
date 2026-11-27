@@ -105,7 +105,7 @@ export const STEPS: Step[] = [
   {
     id: "about",
     kind: "text",
-    question: "Tell me about your brand. What do you make, and what's the spirit behind it?",
+    question: "What's your brand? What do you make? What's the vibe behind it? Spill it all.",
     placeholder: "e.g. We pour small-batch soy candles with desi scents like mogra and chai. Slow, cosy, a little nostalgic.",
     max: 1500,
   },
