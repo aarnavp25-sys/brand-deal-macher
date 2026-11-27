@@ -36,7 +36,7 @@ function choices(b: Draft): string[] {
 
 export default async function ResultsPage({ params }: PageProps<"/results/[id]">) {
   const { id } = await params;
-  const brand = await requireBrand();
+  const brand = await requireBrand(`/results/${id}`);
   const search = await getSearch(brand.id, id);
   if (!search) notFound();
   if (search.status !== "done" || !search.results) redirect(`/find/${id}`);

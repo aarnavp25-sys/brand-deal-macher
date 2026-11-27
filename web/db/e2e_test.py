@@ -3,7 +3,8 @@
   python3 web/db/e2e_test.py [base_url]        default http://localhost:3000
 
 What it does (no LLM, no OpenRouter):
-  1. Four test brands (separate accounts) sign in through /auth/confirm, answer every chat question through the
+  1. Test brands (separate accounts) sign in through /auth/confirm (Google sign-in itself cannot be scripted; the
+     magic link creates the same kind of signed-in session), answer every chat question through the
      real API, and load their creators. Each result is checked against an independent database query: same count,
      every creator in the chosen category, no shops / personal accounts.
   2. Security checks: signed-out access, CSRF, one brand opening another brand's search, bad input, open redirects,
@@ -161,14 +162,33 @@ def answers_for(b):
             ("creator", {"creator_gender": b["creator_gender"], "languages": star(b["languages"])})]
 
 
+NAMES = {1: "Asha", 2: "Bilal", 3: "Chitra", 4: "Dev", 5: "Esha", 6: "Farhan"}
+
+
+def start_chat(c, name):
+    """Starts a chat; answers the name question when Kindred asks it (only in a brand's first chat)."""
+    s, j = c.json("POST", "/api/searches")
+    if s != 200 or "id" not in j:
+        return s, j, None
+    sid = j["id"]
+    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{sid}", SECRET)
+    if rows and rows[0]["messages"][-1].get("step") == "name":
+        c.json("POST", f"/api/searches/{sid}/answer", {"step": "name", "value": name})
+    return s, j, sid
+
+
+def admin_user(email):
+    _, j = rest("/auth/v1/admin/users?per_page=1000", SECRET)
+    return next((u for u in j.get("users", []) if u.get("email") == email), None)
+
+
 def run_brand(n, name, answers):
     print(f"\n== Brand {n}: {name} ({', '.join(answers['categories']) or 'All categories'})")
     c = Client()
     s, loc = c.login(n)
     check("sign-in link logs in and goes to /dashboard", s in (302, 303, 307) and loc.endswith("/dashboard"), f"{s} {loc}")
-    s, j = c.json("POST", "/api/searches")
-    check("start a search", s == 200 and "id" in j, f"{s} {j}")
-    sid = j["id"]
+    s, j, sid = start_chat(c, NAMES.get(n, "Tester"))
+    check("start a search", s == 200 and sid, f"{s} {j}")
     for step, value in answers_for(answers):
         s, j = c.json("POST", f"/api/searches/{sid}/answer", {"step": step, "value": value})
         if s != 200:
@@ -197,7 +217,7 @@ def run_brand(n, name, answers):
         check("every creator has the chosen gender", all(x["creator_gender"] == answers["creator_gender"] for x in top))
     check("no shop / brand / personal accounts", not (set(got) & not_creators))
     stored = {k: v for k, v in rows[0]["brief"].items() if k not in ("product_info", "name")}
-    check("the brand's name is filled in from its account (not asked again)", rows[0]["brief"].get("name") == f"Test Brand {n}",
+    check("the brand's typed name is stored with the chat", rows[0]["brief"].get("name") == NAMES.get(n, "Tester"),
           str(rows[0]["brief"].get("name")))
     check("brief stored exactly as answered", stored == answers, f"{stored}")
     photos = html.count("creator-photos/")
@@ -212,8 +232,7 @@ def typed_brand():
     print("\n== Brand 6: Chai Chuski (types every answer)")
     c = Client()
     c.login(6)
-    _, j = c.json("POST", "/api/searches")
-    sid = j["id"]
+    _, _, sid = start_chat(c, NAMES[6])
     steps = [("about", "Chai Chuski makes masala chai premixes in Pune, mostly sold to college students and young office folks."),
              ("product", "Masala chai premix"),
              ("categories", {"text": "food and lifestyle creators"}),
@@ -239,8 +258,7 @@ def typed_brand():
     for m in rows[0]["messages"]:
         print(f"          {'Kindred' if m['role'] == 'assistant' else 'Brand  '}: {m['text'][:110]}")
 
-    _, j = c.json("POST", "/api/searches")
-    sid = j["id"]
+    _, _, sid = start_chat(c, NAMES[6])
     c.json("POST", f"/api/searches/{sid}/answer", {"step": "about", "value": "A brand that makes things for people."})
     c.json("POST", f"/api/searches/{sid}/answer", {"step": "product", "value": "A thing"})
     s, j = c.json("POST", f"/api/searches/{sid}/answer", {"step": "categories", "value": {"text": "qwerty zxcv"}})
@@ -253,49 +271,55 @@ def security(clients):
     (c2, sid2, uid2), (c3, sid3, _uid3) = clients[0], clients[1]
     anon = Client()
 
-    # No sign-in screen for now: a visitor without cookies gets a private anonymous session on the chat pages.
-    s, h, _ = anon.req("GET", "/login", origin=None)
-    loc = h.get("Location", "")
-    check("/login is switched off (redirects home)", s in (302, 307, 308) and loc.rstrip("/") in (BASE, ""), f"{s} {loc}")
-    for path in ["/find", "/dashboard", f"/results/{sid2}"]:
-        anon.req("GET", path, origin=None)
-    check("opening pages creates no account (only starting a chat does)", not any("auth-token" in ck.name for ck in anon.jar))
-    s, _, html = anon.req("GET", "/dashboard", origin=None)
-    check("a new visitor sees an empty My searches page", s == 200 and "No searches yet" in html, str(s))
-    s, _, _ = anon.req("GET", f"/results/{sid2}", origin=None)
-    check("a visitor without a session cannot open a brand's results (404)", s == 404, str(s))
+    # Google sign-in is required for everything except the home page (user, 2026-11-27).
+    s, _, html = anon.req("GET", "/", origin=None)
+    check("the home page is public (200)", s == 200, str(s))
+    for path in ["/find", "/dashboard", f"/results/{sid2}", f"/find/{sid2}"]:
+        s, h, _ = anon.req("GET", path, origin=None)
+        loc = h.get("Location", "")
+        check(f"signed out: {path.split('/')[1]} page sends to Google sign-in", s in (302, 307) and "/login?next=" in loc, f"{s} {loc}")
+    s, _, html = anon.req("GET", "/login", origin=None)
+    check("/login shows the Google button", s == 200 and "Continue with Google" in html, str(s))
     s, j = anon.json("POST", "/api/searches")
-    check("starting a chat creates a private anonymous session", s == 200 and "id" in j and any("auth-token" in ck.name for ck in anon.jar), f"{s} {j}")
-    aid = j.get("id")
-    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{aid}", SECRET)
-    check("a new visitor is asked their name first", rows[0]["messages"][-1].get("step") == "name", str(rows[0]["messages"][-1]))
-    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "name", "value": "Priya 123"})
+    check("signed out: starting a chat is refused (401), no session is created",
+          s == 401 and not any("auth-token" in ck.name for ck in anon.jar), f"{s} {j}")
+    s, _ = anon.json("POST", f"/api/searches/{sid2}/answer", {"step": "about", "value": "Hello there brand"})
+    check("signed out: answering is refused (401)", s == 401, str(s))
+    s, h, _ = c3.req("GET", "/login", origin=None)
+    check("signed in: /login goes straight to /find", s in (302, 307) and h.get("Location", "").endswith("/find"), f"{s} {h.get('Location')}")
+
+    # The name: asked once in the first chat (even though the account has a name), then remembered.
+    nb = Client()
+    nb.login(7)
+    u = admin_user("brand7@kindred-test.example.com")
+    rest(f"/auth/v1/admin/users/{u['id']}", SECRET, method="PUT", body={"user_metadata": {"kindred_name": None}})
+    for old in rest(f"/rest/v1/brand_searches?select=id&user_id=eq.{u['id']}", SECRET)[1]:
+        nb.json("DELETE", f"/api/searches/{old['id']}")
+    s, j = nb.json("POST", "/api/searches")
+    nid = j.get("id")
+    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{nid}", SECRET)
+    check("first chat asks the name even though the account has one", rows[0]["messages"][-1].get("step") == "name", str(rows[0]["messages"][-1]))
+    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "name", "value": "Priya 123"})
     check("a name with numbers is refused (400)", s == 400, f"{s} {j}")
-    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "about", "value": "Skipping the name question."})
+    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "about", "value": "Skipping the name question."})
     check("the name question cannot be skipped (409)", s == 409, f"{s} {j}")
-    s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": "name", "value": "Priya Sharma"})
+    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "name", "value": "Priya Sharma"})
     check("the name is accepted and Kindred uses it", s == 200 and any("Priya!" in m["text"] for m in j.get("messages", [])), f"{s}")
-    for step, value in answers_for(BRANDS[0][2]):
-        s, j = anon.json("POST", f"/api/searches/{aid}/answer", {"step": step, "value": value})
-    check("an anonymous visitor gets creators after 5 answers", j.get("status") == "done", str(j.get("status")))
-    s, _, html = anon.req("GET", "/dashboard", origin=None)
-    check("the anonymous visitor sees that search in My searches", s == 200 and aid in html, str(s))
-    check("My searches greets the visitor by name", "Hi Priya!" in html)
-    s, j = anon.json("POST", "/api/searches")
+    u = admin_user("brand7@kindred-test.example.com")
+    meta = u.get("user_metadata") or {}
+    check("the typed name is kept apart from the account name",
+          meta.get("kindred_name") == "Priya Sharma" and meta.get("full_name") == "Test Brand 7", str(meta))
+    s, _, html = nb.req("GET", "/dashboard", origin=None)
+    check("My searches greets the brand by the typed name", s == 200 and "Hi Priya!" in html, str(s))
+    s, j = nb.json("POST", "/api/searches")
     _, rows = rest(f"/rest/v1/brand_searches?select=messages,brief&id=eq.{j.get('id')}", SECRET)
     check("the next chat remembers the name (no name question)",
           rows[0]["brief"].get("name") == "Priya Sharma" and rows[0]["messages"][-1].get("step") == "about"
           and "Priya" in rows[0]["messages"][0]["text"], str(rows[0]["messages"][:1]))
-    anon.json("DELETE", f"/api/searches/{j.get('id')}")
-    other = Client()
-    other.json("POST", "/api/searches")
-    s, _, _ = other.req("GET", f"/results/{aid}", origin=None)
-    check("another anonymous visitor cannot open those results (404)", s == 404, str(s))
-    s, _, _ = c3.req("GET", f"/results/{aid}", origin=None)
-    check("a signed-in brand cannot open an anonymous visitor's results (404)", s == 404, str(s))
-    nocookie = Client()
-    s, _ = nocookie.json("POST", f"/api/searches/{aid}/answer", {"step": "about", "value": "Hello there brand"})
-    check("answering without any session returns 401", s == 401, str(s))
+    for x in (nid, j.get("id")):
+        nb.json("DELETE", f"/api/searches/{x}")
+    s, _, _ = nb.req("GET", f"/results/{sid2}", origin=None)
+    check("another brand cannot open brand 2's results (404)", s == 404, str(s))
 
     s, _ = c2.json("POST", "/api/searches", origin=None)
     check("CSRF: POST without Origin is blocked (403)", s == 403, str(s))

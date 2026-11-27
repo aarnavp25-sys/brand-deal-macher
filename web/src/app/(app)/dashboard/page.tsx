@@ -23,7 +23,8 @@ export default async function Dashboard() {
     <div>
       <h1 className="display text-3xl font-extrabold md:text-4xl">Your searches</h1>
       <p className="mt-2 text-muted">
-        {brand?.name ? `Hi ${brand.name.split(/\s+/)[0]}! ` : ""}Saved in this browser. Nobody else can see them.
+        {brand && (brand.chatName || brand.name) ? `Hi ${(brand.chatName || brand.name).split(/\s+/)[0]}! ` : ""}
+        Saved to your Google account. Nobody else can see them.
       </p>
 
       {searches.length === 0 ? (

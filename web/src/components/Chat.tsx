@@ -66,7 +66,7 @@ export function Chat({ initial, facets }: Props) {
         body: JSON.stringify({ step: step.id, value }),
       });
       const j = await r.json().catch(() => ({}));
-      if (r.status === 401) return window.location.reload();
+      if (r.status === 401) return router.replace(`/login?next=/find/${view.id}`);
       if (!r.ok) throw new Error(j.error ?? "Hmm, that didn't go through. Try again?");
       const before = view.messages.length;
       setView(j as ChatView);

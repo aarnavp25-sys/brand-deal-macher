@@ -71,8 +71,14 @@ def run(n):
     name, b = BRANDS[n]
     print(f"\n{'=' * 100}\n{name}: {b['product']}  (buyers {b['customer_gender']}, creator {b['creator_gender']}, languages {b['languages']})")
     c = Client()
+    # Google sign-in is required: sign in as test brand 90+n with a one-time link (needs the secret key)
+    import subprocess
+    link = subprocess.check_output([sys.executable, str(HERE / "test_login.py"), str(90 + n), BASE, "/find"], text=True).strip()
+    c.op.open(urllib.request.Request(link), timeout=60)
     sid = c.post("/api/searches", {})["id"]
-    c.post(f"/api/searches/{sid}/answer", {"step": "name", "value": "Kindred Check"})
+    first = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{sid}")[0]["messages"][-1]
+    if first.get("step") == "name":
+        c.post(f"/api/searches/{sid}/answer", {"step": "name", "value": "Kindred Check"})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "about", "value": b["about"]})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "product", "value": b["product"]})
     picks = next((m.get("suggests") for m in reversed(j["messages"]) if m.get("step") == "categories"), None) or ["*"]

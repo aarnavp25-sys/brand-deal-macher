@@ -26,8 +26,8 @@ export default async function Home() {
     <div className="min-h-[100dvh]">
       <header className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
         <Logo />
-        <Link href="/find" prefetch={false} className="btn btn-ghost h-10 px-5 text-sm">
-          Find creators
+        <Link href="/login" prefetch={false} className="btn btn-ghost h-10 px-5 text-sm">
+          Sign in
         </Link>
       </header>
 

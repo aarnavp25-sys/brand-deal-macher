@@ -6,20 +6,23 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 ## What a brand does
 
 1. Landing page (`/`) → "Find creators".
-2. **No sign-in for now** (user, 2026-11-26: "Google se sign in baad mein rakhenge. Abhi demo ke liye sign in mat
-   rakh"). When a visitor starts a chat, the server creates a private **anonymous Supabase session** (cookie). Their
-   searches belong to that session with the same RLS and ownership checks as a signed-in user, so one visitor never
-   sees another's; "My searches" works per browser. Page views, link prefetches and bots create no account (Next.js 16
-   strips its prefetch headers before `proxy.ts`, so the session is made in `POST /api/searches`, not in the proxy).
-   Supabase: anonymous sign-ins on, limit 100 new anonymous users per hour per IP (a class on one Wi-Fi shares an IP);
-   email sign-up off; Google provider off. Google sign-in comes later: Supabase can link a Google identity to the
-   same anonymous user, so a visitor's searches carry over. `/login` redirects home.
+2. **Google sign-in is required for everything except the home page** (user, 2026-11-27: "google auth dalna hai google
+   se sign in ke baad hi kuch bhii search kar sakta hai"; home page stays public). `proxy.ts` sends a signed-out
+   visitor on `/find`, `/dashboard` or `/results` to `/login?next=<path>`; `/login` has one "Continue with Google"
+   button (`components/GoogleButton.tsx`, Supabase `signInWithOAuth`, PKCE); Google returns through Supabase to
+   `/auth/callback`, which sets the session cookies and goes on to `next` (same-site paths only, `safeNext`). A
+   signed-in brand on `/login` goes to `/find`. Every API route answers 401 without a Google session; pages check the
+   user again on the server (`requireBrand`). The header has the brand's Google photo, name, email and Sign out.
+   **History:** anonymous Supabase sessions were used from 2026-11-26 (demo without sign-in) until 2026-11-27; those
+   users and their searches stay in the database, but an anonymous session now counts as signed out (`currentBrand`
+   returns null for `is_anonymous`), so they cannot be reached from a browser. Supabase anonymous sign-ins are switched
+   off once this code is live. Test brands sign in with a one-time link (`web/db/test_login.py`, secret key needed).
 3. Chat (`/find/<id>`). **First the visitor's name** (user, 2026-11-26: "find creators click karne ke baad user ka naam
    puchna hai"): asked once, in the first chat ("First things first, what should I call you?"; letters, spaces and
-   . ' - only, max 40). It is saved on the visitor's Supabase user (`user_metadata.name`), so every later chat in that
-   browser starts "Hey <name>, good to see you again." and skips the question; a name from an account (Google later)
-   is used as it is. It is stored in the search's brief, shown on My searches ("Hi <name>!") and in the last line,
-   and never sent to the AI. Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
+   . ' - only, max 40). **It is asked even though Google already gives a name** (user, 2026-11-27: "Naam phir bhi
+   poochho"). It is saved as `user_metadata.kindred_name`, kept apart from `name` / `full_name`, which Google rewrites
+   on every sign-in; every later chat starts "Hey <name>, good to see you again." and skips the question. It is
+   stored in the search's brief, shown on My searches ("Hi <name>!") and in the last line, and never sent to the AI. Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
    1. "Okay, spill. What's your brand and what do you make?" (typed)
    2. "Love that. Which product should creators hype first?" (typed)
    3. "Which creators are you vibing with?" categories, several at once or "All of them"; the category guessed
@@ -87,7 +90,7 @@ Live: Vercel project `kindred` (team dragon-44d8), https://kindred-eta-black.ver
 - Render was needed only for the old static `demo/` page, which could not hide a key; Next.js server code hides keys
   itself. Render's free plan also sleeps after 15 minutes (about a minute for the first request), and a split
   frontend/backend would need cross-domain login cookies and CORS.
-- Supabase project "database" holds the creator data, the website tables and the sessions (Supabase Auth, anonymous for now).
+- Supabase project "database" holds the creator data, the website tables and the sessions (Supabase Auth, Google sign-in).
 
 ## Request flow
 
@@ -95,9 +98,10 @@ Live: Vercel project `kindred` (team dragon-44d8), https://kindred-eta-black.ver
 Browser ── every request ──► proxy.ts (Vercel)
                               ├─ POST/PUT/DELETE without our own Origin header → 403 (CSRF)
                               ├─ refreshes the Supabase session cookies
-                              └─ /login → / (no sign-in screen for now)
-Chat:     POST /api/searches                    no session yet → anonymous session created (cookie);
-                                                then a brand_searches row (max 25 per visitor per day)
+                              └─ signed out on /find, /dashboard, /results → /login?next=…; signed in on /login → /find
+Sign-in:  /login → Google → Supabase → /auth/callback?code=… → session cookies → next page
+Chat:     POST /api/searches                    no Google session → 401; else a brand_searches row
+                                                (max 25 per brand per day)
           POST /api/searches/:id/answer          {step, value} → validated → next question; after question 5 the
                                                  creators that pass the filter are saved in results
 Pages:    /results/:id reads the saved results + signs photo links (1 hour) from the private bucket

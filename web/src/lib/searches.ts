@@ -105,7 +105,6 @@ export async function createSearch(userId: string, name = ""): Promise<string> {
     throw new UserError("You've started a lot of searches today. Come back tomorrow?", 429);
   }
   // The name is asked once (first chat) and kept on the session; later chats start with it filled in.
-  // (A name from the account, e.g. Google later, is taken as it is; only a typed name goes through the name rule.)
   const known = name.trim().slice(0, 40);
   const draft: StoredBrief = known ? { name: known } : {};
   const messages: Msg[] = toMsgs(lines(null, draft, {}));
@@ -142,7 +141,8 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
   const draft: StoredBrief = { ...(s.brief ?? {}), ...parsed.patch };
   // Remember the name on the visitor's session, so their next chat does not ask again.
   if (step.id === "name") {
-    const { error: nErr } = await admin().auth.admin.updateUserById(userId, { user_metadata: { name: draft.name } });
+    // kindred_name, not name: Google writes its own `name` into the same metadata on every sign-in.
+    const { error: nErr } = await admin().auth.admin.updateUserById(userId, { user_metadata: { kindred_name: draft.name } });
     if (nErr) console.error(`could not save name: ${nErr.message}`);
   }
   // After the product answer the AI reads what the product is (lib/product.ts); keywords if AI is off or fails.
