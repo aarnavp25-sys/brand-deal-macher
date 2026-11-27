@@ -125,7 +125,7 @@ export const STEPS: Step[] = [
   {
     id: "more",
     kind: "text",
-    question: "Please help me understand a bit more. What did I miss?",
+    question: "Could you explain it again?",
     placeholder: "e.g. It's not a store, it's a website that builds your resume in 2 minutes.",
     max: 1000,
   },
@@ -182,8 +182,9 @@ export const STEP_BY_ID = Object.fromEntries(STEPS.map((s) => [s.id, s])) as Rec
  */
 export type BrandView = { name: string; summary: string; kind: "single" | "range"; source: "ai" | "keywords" };
 
-/** How many times the brand may say "No, not quite" and explain more before Kindred goes on with its last summary. */
-export const MAX_EXPLAINS = 2;
+/** The brand can say "No, not quite" and explain again ONCE; Kindred then shows its new understanding and goes on
+ *  without asking again (user, 2026-11-27: "pehli baar yahan pe hi samajh jaani hai"). */
+export const MAX_EXPLAINS = 1;
 
 /** The answers so far plus where the chat is in the brand-understanding loop. */
 export type Draft = Partial<Brief> & {

@@ -116,7 +116,7 @@ export function lines(answered: StepId | null, d: D, ctx: { typed?: string; labe
         break;
       }
       out.push({
-        text: answered === "about" ? "Here's what I understood:" : d.confirmed ? "Thanks, that helps. Going with this:" : "Thanks! Here's what I understand now:",
+        text: answered === "about" ? "This is what we have understood:" : "Got it. This is what we have understood now:",
       });
       out.push({ text: d.brand.summary });
       if (!d.confirmed) out.push({ text: "Is this what you mean?", step: "confirm" });
@@ -125,8 +125,7 @@ export function lines(answered: StepId | null, d: D, ctx: { typed?: string; labe
     }
     case "confirm":
       if (d.more) {
-        out.push({ text: "No worries!" });
-        out.push({ text: "Please help me understand a bit more. What did I miss?", step: "more" });
+        out.push({ text: "Could you explain it again?", step: "more" });
       } else {
         out.push({ text: "Love it." });
         afterUnderstood(d, out);

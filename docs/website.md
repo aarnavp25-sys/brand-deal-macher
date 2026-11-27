@@ -77,10 +77,10 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 
 **Brand understanding (user, 2026-11-27; `lib/product.ts` `understandBrand`, one Haiku call):** after the first
 answer the AI writes a 1–2 sentence summary of the brand and decides `kind`: "single" (one website, app, service or
-product, e.g. a resume-builder site) or "range" (several products). Kindred shows "Here's what I understood: …" and
-asks "Is this what you mean?" (Yes / No). "No, not quite" → "Please help me understand a bit more" → the extra text is
-appended to the description and understood again, at most `MAX_EXPLAINS` = 2 times, then Kindred goes on with the
-latest summary. Range brands are asked "Are you planning to promote a particular product, or your brand in general?"
+product, e.g. a resume-builder site) or "range" (several products). Kindred shows "This is what we have understood: …" and
+asks "Is this what you mean?" (Yes / No). "No, not quite" → "Could you explain it again?" → the extra text is appended
+to the description and understood again ONCE (`MAX_EXPLAINS` = 1): Kindred shows "Got it. This is what we have
+understood now: …" and goes straight on, without asking again (user, 2026-11-27). Range brands are asked "Are you planning to promote a particular product, or your brand in general?"
 (product → the product question; brand → no product question); single brands get no product question. Without AI
 (off, budget used up) the old flow runs: product question right after the brand. The first question no longer asks
 for the vibe ("What's your brand? What do you make? Spill it all.").
