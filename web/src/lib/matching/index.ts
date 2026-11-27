@@ -3,6 +3,7 @@ import { admin } from "@/lib/supabase/admin";
 import { type Brief, type Category, LANGUAGES } from "@/lib/brief";
 import { type Facet, passes } from "@/lib/filters";
 import type { ProductInfo } from "@/lib/product";
+import { type Contact, contactFrom } from "@/lib/contact";
 
 /*
   Creator data for matching (view creator_overview + per-reel notes in reel_ai, both made by the video AI from each
@@ -28,11 +29,19 @@ export type Creator = {
   audience_gender: string | null;
   audience_age: string | null;
   median_views: number | null;
+  /** mean views of the latest 12 reels (the card's "Avg views"); one viral reel can lift it */
+  mean_views?: number | null;
+  /** typical (median) views ÷ followers */
+  reach_ratio?: number | null;
+  /** mean comments per reel, latest 12 reels */
+  avg_comments?: number | null;
   engagement_rate: number | null;
   engagement_estimated: boolean;
   reels_per_week: number | null;
   brand_collabs: string | null;
   collab_brands: string[];
+  /** email / phone / WhatsApp the creator put in their own bio */
+  contact?: Contact;
 };
 
 export type Evidence = { product_reels: string[]; related_reels: string[]; sponsored_reels: number; category_share: number };
@@ -147,11 +156,23 @@ async function loadReelNotes(): Promise<Map<string, ReelNote[]>> {
 let cache: { entries: Entry[]; at: number } | null = null;
 const CACHE_MS = 5 * 60 * 1000;
 
+/** Card numbers and bio contact per creator (view creator_card_stats, migration 003). */
+async function loadCardStats(): Promise<Map<string, { mean_views: number | null; avg_comments: number | null; contact: Contact }>> {
+  const { data, error } = await admin().from("creator_card_stats").select("username,mean_views,avg_comments,bio,bio_links").limit(5000);
+  if (error) throw new Error(`card stats: ${error.message}`);
+  const out = new Map<string, { mean_views: number | null; avg_comments: number | null; contact: Contact }>();
+  for (const r of (data ?? []) as { username: string; mean_views: number | null; avg_comments: number | null; bio: string | null; bio_links: { url?: string }[] | null }[]) {
+    out.set(r.username, { mean_views: r.mean_views, avg_comments: r.avg_comments, contact: contactFrom(r.bio, r.bio_links) });
+  }
+  return out;
+}
+
 export async function pool(): Promise<Entry[]> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.entries;
-  const [{ data, error }, notes] = await Promise.all([
+  const [{ data, error }, notes, stats] = await Promise.all([
     admin().from("creator_overview").select(SELECT).eq("ai_status", "done").eq("activity", "active").order("followers", { ascending: false }).limit(5000),
     loadReelNotes(),
+    loadCardStats(),
   ]);
   if (error) throw new Error(`creator data: ${error.message}`);
   const rows = (data as unknown as Row[]).filter(isCreator);
@@ -174,6 +195,10 @@ export async function pool(): Promise<Entry[]> {
         audience_gender: r.audience_gender_est,
         audience_age: r.audience_age_est,
         median_views: r.median_views,
+        mean_views: stats.get(r.username)?.mean_views ?? null,
+        reach_ratio: r.reach_ratio,
+        avg_comments: stats.get(r.username)?.avg_comments ?? null,
+        contact: stats.get(r.username)?.contact ?? {},
         engagement_rate: r.engagement_rate,
         engagement_estimated: Boolean(r.engagement_estimated),
         reels_per_week: r.reels_per_week,

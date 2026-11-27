@@ -1,7 +1,7 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
+import { CreatorStats } from "@/components/CreatorStats";
 import type { ResultsV5 } from "@/lib/rank";
-import { compact, percent } from "@/lib/format";
 
 const CREATOR: Record<string, string> = { female: "Female creator", male: "Male creator", couple: "Couple" };
 
@@ -64,26 +64,10 @@ export function RankedResults({ results, photos }: { results: ResultsV5; photos:
               </ul>
             )}
 
-            <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
-              <Metric label="Followers" value={compact(c.followers)} />
-              <Metric label="Typical views" value={compact(c.median_views)} />
-              <Metric label={c.engagement_estimated ? "Engagement (est.)" : "Engagement"} value={percent(c.engagement_rate)} />
-            </dl>
-            <p className="mt-3 text-sm">
-              <span className="text-muted">Speaks</span> {c.languages.length ? c.languages.join(", ") : "no talking, music only"}
-            </p>
+            <CreatorStats c={c} />
           </li>
         ))}
       </ol>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="display mt-1 text-xl font-bold tabular-nums">{value}</dd>
     </div>
   );
 }

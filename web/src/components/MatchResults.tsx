@@ -1,10 +1,9 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
+import { CreatorStats } from "@/components/CreatorStats";
 import type { GroupId, Match, ResultsV4 } from "@/lib/review";
-import { compact, percent } from "@/lib/format";
 
 const CREATOR: Record<string, string> = { female: "Female creator", male: "Male creator", couple: "Couple" };
-const AUDIENCE: Record<string, string> = { women: "mostly women", men: "mostly men", unisex: "men and women" };
 
 function groupTitle(id: GroupId, r: ResultsV4): { title: string; sub: string } {
   if (id === "specialists") return { title: "Already showing products like yours", sub: `Your kind of product is on camera in two or more of their last 12 reels.` };
@@ -90,35 +89,7 @@ function MatchCard({ m, photo, i }: { m: Match; photo?: string; i: number }) {
         </p>
       )}
 
-      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
-        <Metric label="Followers" value={compact(m.followers)} />
-        <Metric label="Typical views" value={compact(m.median_views)} />
-        <Metric label={m.engagement_estimated ? "Engagement (est.)" : "Engagement"} value={percent(m.engagement_rate)} />
-      </dl>
-      <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-        <span>
-          <span className="text-muted">Speaks</span> {m.languages.length ? m.languages.join(", ") : "no talking, music only"}
-        </span>
-        {m.audience_gender && (
-          <span>
-            <span className="text-muted">Audience (est.)</span> {AUDIENCE[m.audience_gender] ?? m.audience_gender}
-          </span>
-        )}
-        {m.brand_collabs === "yes" && (
-          <span className="font-semibold text-ok">
-            Brand collabs{m.collab_brands.length ? `: ${m.collab_brands.slice(0, 2).join(", ")}` : ""}
-          </span>
-        )}
-      </p>
+      <CreatorStats c={m} />
     </li>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="display mt-1 text-xl font-bold tabular-nums">{value}</dd>
-    </div>
   );
 }

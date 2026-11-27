@@ -97,6 +97,15 @@ live creator count; it can also be typed ("20k to 50k", "under 30k", "50k+"). Th
 so creators who dropped just under 10K still show when the lower handle stays at 10K. Stored as `followers_min` /
 `followers_max`; the same `passes()` rule filters the results.
 
+**Creator cards (user, 2026-11-27; `components/CreatorStats.tsx`, the same block on every results layout):**
+Followers · Avg views (mean of the last 12 reels) · Reach (typical views ÷ followers) · Engagement ("est." when many
+reels hide likes) · Avg comments (mean per reel, last 12) · Speaks · Audience (est.) · Brand collabs (all named
+brands, 8 shown then "+N more") · **Contact (from their bio)**: an email, an Indian mobile number and/or a WhatsApp
+bio link, read only from the creator's own bio and bio links (`lib/contact.ts`; on 2026-11-27: 116 of 848 bios had an
+email, 91 a phone, 42 a WhatsApp link). Numbers and bio come from the server-only view `creator_card_stats`
+(migration 003). A saved search keeps the cards it was made with, so searches from before this change show "-" for
+the new numbers. Contact is visible to every signed-in brand for now; the planned paywall would put it behind unlock.
+
 **Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
 "Either works"; speaks at least one chosen language, where creators with no speech in their reels (music only)
 pass every language; "Mostly men" hides creators whose audience is mostly women and back, "Everyone" hides nobody.

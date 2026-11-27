@@ -202,6 +202,8 @@ def run_brand(n, name, answers):
     check("categories question pre-ticks nothing", not cat_q.get("suggest") and not cat_q.get("suggests"), str(cat_q))
     s, _, html = c.req("GET", f"/results/{sid}", origin=None)
     check("results page renders (200)", s == 200 and "Kindred Score" in html, str(s))
+    check("cards show followers, avg views, reach, engagement, avg comments",
+          all(w in html for w in ("Followers", "Avg views", "Reach", "Engagement", "Avg comments", "Brand collabs")), str(s))
 
     _, rows = rest(f"/rest/v1/brand_searches?select=results,brief,user_id&id=eq.{sid}", SECRET)
     res = rows[0]["results"]
@@ -226,6 +228,8 @@ def run_brand(n, name, answers):
           str(rows[0]["brief"].get("name")))
     check("brief stored exactly as answered", stored == answers, f"{stored}")
     photos = html.count("creator-photos/")
+    if n == 2:
+        check("bio contact (email / phone / WhatsApp) shows on some cards", "Contact (from their bio)" in html and ("mailto:" in html or "tel:+91" in html or "wa.me" in html))
     print(f"        {res.get('considered')} pass the choices, top {len(got)} shown, {photos} signed photo links; top 5:")
     for x in top[:5]:
         print(f"          {x['score']:3}  @{x['username']:<28} {x['followers']:>6}  {x['creator_gender'] or '-':<7} {x['category'] or '-':<24} {' | '.join(x['reasons'][:2])}")
