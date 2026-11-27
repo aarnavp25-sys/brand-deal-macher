@@ -88,11 +88,12 @@ export const TypedName = z
 ------------------------------------------------------------------------------------------------------------ */
 
 export type Option = { value: string; label: string };
-export type StepId = "about" | "product" | "categories" | "customer_gender" | "creator";
+export type StepId = "about" | "confirm" | "more" | "focus" | "product" | "categories" | "customer_gender" | "creator";
 export type Step = {
   id: StepId;
-  /** text = type an answer; single = tap one; multi = tap several; creator = gender + languages on one screen */
-  kind: "text" | "single" | "multi" | "creator";
+  /** text = type an answer; single = tap one (with creator counts); choice = tap one (no counts, no typing);
+   *  multi = tap several; creator = gender + languages on one screen */
+  kind: "text" | "single" | "choice" | "multi" | "creator";
   question: string;
   placeholder?: string;
   max?: number;
@@ -105,9 +106,34 @@ export const STEPS: Step[] = [
   {
     id: "about",
     kind: "text",
-    question: "What's your brand? What do you make? What's the vibe behind it? Spill it all.",
-    placeholder: "e.g. We pour small-batch soy candles with desi scents like mogra and chai. Slow, cosy, a little nostalgic.",
+    question: "What's your brand? What do you make? Spill it all.",
+    placeholder: "e.g. We pour small-batch soy candles with desi scents like mogra and chai, and sell them on Insta.",
     max: 1500,
+  },
+  {
+    id: "confirm",
+    kind: "choice",
+    question: "Is this what you mean?",
+    options: [
+      { value: "yes", label: "Yes, that's it" },
+      { value: "no", label: "No, not quite" },
+    ],
+  },
+  {
+    id: "more",
+    kind: "text",
+    question: "Please help me understand a bit more. What did I miss?",
+    placeholder: "e.g. It's not a store, it's a website that builds your resume in 2 minutes.",
+    max: 1000,
+  },
+  {
+    id: "focus",
+    kind: "choice",
+    question: "Are you planning to promote a particular product, or your brand in general?",
+    options: [
+      { value: "product", label: "A particular product" },
+      { value: "brand", label: "My brand in general" },
+    ],
   },
   {
     id: "product",
@@ -140,19 +166,40 @@ export const STEPS: Step[] = [
 
 export const STEP_BY_ID = Object.fromEntries(STEPS.map((s) => [s.id, s])) as Record<StepId, Step>;
 
-export type Draft = Partial<Brief>;
+/**
+ * What the AI understood about the brand after the first answer (user, 2026-11-27). kind: "single" = the brand is one
+ * thing (a website, an app, one service, one product), so no product question; "range" = it sells several products,
+ * so Kindred asks whether to promote one product or the whole brand. source "keywords" = AI off or failed: the old
+ * flow (product question right away), no summary.
+ */
+export type BrandView = { name: string; summary: string; kind: "single" | "range"; source: "ai" | "keywords" };
 
-function answered(d: Draft, id: StepId): boolean {
-  if (id === "creator") return d.creator_gender !== undefined && d.languages !== undefined;
-  return d[id] !== undefined;
-}
+/** How many times the brand may say "No, not quite" and explain more before Kindred goes on with its last summary. */
+export const MAX_EXPLAINS = 2;
 
+/** The answers so far plus where the chat is in the brand-understanding loop. */
+export type Draft = Partial<Brief> & {
+  brand?: BrandView;
+  /** the brand said "Yes, that's it" (or explained MAX_EXPLAINS times) */
+  confirmed?: boolean;
+  /** the brand said "No, not quite": the next step is "more" */
+  more?: boolean;
+  explains?: number;
+  focus?: "product" | "brand";
+};
+
+/** The next question. The order is fixed; confirm / more / focus / product appear only when they apply. */
 export function nextStep(d: Draft): Step | null {
-  return STEPS.find((s) => !answered(d, s.id)) ?? null;
-}
-
-export function answeredCount(d: Draft): number {
-  return STEPS.filter((s) => answered(d, s.id)).length;
+  if (d.about === undefined) return STEP_BY_ID.about;
+  const ai = d.brand?.source === "ai";
+  if (ai && !d.confirmed) return d.more ? STEP_BY_ID.more : STEP_BY_ID.confirm;
+  if (ai && d.brand!.kind === "range" && !d.focus) return STEP_BY_ID.focus;
+  const wantsProduct = !ai || d.focus === "product";
+  if (wantsProduct && d.product === undefined) return STEP_BY_ID.product;
+  if (d.categories === undefined) return STEP_BY_ID.categories;
+  if (d.customer_gender === undefined) return STEP_BY_ID.customer_gender;
+  if (d.creator_gender === undefined || d.languages === undefined) return STEP_BY_ID.creator;
+  return null;
 }
 
 const label = (opts: Option[], v: string) => opts.find((o) => o.value === v)!.label;
@@ -170,6 +217,16 @@ function parseMulti(step: Step, raw: unknown): { values: string[]; text: string 
 
 /** Validates one answer. Returns the fields to store and the text for the brand's chat bubble. */
 export function parseAnswer(step: Step, raw: unknown): { patch: Draft; label: string } {
+  if (step.id === "more") {
+    const value = z.string().trim().min(5, "Tell me a little more, a sentence is enough.").max(1000).parse(typeof raw === "string" ? raw : "");
+    return { patch: { about: value }, label: value }; // the caller appends it to the first description
+  }
+  if (step.kind === "choice") {
+    if (typeof raw !== "string" || !step.options!.some((o) => o.value === raw)) throw new Error("Tap one of the options.");
+    const patch: Draft =
+      step.id === "confirm" ? (raw === "yes" ? { confirmed: true } : { more: true }) : { focus: raw as "product" | "brand" };
+    return { patch, label: label(step.options!, raw) };
+  }
   if (step.kind === "text") {
     const field = BriefSchema.shape[step.id as "about" | "product"];
     const value = field.parse(typeof raw === "string" ? raw : "");

@@ -152,7 +152,8 @@ function Me({ text, gap }: { text: string; gap: boolean }) {
 type AnswerProps = { step: Step; draft: Draft; facets: Facet[]; suggest?: string; suggests?: string[]; onSend: Send };
 
 function Answer(props: AnswerProps) {
-  if (props.step.kind === "text") return <Composer step={props.step} onSend={(t) => props.onSend(t, t)} big={props.step.id === "about"} />;
+  if (props.step.kind === "text") return <Composer step={props.step} onSend={(t) => props.onSend(t, t)} big={props.step.id === "about" || props.step.id === "more"} />;
+  if (props.step.kind === "choice") return <ChoiceAnswer {...props} />;
   if (props.step.kind === "single") return <BuyerAnswer {...props} />;
   if (props.step.kind === "multi") return <CategoryAnswer {...props} />;
   return <CreatorAnswer {...props} />;
@@ -211,6 +212,24 @@ function Fit({ n }: { n: number }) {
         </>
       )}
     </p>
+  );
+}
+
+/** Two plain options: "Is this what you mean?" (Yes / No) and "a particular product or your brand in general?". */
+function ChoiceAnswer({ step, onSend }: AnswerProps) {
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={step.question}>
+      {step.options!.map((o, i) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onSend(o.value, o.label)}
+          className={i === 0 ? "btn btn-primary h-11 px-5 text-sm" : "btn btn-ghost h-11 px-5 text-sm"}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

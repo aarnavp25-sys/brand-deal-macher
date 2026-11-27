@@ -213,7 +213,9 @@ def run_brand(n, name, answers):
     if answers["creator_gender"] != "any":
         check("every creator has the chosen gender", all(x["creator_gender"] == answers["creator_gender"] for x in top))
     check("no shop / brand / personal accounts", not (set(got) & not_creators))
-    stored = {k: v for k, v in rows[0]["brief"].items() if k not in ("product_info", "name")}
+    stored = {k: v for k, v in rows[0]["brief"].items() if k not in ("product_info", "name", "brand", "focus")}
+    check("without AI the brand is not summarised (old flow: product question right after the brand)",
+          (rows[0]["brief"].get("brand") or {}).get("source") == "keywords", str(rows[0]["brief"].get("brand")))
     check("the brand's typed name is stored with the chat", rows[0]["brief"].get("name") == NAMES.get(n, "Tester"),
           str(rows[0]["brief"].get("name")))
     check("brief stored exactly as answered", stored == answers, f"{stored}")

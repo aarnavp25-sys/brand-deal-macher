@@ -46,7 +46,8 @@ For every creator you get their profile and notes on their latest reels (R1, R2,
 on camera, and "sponsored" when the reel looks like paid promotion). Captions and hashtags are not available.
 
 Question for each creator: can they sell THIS product in a reel that fits what they already make, so it does not
-look like a random ad?
+look like a random ad? The "product" may be a physical item, a website, an app, a course or a service; for a website
+or app, "on camera" means that kind of site or app shown or used in the reel.
 
 Answer per creator:
 - account: "creator" (makes content for an audience), "personal" (mostly their private life for friends),

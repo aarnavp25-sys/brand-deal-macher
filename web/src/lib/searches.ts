@@ -1,10 +1,10 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import { BriefSchema, type Draft, type StepId, TypedName, nextStep, parseAnswer } from "@/lib/brief";
+import { BriefSchema, type Draft, MAX_EXPLAINS, type StepId, TypedName, nextStep, parseAnswer } from "@/lib/brief";
 import { type Line, describe, lines, parseTyped } from "@/lib/conversation";
 import { countMatches } from "@/lib/filters";
 import { type ResultsV3, facets } from "@/lib/matching";
-import { type ProductInfo, understandProduct } from "@/lib/product";
+import { type ProductInfo, understandBrand, understandProduct } from "@/lib/product";
 import { type ResultsV4, reviewCreators } from "@/lib/review";
 import { LLMUnavailable, budgetReached, llmEnabled } from "@/lib/llm";
 import { type ResultsV5, rankCreators } from "@/lib/rank";
@@ -148,9 +148,24 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
     const issues = (e as { issues?: { message: string }[] }).issues;
     throw new UserError(issues?.[0]?.message ?? (e as Error).message ?? "That answer did not look right.");
   }
-  const draft: StoredBrief = { ...(s.brief ?? {}), ...parsed.patch };
-  // After the product answer the AI reads what the product is (lib/product.ts); keywords if AI is off or fails.
-  if (step.id === "product") draft.product_info = await understandProduct(draft.about ?? "", draft.product ?? "", { userId, searchId: id });
+  const prev: StoredBrief = s.brief ?? {};
+  const draft: StoredBrief = { ...prev, ...parsed.patch };
+  const ids = { userId, searchId: id };
+  if (step.id === "more") {
+    // "No, not quite" + more words: added to the first description, then understood again.
+    draft.about = `${prev.about ?? ""}\n\n${parsed.patch.about}`.slice(0, 2600);
+    draft.explains = (prev.explains ?? 0) + 1;
+    draft.more = false;
+    if (draft.explains >= MAX_EXPLAINS) draft.confirmed = true; // go on with the latest summary, never loop forever
+  }
+  // After the first answer (and after every "more"), the AI reads the whole brand: summary, one thing or a range, and
+  // what a creator would promote (lib/product.ts). After a product answer it reads that one product instead.
+  if (step.id === "about" || step.id === "more") {
+    const u = await understandBrand(draft.about ?? "", ids);
+    draft.brand = u.brand;
+    draft.product_info = u.product;
+  }
+  if (step.id === "product") draft.product_info = await understandProduct(draft.about ?? "", draft.product ?? "", ids);
   const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: typed || parsed.label, at: now() }];
   const ctx = { typed: typed ?? undefined, label: describe(step.id, draft) };
 
@@ -160,8 +175,10 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
     messages.push(...toMsgs(lines(step.id, draft, { ...ctx, count })));
     update = { brief: draft, messages, status: "chatting" };
   } else {
+    // No product question (one-thing brand, or "my brand in general"): the brand's offering is what creators promote.
+    if (!draft.product) draft.product = (draft.product_info?.product_type || draft.brand?.name || "our brand").slice(0, 160);
     const brief = BriefSchema.parse(draft);
-    const info = draft.product_info ?? (await understandProduct(brief.about, brief.product, { userId, searchId: id }));
+    const info = draft.product_info?.product_type ? draft.product_info : await understandProduct(brief.about, brief.product, ids);
     let results: Results;
     // Demo (user, 2026-11-26): top 20 by the candidate score, no LLM. The AI review runs only when LLM_REVIEW=true.
     const aiReview = process.env.LLM_REVIEW === "true" && llmEnabled();
@@ -178,12 +195,12 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
       }
     }
     messages.push(...toMsgs(lines(step.id, draft, { ...ctx, count: resultCount(results) ?? 0 })));
-    update = { brief: { ...brief, product_info: info }, messages, status: "done", results, error: null };
+    update = { brief: { ...brief, product_info: info, brand: draft.brand, focus: draft.focus }, messages, status: "done", results, error: null };
   }
 
   const { data, error } = await admin()
     .from("brand_searches")
-    .update({ ...update, title: draft.product ?? null, updated_at: now() })
+    .update({ ...update, title: draft.product || draft.brand?.name || null, updated_at: now() })
     .eq("id", id)
     .eq("user_id", userId)
     .eq("status", "chatting")

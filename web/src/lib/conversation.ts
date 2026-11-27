@@ -45,61 +45,104 @@ function firstName(d: Draft): string {
   return (d.name ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
-/** The brand's product name as typed, kept short enough to fit in a sentence. */
-function productName(d: Draft): string {
-  const p = (d.product ?? "").trim().replace(/[.!]+$/, "");
+/** Lines Kindred sends after an answer (or at the start when `answered` is null). */
+type Info = { product_type: string; made_for: string; category: string; close_categories: string[]; source: string };
+type D = Draft & { product_info?: Info };
+
+/** What the brand promotes, short enough to fit in a sentence: the product it typed, else what the AI understood. */
+function productName(d: D): string {
+  const p = (d.product ?? (d.product_info?.source === "ai" ? d.product_info.product_type : "") ?? "").trim().replace(/[.!]+$/, "");
   return p.length > 0 && p.length <= 48 ? p : "it";
 }
 
-/** Lines Kindred sends after an answer (or at the start when `answered` is null). */
-type Info = { product_type: string; made_for: string; category: string; close_categories: string[]; source: string };
+/** The categories question, pre-picked from what the AI understood (or from keywords without AI). */
+function categoryLines(d: D, out: Line[]) {
+  const info = d.product_info;
+  if (info && info.source === "ai") {
+    const picks = [...new Set([info.category, ...info.close_categories, "Lifestyle & Daily Vlog"])];
+    const forWho = info.made_for === "everyone" ? "for everyone" : `made for ${info.made_for}`;
+    out.push({ text: `So it's a ${info.product_type}, ${forWho}. I'll pull creators who already show stuff like this on camera, plus a few kinds that can sell it.` });
+    out.push({
+      text: `I'd start with ${picks.join(", ")}. Picked those for you, change anything you like.`,
+      step: "categories",
+      suggest: picks[0],
+      suggests: picks,
+    });
+    return;
+  }
+  const guess = guessCategory(d.product ?? "", d.about ?? "");
+  if (guess) {
+    out.push({ text: `Sounds like ${guess} creators to me, so I picked them already.` });
+    out.push({
+      text:
+        guess === "Lifestyle & Daily Vlog"
+          ? "Want to add any other kind of creators? Pick as many as you like."
+          : "Want to add more? Lots of brands mix in lifestyle creators too.",
+      step: "categories",
+      suggest: guess,
+    });
+  } else {
+    out.push({ text: "What kind of creators should we look at? Pick as many as you like.", step: "categories" });
+  }
+}
 
-export function lines(answered: StepId | null, d: Draft & { product_info?: Info }, ctx: { typed?: string; label?: string; count?: number }): Line[] {
+/** Once the brand confirmed the summary: one product or the whole range? (range), else straight to categories. */
+function afterUnderstood(d: D, out: Line[]) {
+  if (d.brand?.kind === "range") {
+    out.push({ text: "Are you planning to promote a particular product, or your brand in general?", step: "focus" });
+  } else {
+    categoryLines(d, out);
+  }
+}
+
+export function lines(answered: StepId | null, d: D, ctx: { typed?: string; label?: string; count?: number }): Line[] {
   const product = productName(d);
   const out: Line[] = [];
   switch (answered) {
     case null:
       out.push({ text: firstName(d) ? `Hey ${firstName(d)}! Let's find you some creators.` : "Hey, I'm Kindred." });
       out.push({ text: "I help brands find Instagram creators who actually fit. Not just big follower counts." });
-      out.push({ text: "What's your brand? What do you make? What's the vibe behind it? Spill it all.", step: "about" });
+      out.push({ text: "What's your brand? What do you make? Spill it all.", step: "about" });
       break;
-    case "about": {
-      const cat = guessCategory("", d.about ?? "");
-      out.push({ text: (cat && REACTION[cat]) || "Love that." });
-      out.push({ text: "Which product should creators hype first? The one you'd put on a billboard.", step: "product" });
-      break;
-    }
-    case "product": {
-      const info = d.product_info;
-      out.push({ text: product === "it" ? "Nice pick." : `${product}, nice pick.` });
-      if (info && info.source === "ai") {
-        const picks = [...new Set([info.category, ...info.close_categories, "Lifestyle & Daily Vlog"])];
-        const forWho = info.made_for === "everyone" ? "for everyone" : `made for ${info.made_for}`;
-        out.push({ text: `So it's a ${info.product_type}, ${forWho}. I'll pull creators who already show stuff like this on camera, plus a few kinds that can sell it.` });
-        out.push({
-          text: `I'd start with ${picks.join(", ")}. Picked those for you, change anything you like.`,
-          step: "categories",
-          suggest: picks[0],
-          suggests: picks,
-        });
+    case "about":
+    case "more": {
+      // The AI's understanding is shown back and confirmed (user, 2026-11-27: "apna AI jo samajh raha hai, wo dikhna
+      // chahiye ... Is this what you mean?"). Without AI: the old flow, product question next.
+      if (d.brand?.source !== "ai") {
+        const cat = guessCategory("", d.about ?? "");
+        out.push({ text: (cat && REACTION[cat]) || "Love that." });
+        out.push({ text: "Which product should creators hype first? The one you'd put on a billboard.", step: "product" });
         break;
       }
-      const guess = guessCategory(d.product ?? "", d.about ?? "");
-      if (guess) {
-        out.push({ text: `Sounds like ${guess} creators to me, so I picked them already.` });
-        out.push({
-          text:
-            guess === "Lifestyle & Daily Vlog"
-              ? "Want to add any other kind of creators? Pick as many as you like."
-              : "Want to add more? Lots of brands mix in lifestyle creators too.",
-          step: "categories",
-          suggest: guess,
-        });
-      } else {
-        out.push({ text: "What kind of creators should we look at? Pick as many as you like.", step: "categories" });
-      }
+      out.push({
+        text: answered === "about" ? "Here's what I understood:" : d.confirmed ? "Thanks, that helps. Going with this:" : "Thanks! Here's what I understand now:",
+      });
+      out.push({ text: d.brand.summary });
+      if (!d.confirmed) out.push({ text: "Is this what you mean?", step: "confirm" });
+      else afterUnderstood(d, out);
       break;
     }
+    case "confirm":
+      if (d.more) {
+        out.push({ text: "No worries!" });
+        out.push({ text: "Please help me understand a bit more. What did I miss?", step: "more" });
+      } else {
+        out.push({ text: "Love it." });
+        afterUnderstood(d, out);
+      }
+      break;
+    case "focus":
+      if (d.focus === "product") {
+        out.push({ text: "Which product should creators hype first? The one you'd put on a billboard.", step: "product" });
+      } else {
+        out.push({ text: "The whole brand, love it." });
+        categoryLines(d, out);
+      }
+      break;
+    case "product":
+      out.push({ text: product === "it" ? "Nice pick." : `${product}, nice pick.` });
+      categoryLines(d, out);
+      break;
     case "categories":
       if (ctx.typed) out.push({ text: `Got it: ${ctx.label}.` });
       out.push({ text: `That's ${ctx.count ?? 0} creators already. Let's narrow it down.` });
