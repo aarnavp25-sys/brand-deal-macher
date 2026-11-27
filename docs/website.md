@@ -29,7 +29,7 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
 4. Chat (`/find/<id>`), opened only from the dashboard's Find creators or New search. It starts "Hey <name>! Let's
    find you some creators." The name is stored in the search's brief, used in the last line and never sent to the AI.
    Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
-   1. "Okay, spill. What's your brand and what do you make?" (typed)
+   1. "Tell me about your brand. What do you make, and what's the spirit behind it?" (typed; user, 2026-11-27: "what's your brand, what is its spirit" wording)
    2. "Love that. Which product should creators hype first?" (typed)
    3. "Which creators are you vibing with?" categories, several at once or "All of them"; the category guessed
       from the brand's words is pre-picked

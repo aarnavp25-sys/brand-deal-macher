@@ -61,7 +61,7 @@ export function lines(answered: StepId | null, d: Draft & { product_info?: Info 
     case null:
       out.push({ text: firstName(d) ? `Hey ${firstName(d)}! Let's find you some creators.` : "Hey, I'm Kindred." });
       out.push({ text: "I help brands find Instagram creators who actually fit. Not just big follower counts." });
-      out.push({ text: "So tell me, what's your brand and what do you make?", step: "about" });
+      out.push({ text: "Tell me about your brand. What do you make, and what's the spirit behind it?", step: "about" });
       break;
     case "about": {
       const cat = guessCategory("", d.about ?? "");
