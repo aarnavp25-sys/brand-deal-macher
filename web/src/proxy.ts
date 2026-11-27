@@ -9,7 +9,8 @@ const PROTECTED = ["/dashboard", "/find", "/results"];
  * Runs before every page and API request:
  *  1. Blocks state-changing requests (POST/PUT/DELETE) that do not come from Kindred's own pages (CSRF).
  *  2. Refreshes the Supabase session cookies when the access token is about to expire.
- *  3. Sends visitors without a Google sign-in to /login (then back), and signed-in brands from /login to /find.
+ *  3. Sends visitors without a Google sign-in to /login (then to the dashboard or the saved page they opened), and
+ *     signed-in brands from /login to /dashboard.
  *     An old anonymous session (before 2026-11-27) counts as signed out.
  * This is the quick check. Every API route and page checks the user again on the server before reading data.
  */
@@ -52,9 +53,13 @@ export async function proxy(request: NextRequest) {
     return r;
   };
   if (!signedIn && PROTECTED.some((p) => path === p || path.startsWith(p + "/"))) {
-    return redirectTo(`/login?next=${encodeURIComponent(path)}`);
+    // After sign-in the brand lands on the dashboard, never straight in a new chat (user, 2026-11-27:
+    // "Sign in karne ke baad jo ek chatbot aata hai, wo chatbot khulna nahi chahiye"). Links to a saved chat or
+    // results page still come back to that page.
+    const next = path === "/find" ? "/dashboard" : path;
+    return redirectTo(`/login?next=${encodeURIComponent(next)}`);
   }
-  if (signedIn && path === "/login") return redirectTo("/find");
+  if (signedIn && path === "/login") return redirectTo("/dashboard");
   return response;
 }
 

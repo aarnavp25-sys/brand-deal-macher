@@ -13,7 +13,8 @@ export function StartSearch() {
     const r = await fetch("/api/searches", { method: "POST" });
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.id) router.replace(`/find/${j.id}`);
-    else if (r.status === 401) router.replace("/login?next=/find");
+    else if (r.status === 401) router.replace("/login?next=/dashboard");
+    else if (r.status === 409) router.replace("/dashboard");
     else setError(j.error ?? "Could not start a search. Please try again.");
   }
 

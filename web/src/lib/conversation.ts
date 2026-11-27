@@ -59,18 +59,8 @@ export function lines(answered: StepId | null, d: Draft & { product_info?: Info 
   const out: Line[] = [];
   switch (answered) {
     case null:
-      if (firstName(d)) {
-        // a returning visitor: their name is already known
-        out.push({ text: `Hey ${firstName(d)}, good to see you again.` });
-        out.push({ text: "So tell me, what's your brand and what do you make?", step: "about" });
-        break;
-      }
-      out.push({ text: "Hey, I'm Kindred." });
+      out.push({ text: firstName(d) ? `Hey ${firstName(d)}! Let's find you some creators.` : "Hey, I'm Kindred." });
       out.push({ text: "I help brands find Instagram creators who actually fit. Not just big follower counts." });
-      out.push({ text: "First things first, what should I call you?", step: "name" });
-      break;
-    case "name":
-      out.push({ text: `Nice to meet you, ${firstName(d)}!` });
       out.push({ text: "So tell me, what's your brand and what do you make?", step: "about" });
       break;
     case "about": {

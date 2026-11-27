@@ -75,10 +75,8 @@ def run(n):
     import subprocess
     link = subprocess.check_output([sys.executable, str(HERE / "test_login.py"), str(90 + n), BASE, "/find"], text=True).strip()
     c.op.open(urllib.request.Request(link), timeout=60)
+    c.post("/api/profile/name", {"name": "Kindred Check"})
     sid = c.post("/api/searches", {})["id"]
-    first = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{sid}")[0]["messages"][-1]
-    if first.get("step") == "name":
-        c.post(f"/api/searches/{sid}/answer", {"step": "name", "value": "Kindred Check"})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "about", "value": b["about"]})
     j = c.post(f"/api/searches/{sid}/answer", {"step": "product", "value": b["product"]})
     picks = next((m.get("suggests") for m in reversed(j["messages"]) if m.get("step") == "categories"), None) or ["*"]

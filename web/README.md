@@ -28,7 +28,7 @@ python3 web/db/upload_photos.py      # copy creator profile photos into the priv
 ## Tests
 
 ```bash
-python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (103 checks; run with LLM_ENABLED=false so it costs nothing)
+python3 web/db/e2e_test.py [base_url]     # 5 test brands end to end + security checks (105 checks; run with LLM_ENABLED=false so it costs nothing)
 python3 web/db/test_login.py 1            # one-time sign-in link for test brand 1 (no Google needed)
 python3 web/db/test_login.py --delete-all # remove all test brands and their searches
 ```

@@ -166,15 +166,12 @@ NAMES = {1: "Asha", 2: "Bilal", 3: "Chitra", 4: "Dev", 5: "Esha", 6: "Farhan"}
 
 
 def start_chat(c, name):
-    """Starts a chat; answers the name question when Kindred asks it (only in a brand's first chat)."""
+    """Gives the name (the pop-up after sign-in), then starts a chat."""
+    c.json("POST", "/api/profile/name", {"name": name})
     s, j = c.json("POST", "/api/searches")
     if s != 200 or "id" not in j:
         return s, j, None
-    sid = j["id"]
-    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{sid}", SECRET)
-    if rows and rows[0]["messages"][-1].get("step") == "name":
-        c.json("POST", f"/api/searches/{sid}/answer", {"step": "name", "value": name})
-    return s, j, sid
+    return s, j, j["id"]
 
 
 def admin_user(email):
@@ -278,6 +275,8 @@ def security(clients):
         s, h, _ = anon.req("GET", path, origin=None)
         loc = h.get("Location", "")
         check(f"signed out: {path.split('/')[1]} page sends to Google sign-in", s in (302, 307) and "/login?next=" in loc, f"{s} {loc}")
+    s, h, _ = anon.req("GET", "/find", origin=None)
+    check("signing in from Find creators lands on the dashboard, not a chat", "next=%2Fdashboard" in h.get("Location", ""), h.get("Location", ""))
     s, _, html = anon.req("GET", "/login", origin=None)
     check("/login shows the Google button", s == 200 and "Continue with Google" in html, str(s))
     s, j = anon.json("POST", "/api/searches")
@@ -286,38 +285,37 @@ def security(clients):
     s, _ = anon.json("POST", f"/api/searches/{sid2}/answer", {"step": "about", "value": "Hello there brand"})
     check("signed out: answering is refused (401)", s == 401, str(s))
     s, h, _ = c3.req("GET", "/login", origin=None)
-    check("signed in: /login goes straight to /find", s in (302, 307) and h.get("Location", "").endswith("/find"), f"{s} {h.get('Location')}")
+    check("signed in: /login goes to the dashboard", s in (302, 307) and h.get("Location", "").endswith("/dashboard"), f"{s} {h.get('Location')}")
 
-    # The name: asked once in the first chat (even though the account has a name), then remembered.
+    # The name: a pop-up right after sign-in ("What is your name?"), never a chat question (user, 2026-11-27).
     nb = Client()
     nb.login(7)
     u = admin_user("brand7@kindred-test.example.com")
     rest(f"/auth/v1/admin/users/{u['id']}", SECRET, method="PUT", body={"user_metadata": {"kindred_name": None}})
     for old in rest(f"/rest/v1/brand_searches?select=id&user_id=eq.{u['id']}", SECRET)[1]:
         nb.json("DELETE", f"/api/searches/{old['id']}")
+    s, _, html = nb.req("GET", "/dashboard", origin=None)
+    check("after sign-in the dashboard asks the name in a pop-up", s == 200 and "What is your name?" in html, str(s))
     s, j = nb.json("POST", "/api/searches")
-    nid = j.get("id")
-    _, rows = rest(f"/rest/v1/brand_searches?select=messages&id=eq.{nid}", SECRET)
-    check("first chat asks the name even though the account has one", rows[0]["messages"][-1].get("step") == "name", str(rows[0]["messages"][-1]))
-    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "name", "value": "Priya 123"})
+    check("no chat starts before the name is given (409)", s == 409, f"{s} {j}")
+    s, j = nb.json("POST", "/api/profile/name", {"name": "Priya 123"})
     check("a name with numbers is refused (400)", s == 400, f"{s} {j}")
-    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "about", "value": "Skipping the name question."})
-    check("the name question cannot be skipped (409)", s == 409, f"{s} {j}")
-    s, j = nb.json("POST", f"/api/searches/{nid}/answer", {"step": "name", "value": "Priya Sharma"})
-    check("the name is accepted and Kindred uses it", s == 200 and any("Priya!" in m["text"] for m in j.get("messages", [])), f"{s}")
-    u = admin_user("brand7@kindred-test.example.com")
-    meta = u.get("user_metadata") or {}
+    s, j = nb.json("POST", "/api/profile/name", {"name": "  "})
+    check("an empty name is refused (400)", s == 400, f"{s} {j}")
+    s, j = nb.json("POST", "/api/profile/name", {"name": "Priya Sharma"})
+    check("the name is saved", s == 200 and j.get("name") == "Priya Sharma", f"{s} {j}")
+    meta = (admin_user("brand7@kindred-test.example.com").get("user_metadata") or {})
     check("the typed name is kept apart from the account name",
           meta.get("kindred_name") == "Priya Sharma" and meta.get("full_name") == "Test Brand 7", str(meta))
     s, _, html = nb.req("GET", "/dashboard", origin=None)
-    check("My searches greets the brand by the typed name", s == 200 and "Hi Priya!" in html, str(s))
+    check("the dashboard greets by name and the pop-up is gone",
+          s == 200 and "Hi Priya!" in html and "What is your name?" not in html and "Start a new search" in html, str(s))
     s, j = nb.json("POST", "/api/searches")
     _, rows = rest(f"/rest/v1/brand_searches?select=messages,brief&id=eq.{j.get('id')}", SECRET)
-    check("the next chat remembers the name (no name question)",
+    check("a new chat greets by name and starts with the brand question (no name question)",
           rows[0]["brief"].get("name") == "Priya Sharma" and rows[0]["messages"][-1].get("step") == "about"
           and "Priya" in rows[0]["messages"][0]["text"], str(rows[0]["messages"][:1]))
-    for x in (nid, j.get("id")):
-        nb.json("DELETE", f"/api/searches/{x}")
+    nb.json("DELETE", f"/api/searches/{j.get('id')}")
     s, _, _ = nb.req("GET", f"/results/{sid2}", origin=None)
     check("another brand cannot open brand 2's results (404)", s == 404, str(s))
 

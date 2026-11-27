@@ -12,7 +12,7 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
-  const next = safeNext(typeof sp.next === "string" ? sp.next : null, "/find");
+  const next = safeNext(typeof sp.next === "string" ? sp.next : null, "/dashboard");
   const error = typeof sp.error === "string" ? ERRORS[sp.error] : undefined;
 
   return (

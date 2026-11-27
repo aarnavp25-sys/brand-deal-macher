@@ -17,12 +17,18 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    users and their searches stay in the database, but an anonymous session now counts as signed out (`currentBrand`
    returns null for `is_anonymous`), so they cannot be reached from a browser. Supabase anonymous sign-ins are switched
    off once this code is live. Test brands sign in with a one-time link (`web/db/test_login.py`, secret key needed).
-3. Chat (`/find/<id>`). **First the visitor's name** (user, 2026-11-26: "find creators click karne ke baad user ka naam
-   puchna hai"): asked once, in the first chat ("First things first, what should I call you?"; letters, spaces and
-   . ' - only, max 40). **It is asked even though Google already gives a name** (user, 2026-11-27: "Naam phir bhi
-   poochho"). It is saved as `user_metadata.kindred_name`, kept apart from `name` / `full_name`, which Google rewrites
-   on every sign-in; every later chat starts "Hey <name>, good to see you again." and skips the question. It is
-   stored in the search's brief, shown on My searches ("Hi <name>!") and in the last line, and never sent to the AI. Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
+3. **After sign-in: the dashboard** (`/dashboard`), never a chat (user, 2026-11-27: "Sign in karne ke baad jo ek
+   chatbot aata hai, wo chatbot khulna nahi chahiye ... Sign in ke baad ek user dashboard type bana de"). Signing in
+   from "Find creators" or `/login` lands there; a link to a saved chat or results page still returns to that page.
+   **First visit: a pop-up "What is your name?"** (`components/NamePopup.tsx`, shown by `(app)/layout.tsx` while
+   `user_metadata.kindred_name` is empty; cannot be skipped; letters, spaces and . ' - only, max 40; saved by
+   `POST /api/profile/name` → `saveName()`). It is asked even though Google already gives a name ("Naam phir bhi
+   poochho") and kept apart from `name` / `full_name`, which Google rewrites on every sign-in. Until it is given,
+   `POST /api/searches` answers 409. Dashboard: "Hi <name>!", a "Start a new search" card with Find creators, three
+   numbers (searches done, creators found, chats not finished) and every saved search (open / continue / delete).
+4. Chat (`/find/<id>`), opened only from the dashboard's Find creators or New search. It starts "Hey <name>! Let's
+   find you some creators." The name is stored in the search's brief, used in the last line and never sent to the AI.
+   Then five fixed questions, one at a time, in a casual Gen Z tone (user, 2026-11-26):
    1. "Okay, spill. What's your brand and what do you make?" (typed)
    2. "Love that. Which product should creators hype first?" (typed)
    3. "Which creators are you vibing with?" categories, several at once or "All of them"; the category guessed
@@ -37,9 +43,9 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    shows the brand's message at once, and every choice question can also be answered by typing ("mostly girls in
    college", "female, hindi ya english"), read with keywords. If a typed answer is not understood, Kindred says so
    in a bubble and asks the brand to tap instead. No progress bar.
-4. After question 5 the creators are found at once (`/results/<id>`), biggest first, with sort by followers /
+5. After question 5 the creators are found at once (`/results/<id>`), biggest first, with sort by followers /
    typical reel views / engagement / posting frequency and tabs per category.
-4b. **Results for the demo (user, 2026-11-26): the top 20 by a candidate score, no LLM** (`lib/rank.ts`). From the
+5b. **Results for the demo (user, 2026-11-26): the top 20 by a candidate score, no LLM** (`lib/rank.ts`). From the
    creators that pass the brand's choices: category fit 25 (share of the last 12 reels in the chosen categories; with
    "All categories", in the product's own category guessed from the brand's words), product seen 15 (reels whose
    products/topic name the product's own words, filler words like "starter", "500g" removed), audience fit 15,
@@ -67,7 +73,7 @@ Durable knowledge about the brand-facing website in `web/` (built 2026-11-26). S
    and before a new chat starts (`budgetReached()` in `lib/llm.ts`, stopping $0.01 early). When reached, new chats get
    503 "demo search budget is used up"; chats already open finish with the code-only ranking. It replaced the old
    per-day cap `LLM_DAILY_CAP_USD`.
-5. "My searches" (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
+6. The dashboard (`/dashboard`) lists the brand's past searches; each can be reopened or deleted.
 
 **Filter rule (lib/filters.ts):** main category in the chosen ones (none = all); creator gender matches unless
 "Either works"; speaks at least one chosen language, where creators with no speech in their reels (music only)

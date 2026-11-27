@@ -152,6 +152,9 @@ body {
   .typing span:nth-child(2) { animation-delay: 0.18s; }
   .typing span:nth-child(3) { animation-delay: 0.36s; }
   @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+  /* the name pop-up after sign-in: scales in from slightly smaller, never from nothing */
+  .name-pop { animation: pop-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
 }
 
 .skeleton { background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2)); background-size: 200% 100%; }

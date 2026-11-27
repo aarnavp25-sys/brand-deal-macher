@@ -1,6 +1,6 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import { BriefSchema, type Draft, type StepId, nextStep, parseAnswer } from "@/lib/brief";
+import { BriefSchema, type Draft, type StepId, TypedName, nextStep, parseAnswer } from "@/lib/brief";
 import { type Line, describe, lines, parseTyped } from "@/lib/conversation";
 import { countMatches } from "@/lib/filters";
 import { type ResultsV3, facets } from "@/lib/matching";
@@ -89,7 +89,19 @@ export async function getSearch(userId: string, id: string): Promise<Search | nu
   return (data as Search | null) ?? null;
 }
 
+/** Saves the name from the pop-up shown after Google sign-in (user_metadata.kindred_name; Google rewrites `name`). */
+export async function saveName(userId: string, raw: unknown): Promise<string> {
+  const parsed = TypedName.safeParse(typeof raw === "string" ? raw : "");
+  if (!parsed.success) throw new UserError(parsed.error.issues[0]?.message ?? "What should we call you?");
+  const { error } = await admin().auth.admin.updateUserById(userId, { user_metadata: { kindred_name: parsed.data } });
+  if (error) throw new Error(`could not save name: ${error.message}`);
+  return parsed.data;
+}
+
 export async function createSearch(userId: string, name = ""): Promise<string> {
+  // The name pop-up comes first (user, 2026-11-27); a chat never asks the name itself.
+  const known = name.trim().slice(0, 40);
+  if (!known) throw new UserError("Tell us your name first.", 409);
   // Total AI budget used up (LLM_TOTAL_CAP_USD): searches stop for everyone (user, 2026-11-26: "searches rok dena").
   if (llmEnabled() && (await budgetReached())) {
     throw new UserError("Kindred's demo search budget is used up, so new searches are paused. Past searches still open.", 503);
@@ -104,9 +116,7 @@ export async function createSearch(userId: string, name = ""): Promise<string> {
   if ((count ?? 0) >= MAX_SEARCHES_PER_DAY) {
     throw new UserError("You've started a lot of searches today. Come back tomorrow?", 429);
   }
-  // The name is asked once (first chat) and kept on the session; later chats start with it filled in.
-  const known = name.trim().slice(0, 40);
-  const draft: StoredBrief = known ? { name: known } : {};
+  const draft: StoredBrief = { name: known };
   const messages: Msg[] = toMsgs(lines(null, draft, {}));
   const { data, error } = await admin().from("brand_searches").insert({ user_id: userId, messages, brief: draft }).select("id").single();
   if (error) throw new Error(error.message);
@@ -139,12 +149,6 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
     throw new UserError(issues?.[0]?.message ?? (e as Error).message ?? "That answer did not look right.");
   }
   const draft: StoredBrief = { ...(s.brief ?? {}), ...parsed.patch };
-  // Remember the name on the visitor's session, so their next chat does not ask again.
-  if (step.id === "name") {
-    // kindred_name, not name: Google writes its own `name` into the same metadata on every sign-in.
-    const { error: nErr } = await admin().auth.admin.updateUserById(userId, { user_metadata: { kindred_name: draft.name } });
-    if (nErr) console.error(`could not save name: ${nErr.message}`);
-  }
   // After the product answer the AI reads what the product is (lib/product.ts); keywords if AI is off or fails.
   if (step.id === "product") draft.product_info = await understandProduct(draft.about ?? "", draft.product ?? "", { userId, searchId: id });
   const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: typed || parsed.label, at: now() }];
