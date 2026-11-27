@@ -198,8 +198,8 @@ def run_brand(n, name, answers):
             check(f"answer {step}", False, f"{s} {j}")
             return c, sid, None
     check("5 answers accepted, creators found (status done)", j.get("status") == "done", j.get("status"))
-    guess = next((m.get("suggest") for m in j["messages"] if m.get("step") == "categories"), None)
-    print(f"        category pre-picked from the brand's words: {guess}")
+    cat_q = next((m for m in j["messages"] if m.get("step") == "categories"), {})
+    check("categories question pre-ticks nothing", not cat_q.get("suggest") and not cat_q.get("suggests"), str(cat_q))
     s, _, html = c.req("GET", f"/results/{sid}", origin=None)
     check("results page renders (200)", s == 200 and "Kindred Score" in html, str(s))
 
@@ -361,7 +361,12 @@ def security(clients):
     c2.json("POST", f"/api/searches/{new}/answer", {"step": "product", "value": "Test product"})
     s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "categories", "value": ["Weapons"]})
     check("unknown category is refused (400)", s == 400, f"{s} {j}")
-    c2.json("POST", f"/api/searches/{new}/answer", {"step": "categories", "value": ["Food & Beverages"]})
+    s, j = c2.json("POST", f"/api/searches/{new}/answer", {"step": "categories", "value": ["~kindred", "Food & Beverages"]})
+    _, rows = rest(f"/rest/v1/brand_searches?select=brief&id=eq.{new}", SECRET)
+    b = rows[0]["brief"]
+    check("'Let Kindred decide' picks the categories and says so",
+          s == 200 and b.get("categories_by_kindred") is True and "~kindred" not in b["categories"]
+          and any(m["text"].startswith("Kindred picked") for m in j.get("messages", [])), f"{s} {b.get('categories')}")
     c2.json("POST", f"/api/searches/{new}/answer", {"step": "customer_gender", "value": "all"})
     for bad, why in [({"min": 60000, "max": 20000}, "min above max"), ({"min": 5000, "max": 50000}, "below 10K"),
                      ({"min": 10000, "max": 250000}, "above 100K"), ({"min": "10k", "max": 50000}, "not a number")]:

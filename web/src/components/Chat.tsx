@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CREATOR_GENDERS, type Draft, LANGUAGES, type Step, followersLabel, kFormat, nextStep } from "@/lib/brief";
+import { CREATOR_GENDERS, type Draft, KINDRED_DECIDES, LANGUAGES, type Step, followersLabel, kFormat, nextStep } from "@/lib/brief";
 import { FOLLOWERS_MAX, FOLLOWERS_MIN, FOLLOWERS_STEP, type Facet, countMatches } from "@/lib/filters";
 import type { ChatView } from "@/lib/chat-view";
 
@@ -321,13 +321,15 @@ function BuyerAnswer({ step, draft, facets, onSend }: AnswerProps) {
   );
 }
 
-function CategoryAnswer({ step, draft, facets, suggest, suggests = [], onSend }: AnswerProps) {
+function CategoryAnswer({ step, draft, facets, onSend }: AnswerProps) {
   const any = step.anyValue!;
-  const [picked, setPicked] = useState<string[]>(suggests.length ? suggests : suggest ? [suggest] : []);
+  // Nothing pre-ticked: the brand picks, or lets Kindred decide (user, 2026-11-27).
+  const [picked, setPicked] = useState<string[]>([]);
+  const decide = step.options!.find((o) => o.value === KINDRED_DECIDES)!;
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        step.options!.map((o) => [
+        step.options!.filter((o) => o.value !== KINDRED_DECIDES).map((o) => [
           o.value,
           countMatches(facets, { ...draft, categories: o.value === any ? [] : ([o.value] as never) }),
         ]),
@@ -335,11 +337,10 @@ function CategoryAnswer({ step, draft, facets, suggest, suggests = [], onSend }:
     [step, draft, facets, any],
   );
   const ordered = useMemo(() => {
-    const cats = step.options!.filter((o) => o.value !== any);
-    const rank = (v: string) => (suggests.includes(v) ? suggests.indexOf(v) : v === suggest ? 0 : 99);
-    cats.sort((a, b) => rank(a.value) - rank(b.value) || counts[b.value] - counts[a.value]);
+    const cats = step.options!.filter((o) => o.value !== any && o.value !== KINDRED_DECIDES);
+    cats.sort((a, b) => counts[b.value] - counts[a.value]);
     return [...cats, step.options!.find((o) => o.value === any)!];
-  }, [step, suggest, suggests, counts, any]);
+  }, [step, counts, any]);
 
   const toggle = (v: string) => {
     if (v === any) return setPicked(picked.includes(any) ? [] : [any]);
@@ -370,6 +371,12 @@ function CategoryAnswer({ step, draft, facets, suggest, suggests = [], onSend }:
         <Fit n={live} />
         <button type="button" disabled={live === 0} onClick={() => onSend(picked, label)} className="btn btn-primary h-10 px-5 text-sm">
           Lock these in
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-dashed border-line p-3 pl-4">
+        <p className="min-w-0 flex-1 text-sm text-muted">Not sure? Kindred picks the kinds of creators that fit your brand.</p>
+        <button type="button" onClick={() => onSend([KINDRED_DECIDES], decide.label)} className="btn btn-ghost h-10 px-5 text-sm">
+          {decide.label}
         </button>
       </div>
       <Composer step={step} placeholder="Or type it, like “food and lifestyle creators”" onSend={(t) => onSend({ text: t }, t)} />

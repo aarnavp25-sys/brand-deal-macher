@@ -85,6 +85,12 @@ understood now: …" and goes straight on, without asking again (user, 2026-11-2
 (off, budget used up) the old flow runs: product question right after the brand. The first question no longer asks
 for the vibe ("What's your brand? What do you make? Spill it all.").
 
+**Categories (user, 2026-11-27):** nothing is pre-ticked any more (before, the AI's categories plus "Lifestyle &
+Daily Vlog" were always ticked, which looked wrong for most brands). The question is "Which kinds of creators would you
+like? Pick as many as you want, or let Kindred decide." Below the chips sits **Let Kindred decide**: the AI's main
+category plus its 0–2 close ones (without AI: the keyword guess; nothing found = all), told back as "Kindred picked …
+for you." It can also be typed ("you decide").
+
 **Follower range (user, 2026-11-27):** after "who buys it", a two-handle slider from 10K to 100K in 1K steps
 (`RangeAnswer` in `components/Chat.tsx`: two native range inputs on one track, keyboard and touch work), with the
 live creator count; it can also be typed ("20k to 50k", "under 30k", "50k+"). The ends mean "no limit on that side",

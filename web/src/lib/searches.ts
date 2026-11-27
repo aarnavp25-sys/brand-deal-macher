@@ -1,6 +1,6 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import { BriefSchema, type Draft, MAX_EXPLAINS, type StepId, TypedName, nextStep, parseAnswer } from "@/lib/brief";
+import { BriefSchema, type Draft, KINDRED_DECIDES, MAX_EXPLAINS, type StepId, TypedName, guessCategory, nextStep, parseAnswer } from "@/lib/brief";
 import { type Line, describe, lines, parseTyped } from "@/lib/conversation";
 import { countMatches } from "@/lib/filters";
 import { type ResultsV3, facets } from "@/lib/matching";
@@ -166,6 +166,15 @@ export async function answer(userId: string, id: string, stepId: unknown, raw: u
     draft.product_info = u.product;
   }
   if (step.id === "product") draft.product_info = await understandProduct(draft.about ?? "", draft.product ?? "", ids);
+  // "Let Kindred decide": the categories the AI tied to the brand (its main one + up to 2 close ones); without AI, the
+  // keyword guess; nothing found = all categories.
+  if (step.id === "categories" && (draft.categories as string[] | undefined)?.includes(KINDRED_DECIDES)) {
+    const info = draft.product_info;
+    const guess = guessCategory(draft.product ?? "", draft.about ?? "");
+    const picks = info?.source === "ai" ? [info.category, ...info.close_categories] : guess ? [guess] : [];
+    draft.categories = [...new Set(picks)] as Draft["categories"];
+    draft.categories_by_kindred = true;
+  }
   const messages: Msg[] = [...s.messages, { role: "user", step: step.id, text: typed || parsed.label, at: now() }];
   const ctx = { typed: typed ?? undefined, label: describe(step.id, draft) };
 

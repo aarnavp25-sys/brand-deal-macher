@@ -105,6 +105,9 @@ export type Step = {
   anyValue?: string;
 };
 
+/** Category answer meaning "Kindred, you pick" (user, 2026-11-27: nothing is pre-ticked; this option sits below). */
+export const KINDRED_DECIDES = "~kindred";
+
 export const STEPS: Step[] = [
   {
     id: "about",
@@ -148,8 +151,12 @@ export const STEPS: Step[] = [
   {
     id: "categories",
     kind: "multi",
-    question: "Which creators are you vibing with? Pick as many categories as you want.",
-    options: [...CATEGORIES.map((c) => ({ value: c, label: c })), { value: "*", label: "All of them" }],
+    question: "Which kinds of creators would you like? Pick as many as you want, or let Kindred decide.",
+    options: [
+      ...CATEGORIES.map((c) => ({ value: c, label: c })),
+      { value: "*", label: "All of them" },
+      { value: KINDRED_DECIDES, label: "Let Kindred decide" },
+    ],
     anyValue: "*",
   },
   {
@@ -195,6 +202,8 @@ export type Draft = Partial<Brief> & {
   more?: boolean;
   explains?: number;
   focus?: "product" | "brand";
+  /** the brand tapped "Let Kindred decide"; `categories` holds what Kindred picked */
+  categories_by_kindred?: boolean;
 };
 
 /** The next question. The order is fixed; confirm / more / focus / product appear only when they apply. */
@@ -221,6 +230,7 @@ function parseMulti(step: Step, raw: unknown): { values: string[]; text: string 
     throw new Error("Pick at least one.");
   }
   const picked = [...new Set(raw as string[])];
+  if (picked.includes(KINDRED_DECIDES)) return { values: [KINDRED_DECIDES], text: label(opts, KINDRED_DECIDES) };
   if (picked.includes(step.anyValue!)) return { values: [], text: label(opts, step.anyValue!) };
   return { values: picked, text: picked.map((v) => label(opts, v)).join(", ") };
 }

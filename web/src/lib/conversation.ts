@@ -8,6 +8,7 @@ import {
   LANGUAGES,
   type Step,
   type StepId,
+  KINDRED_DECIDES,
   followersLabel,
   guessCategory,
 } from "@/lib/brief";
@@ -56,35 +57,15 @@ function productName(d: D): string {
   return p.length > 0 && p.length <= 48 ? p : "it";
 }
 
-/** The categories question, pre-picked from what the AI understood (or from keywords without AI). */
+/** The categories question. Nothing is pre-ticked: the brand picks, or taps "Let Kindred decide" (user, 2026-11-27:
+ *  "tu kuch bhi select mat karo, brand ka option karne de"). */
 function categoryLines(d: D, out: Line[]) {
   const info = d.product_info;
   if (info && info.source === "ai") {
-    const picks = [...new Set([info.category, ...info.close_categories, "Lifestyle & Daily Vlog"])];
     const forWho = info.made_for === "everyone" ? "for everyone" : `made for ${info.made_for}`;
-    out.push({ text: `So it's a ${info.product_type}, ${forWho}. I'll pull creators who already show stuff like this on camera, plus a few kinds that can sell it.` });
-    out.push({
-      text: `I'd start with ${picks.join(", ")}. Picked those for you, change anything you like.`,
-      step: "categories",
-      suggest: picks[0],
-      suggests: picks,
-    });
-    return;
+    out.push({ text: `So it's a ${info.product_type}, ${forWho}. I'll look for creators who already show stuff like this on camera, plus a few kinds that can sell it.` });
   }
-  const guess = guessCategory(d.product ?? "", d.about ?? "");
-  if (guess) {
-    out.push({ text: `Sounds like ${guess} creators to me, so I picked them already.` });
-    out.push({
-      text:
-        guess === "Lifestyle & Daily Vlog"
-          ? "Want to add any other kind of creators? Pick as many as you like."
-          : "Want to add more? Lots of brands mix in lifestyle creators too.",
-      step: "categories",
-      suggest: guess,
-    });
-  } else {
-    out.push({ text: "What kind of creators should we look at? Pick as many as you like.", step: "categories" });
-  }
+  out.push({ text: "Which kinds of creators would you like? Pick as many as you want, or let Kindred decide.", step: "categories" });
 }
 
 /** Once the brand confirmed the summary: one product or the whole range? (range), else straight to categories. */
@@ -144,7 +125,8 @@ export function lines(answered: StepId | null, d: D, ctx: { typed?: string; labe
       categoryLines(d, out);
       break;
     case "categories":
-      if (ctx.typed) out.push({ text: `Got it: ${ctx.label}.` });
+      if (d.categories_by_kindred) out.push({ text: `Kindred picked ${ctx.label} for you.` });
+      else if (ctx.typed) out.push({ text: `Got it: ${ctx.label}.` });
       out.push({ text: `That's ${ctx.count ?? 0} creators already. Let's narrow it down.` });
       out.push({
         text: product === "it" ? "Who's actually buying it? Mostly men, mostly women, or everyone?" : `Who's actually buying your ${product.charAt(0).toLowerCase()}${product.slice(1)}? Mostly men, mostly women, or everyone?`,
@@ -203,6 +185,7 @@ const CATEGORY_NAME_WORDS: Record<Category, RegExp> = {
 };
 
 function parseCategories(text: string): string[] {
+  if (/\b(you decide|you pick|kindred decide|let kindred|aap decide|tum decide|tu decide|khud decide|you choose)\b/i.test(text)) return [KINDRED_DECIDES];
   if (/\b(all|every(thing|one)?|any(thing)?|sab)\b/i.test(text)) return ["*"];
   const found = new Set<string>();
   for (const c of CATEGORIES) if (CATEGORY_NAME_WORDS[c].test(text)) found.add(c);
